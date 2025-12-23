@@ -15,7 +15,7 @@ export function FullscreenButton({
   return (
     <Button
       onClick={onClick}
-      variant="ghost"
+      variant="default"
       size="icon"
       className="h-12 w-12 hover:bg-gray-100"
       aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
