@@ -24,6 +24,10 @@ import {
   getFileExtension,
   type OutputContainer,
   outputContainers,
+  getSupportedVideoCodecs,
+  getCommonAudioCodecs,
+  VIDEO_CODEC_LABELS,
+  AUDIO_CODEC_LABELS,
 } from "@/lib/mediabunny";
 import { ArrowRight, Download, FileVideo, Loader2, Upload, Video, CheckCircle2, XCircle } from "lucide-react";
 import { useState, useCallback, useRef, useEffect } from "react";
@@ -35,6 +39,10 @@ import {
   BlobSource,
   ALL_FORMATS,
   canEncodeAudio,
+  getEncodableVideoCodecs,
+  getEncodableAudioCodecs,
+  type VideoCodec,
+  type AudioCodec,
 } from "mediabunny";
 import { registerMp3Encoder } from "@mediabunny/mp3-encoder";
 
@@ -121,6 +129,11 @@ export default function ConvertPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [inputFormat, setInputFormat] = useState<string>("");
   const [outputFormat, setOutputFormat] = useState<string>("");
+  const [videoCodec, setVideoCodec] = useState<string>("copy");
+  const [audioCodec, setAudioCodec] = useState<string>("copy");
+  const [availableVideoCodecs, setAvailableVideoCodecs] = useState<VideoCodec[]>([]);
+  const [availableAudioCodecs, setAvailableAudioCodecs] = useState<AudioCodec[]>([]);
+  const [loadingCodecs, setLoadingCodecs] = useState<boolean>(false);
   const [conversionStatus, setConversionStatus] = useState<ConversionStatus>("idle");
   const [progress, setProgress] = useState<number>(0);
   const [convertedBlob, setConvertedBlob] = useState<Blob | null>(null);
@@ -139,6 +152,47 @@ export default function ConvertPage() {
       }
     };
   }, []);
+
+  // Load available codecs when output format changes
+  useEffect(() => {
+    if (!outputFormat || !outputContainers.includes(outputFormat as OutputContainer)) {
+      setAvailableVideoCodecs([]);
+      setAvailableAudioCodecs([]);
+      return;
+    }
+
+    const loadCodecs = async () => {
+      setLoadingCodecs(true);
+      try {
+        const container = outputFormat as OutputContainer;
+        
+        // Get codecs supported by the container format
+        const supportedVideoCodecs = getSupportedVideoCodecs(container);
+        const supportedAudioCodecs = getCommonAudioCodecs(container);
+        
+        // Filter to only encodable codecs (check browser support)
+        const [encodableVideo, encodableAudio] = await Promise.all([
+          getEncodableVideoCodecs(supportedVideoCodecs),
+          getEncodableAudioCodecs(supportedAudioCodecs),
+        ]);
+        
+        setAvailableVideoCodecs(encodableVideo);
+        setAvailableAudioCodecs(encodableAudio);
+        
+        // Reset codec selection to "copy" when format changes
+        setVideoCodec("copy");
+        setAudioCodec("copy");
+      } catch (error) {
+        console.error("Failed to load codecs:", error);
+        setAvailableVideoCodecs([]);
+        setAvailableAudioCodecs([]);
+      } finally {
+        setLoadingCodecs(false);
+      }
+    };
+
+    loadCodecs();
+  }, [outputFormat]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -287,13 +341,28 @@ export default function ConvertPage() {
 
       // Initialize conversion
       console.log("Initializing conversion...");
+      
+      // Build video options
+      const isAudioOnly = isAudioOnlyFormat(outputFormat as OutputContainer);
+      const videoOptions = isAudioOnly
+        ? { discard: true as const }
+        : videoCodec !== "copy"
+          ? { codec: videoCodec as VideoCodec }
+          : undefined;
+      
+      // Build audio options
+      const audioOptions = audioCodec !== "copy"
+        ? { codec: audioCodec as AudioCodec }
+        : undefined;
+
+      console.log("Video options:", videoOptions);
+      console.log("Audio options:", audioOptions);
+
       const conversion = await Conversion.init({
         input,
         output,
-        // Discard video if output is audio-only
-        video: isAudioOnlyFormat(outputFormat as OutputContainer)
-          ? { discard: true }
-          : undefined,
+        video: videoOptions,
+        audio: audioOptions,
       });
 
       conversionRef.current = conversion;
@@ -416,7 +485,7 @@ export default function ConvertPage() {
     } finally {
       conversionRef.current = null;
     }
-  }, [selectedFile, outputFormat]);
+  }, [selectedFile, outputFormat, videoCodec, audioCodec]);
 
   const handleDownload = useCallback(() => {
     if (!convertedBlob || !selectedFile) return;
@@ -575,13 +644,13 @@ export default function ConvertPage() {
                           {metadata.videoCodec && (
                             <div className="rounded-base border border-border bg-main/5 px-3 py-2">
                               <div className="text-xs text-foreground/60">Video Codec</div>
-                              <div className="font-semibold">{metadata.videoCodec}</div>
+                              <div className="font-semibold">{VIDEO_CODEC_LABELS[metadata.videoCodec as keyof typeof VIDEO_CODEC_LABELS] || metadata.videoCodec}</div>
                             </div>
                           )}
                           {metadata.audioCodec && (
                             <div className="rounded-base border border-border bg-main/5 px-3 py-2">
                               <div className="text-xs text-foreground/60">Audio Codec</div>
-                              <div className="font-semibold">{metadata.audioCodec}</div>
+                              <div className="font-semibold">{AUDIO_CODEC_LABELS[metadata.audioCodec as keyof typeof AUDIO_CODEC_LABELS] || metadata.audioCodec}</div>
                             </div>
                           )}
                           {metadata.sampleRate !== null && (
@@ -654,28 +723,84 @@ export default function ConvertPage() {
               </div>
             </div>
 
-            {/* Output Format Description */}
-            {outputFormat && (
-              <div className="rounded-base border-2 border-border bg-main/10 p-4">
-                <div className="flex items-start gap-3">
-                  <span className="text-2xl">
-                    {OUTPUT_FORMATS.find((f) => f.value === outputFormat)?.icon}
-                  </span>
-                  <div>
-                    <p className="font-semibold">
-                      {
-                        OUTPUT_FORMATS.find((f) => f.value === outputFormat)
-                          ?.label
-                      }
-                    </p>
-                    <p className="text-sm text-foreground/70">
-                      {
-                        OUTPUT_FORMATS.find((f) => f.value === outputFormat)
-                          ?.description
-                      }
-                    </p>
+            {/* Codec Selection */}
+            {outputFormat && outputContainers.includes(outputFormat as OutputContainer) && (
+              <div className="rounded-base border-2 border-border bg-white p-4">
+                <h4 className="font-semibold mb-4 text-sm">Encoding Options</h4>
+                {loadingCodecs ? (
+                  <div className="flex items-center justify-center gap-2 py-4">
+                    <Loader2 className="size-4 animate-spin" />
+                    <span className="text-sm text-foreground/60">Loading available codecs...</span>
                   </div>
-                </div>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {/* Video Codec Selection - only show for non-audio formats */}
+                    {!isAudioOnlyFormat(outputFormat as OutputContainer) && (
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Video Codec</label>
+                        <Select value={videoCodec} onValueChange={setVideoCodec}>
+                          <SelectTrigger className="bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                            <SelectValue placeholder="Select video codec" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="copy">
+                              <span className="flex items-center gap-2">
+                                <span>📋</span>
+                                <span>Copy (No re-encoding)</span>
+                              </span>
+                            </SelectItem>
+                            {availableVideoCodecs.map((codec) => (
+                              <SelectItem key={codec} value={codec}>
+                                <span className="flex items-center gap-2">
+                                  <span>🎬</span>
+                                  <span>{VIDEO_CODEC_LABELS[codec] || codec}</span>
+                                </span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-foreground/60">
+                          {videoCodec === "copy" 
+                            ? "Copies video stream without re-encoding (fastest)"
+                            : `Re-encodes video using ${VIDEO_CODEC_LABELS[videoCodec as VideoCodec] || videoCodec}`
+                          }
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Audio Codec Selection */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Audio Codec</label>
+                      <Select value={audioCodec} onValueChange={setAudioCodec}>
+                        <SelectTrigger className="bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                          <SelectValue placeholder="Select audio codec" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="copy">
+                            <span className="flex items-center gap-2">
+                              <span>📋</span>
+                              <span>Copy (No re-encoding)</span>
+                            </span>
+                          </SelectItem>
+                          {availableAudioCodecs.map((codec) => (
+                            <SelectItem key={codec} value={codec}>
+                              <span className="flex items-center gap-2">
+                                <span>🎵</span>
+                                <span>{AUDIO_CODEC_LABELS[codec] || codec}</span>
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-foreground/60">
+                        {audioCodec === "copy" 
+                          ? "Copies audio stream without re-encoding (fastest)"
+                          : `Re-encodes audio using ${AUDIO_CODEC_LABELS[audioCodec as AudioCodec] || audioCodec}`
+                        }
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
