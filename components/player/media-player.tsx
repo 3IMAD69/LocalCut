@@ -1,9 +1,9 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import MediaFox from "@mediafox/core";
 import { Music } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 import { FullscreenButton } from "./fullscreen-button";
 import { PlayPauseButton } from "./play-pause-button";
 import { SeekBar } from "./seek-bar";
@@ -110,7 +110,7 @@ export function MediaPlayer({ src }: MediaPlayerProps) {
         "relative",
         "w-full",
         "max-w-3xl",
-        "mx-auto"
+        "mx-auto",
       )}
     >
       <div
@@ -120,7 +120,7 @@ export function MediaPlayer({ src }: MediaPlayerProps) {
           "border-black",
           "overflow-hidden",
           "bg-black",
-          "relative"
+          "relative",
         )}
       >
         {/* Audio-only visual placeholder */}
@@ -134,7 +134,12 @@ export function MediaPlayer({ src }: MediaPlayerProps) {
         )}
         <canvas
           ref={canvasRef}
-          className={cn("w-full", "block", isFullscreen && "flex-1", isAudioOnly && "opacity-0 h-48")}
+          className={cn(
+            "w-full",
+            "block",
+            isFullscreen && "flex-1",
+            isAudioOnly && "opacity-0 h-48",
+          )}
         />
       </div>
       <div className="h-2" />
@@ -148,7 +153,7 @@ export function MediaPlayer({ src }: MediaPlayerProps) {
             "rounded-md",
             "border-black",
             "bg-white",
-            "overflow-hidden"
+            "overflow-hidden",
           )}
         >
           {/* Mobile SeekBar: Top row on mobile only */}
@@ -209,7 +214,7 @@ export function MediaPlayer({ src }: MediaPlayerProps) {
             "bg-white",
             "h-14",
             "text-sm",
-            "text-gray-500"
+            "text-gray-500",
           )}
         >
           Loading player...

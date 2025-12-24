@@ -1,6 +1,6 @@
-import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 export default function Home() {
   return (
@@ -61,7 +61,9 @@ export default function Home() {
             Documentation
           </a>
           <Button>
-            <Link href="/convert" prefetch={true}>Convert</Link>
+            <Link href="/convert" prefetch={true}>
+              Convert
+            </Link>
           </Button>
         </div>
       </main>

@@ -1,8 +1,8 @@
 "use client";
 
-import { Slider } from "@/components/ui/slider";
 import type MediaFox from "@mediafox/core";
 import { useCallback, useEffect, useState } from "react";
+import { Slider } from "@/components/ui/slider";
 
 // Helper to set player properties (workaround for React Compiler)
 function setPlayerCurrentTime(player: MediaFox, time: number) {
@@ -56,7 +56,7 @@ export function SeekBar({ playerRef }: SeekBarProps) {
       setPlayerCurrentTime(playerRef, values[0]);
       setIsSeeking(false);
     },
-    [playerRef]
+    [playerRef],
   );
 
   return (

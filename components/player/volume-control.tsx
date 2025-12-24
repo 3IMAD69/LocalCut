@@ -1,13 +1,14 @@
 "use client";
 
+import type MediaFox from "@mediafox/core";
+import type React from "react";
+import { useEffect, useState } from "react";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
-import type MediaFox from "@mediafox/core";
-import React, { useEffect, useState } from "react";
 import { IsMutedIcon, NotMutedIcon } from "./icons";
 
 // Helper to set player properties (workaround for React Compiler)

@@ -1,9 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { MediaPlayer } from "@/components/player/media-player";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
 
 export default function PlayerDemo() {
   const [mediaFile, setMediaFile] = useState<File | null>(null);

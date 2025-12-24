@@ -1,14 +1,14 @@
 import {
-  Mp4OutputFormat,
-  WebMOutputFormat,
-  WavOutputFormat,
   AdtsOutputFormat,
+  type AudioCodec,
   MkvOutputFormat,
   MovOutputFormat,
   Mp3OutputFormat,
+  Mp4OutputFormat,
   type OutputFormat,
   type VideoCodec,
-  type AudioCodec,
+  WavOutputFormat,
+  WebMOutputFormat,
 } from "mediabunny";
 
 // Video codec labels for display
@@ -44,13 +44,17 @@ export const AUDIO_CODEC_LABELS: Record<AudioCodec, string> = {
 };
 
 // Get supported video codecs for an output container
-export const getSupportedVideoCodecs = (container: OutputContainer): VideoCodec[] => {
+export const getSupportedVideoCodecs = (
+  container: OutputContainer,
+): VideoCodec[] => {
   const format = getMediabunnyOutput(container);
   return format.getSupportedVideoCodecs();
 };
 
 // Get supported audio codecs for an output container
-export const getSupportedAudioCodecs = (container: OutputContainer): AudioCodec[] => {
+export const getSupportedAudioCodecs = (
+  container: OutputContainer,
+): AudioCodec[] => {
   const format = getMediabunnyOutput(container);
   return format.getSupportedAudioCodecs();
 };
@@ -68,9 +72,11 @@ export const COMMON_AUDIO_CODECS: AudioCodec[] = [
 ];
 
 // Filter to only common audio codecs for better UX
-export const getCommonAudioCodecs = (container: OutputContainer): AudioCodec[] => {
+export const getCommonAudioCodecs = (
+  container: OutputContainer,
+): AudioCodec[] => {
   const supported = getSupportedAudioCodecs(container);
-  return COMMON_AUDIO_CODECS.filter(codec => supported.includes(codec));
+  return COMMON_AUDIO_CODECS.filter((codec) => supported.includes(codec));
 };
 
 export const inputContainers = ["mp4", "webm", "mov", "mkv"] as const;
@@ -87,7 +93,9 @@ export const outputContainers = [
 export type InputContainer = (typeof inputContainers)[number];
 export type OutputContainer = (typeof outputContainers)[number];
 
-export const getMediabunnyOutput = (container: OutputContainer): OutputFormat => {
+export const getMediabunnyOutput = (
+  container: OutputContainer,
+): OutputFormat => {
   if (container === "mp4") {
     return new Mp4OutputFormat();
   }

@@ -1,5 +1,30 @@
 "use client";
 
+import { registerMp3Encoder } from "@mediabunny/mp3-encoder";
+import {
+  ArrowRight,
+  CheckCircle2,
+  Download,
+  FileVideo,
+  Loader2,
+  Upload,
+  Video,
+  XCircle,
+} from "lucide-react";
+import {
+  ALL_FORMATS,
+  type AudioCodec,
+  BlobSource,
+  BufferTarget,
+  Conversion,
+  canEncodeAudio,
+  getEncodableAudioCodecs,
+  getEncodableVideoCodecs,
+  Input as MediaInput,
+  Output,
+  type VideoCodec,
+} from "mediabunny";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MediaPlayer } from "@/components/player/media-player";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,33 +43,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  getMediabunnyOutput,
-  isAudioOnlyFormat,
-  getMimeType,
+  AUDIO_CODEC_LABELS,
+  getCommonAudioCodecs,
   getFileExtension,
+  getMediabunnyOutput,
+  getMimeType,
+  getSupportedVideoCodecs,
+  isAudioOnlyFormat,
   type OutputContainer,
   outputContainers,
-  getSupportedVideoCodecs,
-  getCommonAudioCodecs,
   VIDEO_CODEC_LABELS,
-  AUDIO_CODEC_LABELS,
 } from "@/lib/mediabunny";
-import { ArrowRight, Download, FileVideo, Loader2, Upload, Video, CheckCircle2, XCircle } from "lucide-react";
-import { useState, useCallback, useRef, useEffect } from "react";
-import {
-  Input as MediaInput,
-  Output,
-  BufferTarget,
-  Conversion,
-  BlobSource,
-  ALL_FORMATS,
-  canEncodeAudio,
-  getEncodableVideoCodecs,
-  getEncodableAudioCodecs,
-  type VideoCodec,
-  type AudioCodec,
-} from "mediabunny";
-import { registerMp3Encoder } from "@mediabunny/mp3-encoder";
 
 const INPUT_FORMATS = [
   // Video formats
@@ -110,7 +119,12 @@ const OUTPUT_FORMATS = [
   },
 ];
 
-type ConversionStatus = "idle" | "converting" | "finalizing" | "completed" | "error";
+type ConversionStatus =
+  | "idle"
+  | "converting"
+  | "finalizing"
+  | "completed"
+  | "error";
 
 interface ConversionStats {
   startTime: number;
@@ -141,10 +155,15 @@ export default function ConvertPage() {
   const [outputFormat, setOutputFormat] = useState<string>("");
   const [videoCodec, setVideoCodec] = useState<string>("copy");
   const [audioCodec, setAudioCodec] = useState<string>("copy");
-  const [availableVideoCodecs, setAvailableVideoCodecs] = useState<VideoCodec[]>([]);
-  const [availableAudioCodecs, setAvailableAudioCodecs] = useState<AudioCodec[]>([]);
+  const [availableVideoCodecs, setAvailableVideoCodecs] = useState<
+    VideoCodec[]
+  >([]);
+  const [availableAudioCodecs, setAvailableAudioCodecs] = useState<
+    AudioCodec[]
+  >([]);
   const [loadingCodecs, setLoadingCodecs] = useState<boolean>(false);
-  const [conversionStatus, setConversionStatus] = useState<ConversionStatus>("idle");
+  const [conversionStatus, setConversionStatus] =
+    useState<ConversionStatus>("idle");
   const [progress, setProgress] = useState<number>(0);
   const [convertedBlob, setConvertedBlob] = useState<Blob | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>("");
@@ -165,7 +184,10 @@ export default function ConvertPage() {
 
   // Load available codecs when output format changes
   useEffect(() => {
-    if (!outputFormat || !outputContainers.includes(outputFormat as OutputContainer)) {
+    if (
+      !outputFormat ||
+      !outputContainers.includes(outputFormat as OutputContainer)
+    ) {
       setAvailableVideoCodecs([]);
       setAvailableAudioCodecs([]);
       return;
@@ -175,20 +197,20 @@ export default function ConvertPage() {
       setLoadingCodecs(true);
       try {
         const container = outputFormat as OutputContainer;
-        
+
         // Get codecs supported by the container format
         const supportedVideoCodecs = getSupportedVideoCodecs(container);
         const supportedAudioCodecs = getCommonAudioCodecs(container);
-        
+
         // Filter to only encodable codecs (check browser support)
         const [encodableVideo, encodableAudio] = await Promise.all([
           getEncodableVideoCodecs(supportedVideoCodecs),
           getEncodableAudioCodecs(supportedAudioCodecs),
         ]);
-        
+
         setAvailableVideoCodecs(encodableVideo);
         setAvailableAudioCodecs(encodableAudio);
-        
+
         // Reset codec selection to "copy" when format changes
         setVideoCodec("copy");
         setAudioCodec("copy");
@@ -240,12 +262,12 @@ export default function ConvertPage() {
 
       const format = await input.getFormat();
       const tracks = await input.getTracks();
-      
+
       let videoTrack = null;
       let audioTrack = null;
       let frameRate: number | null = null;
       let isHdr: boolean | null = null;
-      
+
       // Find video and audio tracks
       for (const track of tracks) {
         if (track.isVideoTrack()) {
@@ -272,9 +294,13 @@ export default function ConvertPage() {
         duration,
         videoCodec: videoTrack?.codec || null,
         audioCodec: audioTrack?.codec || null,
-        dimensions: videoTrack && videoTrack.displayWidth && videoTrack.displayHeight
-          ? { width: videoTrack.displayWidth, height: videoTrack.displayHeight }
-          : null,
+        dimensions:
+          videoTrack && videoTrack.displayWidth && videoTrack.displayHeight
+            ? {
+                width: videoTrack.displayWidth,
+                height: videoTrack.displayHeight,
+              }
+            : null,
         frameRate,
         sampleRate: audioTrack?.sampleRate || null,
         numberOfChannels: audioTrack?.numberOfChannels || null,
@@ -283,7 +309,7 @@ export default function ConvertPage() {
       };
 
       setMetadata(metadata);
-      
+
       // Clean up
       input.dispose();
     } catch (error) {
@@ -297,7 +323,7 @@ export default function ConvertPage() {
     if (!isFinite(seconds) || seconds < 0) return "--:--";
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   const formatBytes = (bytes: number): string => {
@@ -305,12 +331,12 @@ export default function ConvertPage() {
     const k = 1024;
     const sizes = ["B", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`;
+    return `${(bytes / k ** i).toFixed(2)} ${sizes[i]}`;
   };
 
   const handleConvert = useCallback(async () => {
     console.log("handleConvert called", { selectedFile, outputFormat });
-    
+
     if (!selectedFile || !outputFormat) {
       console.log("Missing file or output format");
       return;
@@ -331,7 +357,7 @@ export default function ConvertPage() {
 
     try {
       console.log("Starting conversion to", outputFormat);
-      
+
       // Register MP3 encoder if needed
       if (outputFormat === "mp3" && !(await canEncodeAudio("mp3"))) {
         console.log("Registering MP3 encoder");
@@ -356,7 +382,7 @@ export default function ConvertPage() {
 
       // Initialize conversion
       console.log("Initializing conversion...");
-      
+
       // Build video options
       const isAudioOnly = isAudioOnlyFormat(outputFormat as OutputContainer);
       const videoOptions = isAudioOnly
@@ -364,11 +390,10 @@ export default function ConvertPage() {
         : videoCodec !== "copy"
           ? { codec: videoCodec as VideoCodec }
           : undefined;
-      
+
       // Build audio options
-      const audioOptions = audioCodec !== "copy"
-        ? { codec: audioCodec as AudioCodec }
-        : undefined;
+      const audioOptions =
+        audioCodec !== "copy" ? { codec: audioCodec as AudioCodec } : undefined;
 
       console.log("Video options:", videoOptions);
       console.log("Audio options:", audioOptions);
@@ -404,7 +429,7 @@ export default function ConvertPage() {
       } catch (e) {
         console.log("Could not get video duration:", e);
       }
-      
+
       // If no video track, try to get audio duration
       if (mediaDuration === null) {
         try {
@@ -432,14 +457,18 @@ export default function ConvertPage() {
 
       // Track output file size
       target.onwrite = (start: number, end: number) => {
-        setStats(prev => prev ? { ...prev, currentFileSize: end } : null);
+        setStats((prev) => (prev ? { ...prev, currentFileSize: end } : null));
       };
 
       // Update elapsed time every 100ms
       statsIntervalRef.current = setInterval(() => {
         const now = Date.now();
         const elapsed = (now - startTime) / 1000;
-        setStats(prev => prev ? { ...prev, elapsedSeconds: elapsed, lastUpdateTime: now } : null);
+        setStats((prev) =>
+          prev
+            ? { ...prev, elapsedSeconds: elapsed, lastUpdateTime: now }
+            : null,
+        );
       }, 100);
 
       // Set up progress tracking
@@ -451,46 +480,53 @@ export default function ConvertPage() {
         // Calculate time estimates
         const now = Date.now();
         const elapsed = (now - startTime) / 1000;
-        
+
         let estimatedTotal: number | null = null;
         let estimatedRemaining: number | null = null;
 
-        if (p > 0.01) { // Only estimate after 1% progress
+        if (p > 0.01) {
+          // Only estimate after 1% progress
           estimatedTotal = elapsed / p;
           estimatedRemaining = estimatedTotal - elapsed;
         }
 
-        setStats(prev => prev ? {
-          ...prev,
-          lastUpdateTime: now,
-          elapsedSeconds: elapsed,
-          estimatedTotalSeconds: estimatedTotal,
-          estimatedRemainingSeconds: estimatedRemaining,
-        } : null);
+        setStats((prev) =>
+          prev
+            ? {
+                ...prev,
+                lastUpdateTime: now,
+                elapsedSeconds: elapsed,
+                estimatedTotalSeconds: estimatedTotal,
+                estimatedRemainingSeconds: estimatedRemaining,
+              }
+            : null,
+        );
       };
 
       // Execute conversion
       console.log("Executing conversion...");
       await conversion.execute();
-      
+
       // Show finalizing state
       console.log("Conversion encoding complete, finalizing file...");
       setConversionStatus("finalizing");
-      
+
       console.log("Conversion complete!");
 
       // Get the resulting buffer
       const buffer = target.buffer;
       if (!buffer) {
-        throw new Error("Conversion completed but no output buffer was created");
+        throw new Error(
+          "Conversion completed but no output buffer was created",
+        );
       }
 
       console.log("Buffer size:", buffer.byteLength);
-      
+
       // Create blob from buffer
       const mimeType = getMimeType(outputFormat as OutputContainer);
       const blob = new Blob([buffer], { type: mimeType });
-      
+
       setConvertedBlob(blob);
       setConversionStatus("completed");
       setProgress(100);
@@ -502,9 +538,11 @@ export default function ConvertPage() {
       }
     } catch (error) {
       console.error("Conversion error:", error);
-      setErrorMessage(error instanceof Error ? error.message : "An unknown error occurred");
+      setErrorMessage(
+        error instanceof Error ? error.message : "An unknown error occurred",
+      );
       setConversionStatus("error");
-      
+
       // Clear the stats interval on error
       if (statsIntervalRef.current) {
         clearInterval(statsIntervalRef.current);
@@ -538,7 +576,7 @@ export default function ConvertPage() {
       setConversionStatus("idle");
       setProgress(0);
       setStats(null);
-      
+
       if (statsIntervalRef.current) {
         clearInterval(statsIntervalRef.current);
         statsIntervalRef.current = null;
@@ -552,7 +590,7 @@ export default function ConvertPage() {
     setConvertedBlob(null);
     setErrorMessage("");
     setStats(null);
-    
+
     if (statsIntervalRef.current) {
       clearInterval(statsIntervalRef.current);
       statsIntervalRef.current = null;
@@ -639,12 +677,16 @@ export default function ConvertPage() {
                     {loadingMetadata ? (
                       <div className="flex items-center justify-center gap-2 rounded-base border-2 border-border bg-white p-4">
                         <Loader2 className="size-4 animate-spin" />
-                        <span className="text-sm text-foreground/60">Loading metadata...</span>
+                        <span className="text-sm text-foreground/60">
+                          Loading metadata...
+                        </span>
                       </div>
                     ) : metadata ? (
                       <div className="rounded-base border-2 border-border bg-white p-4">
                         <div className="flex items-center gap-2 mb-3">
-                          <h4 className="font-semibold text-sm">File Information</h4>
+                          <h4 className="font-semibold text-sm">
+                            File Information
+                          </h4>
                           {metadata.isAudioOnly && (
                             <span className="rounded-full bg-main/20 px-2 py-0.5 text-xs font-medium">
                               Audio Only
@@ -653,58 +695,97 @@ export default function ConvertPage() {
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div className="rounded-base border border-border bg-main/5 px-3 py-2">
-                            <div className="text-xs text-foreground/60">Container</div>
-                            <div className="font-semibold">{metadata.container}</div>
+                            <div className="text-xs text-foreground/60">
+                              Container
+                            </div>
+                            <div className="font-semibold">
+                              {metadata.container}
+                            </div>
                           </div>
                           {metadata.duration !== null && (
                             <div className="rounded-base border border-border bg-main/5 px-3 py-2">
-                              <div className="text-xs text-foreground/60">Duration</div>
-                              <div className="font-semibold">{formatTime(metadata.duration)}</div>
+                              <div className="text-xs text-foreground/60">
+                                Duration
+                              </div>
+                              <div className="font-semibold">
+                                {formatTime(metadata.duration)}
+                              </div>
                             </div>
                           )}
                           {metadata.dimensions && (
                             <div className="rounded-base border border-border bg-main/5 px-3 py-2">
-                              <div className="text-xs text-foreground/60">Dimensions</div>
+                              <div className="text-xs text-foreground/60">
+                                Dimensions
+                              </div>
                               <div className="font-semibold">
-                                {metadata.dimensions.width}x{metadata.dimensions.height}
+                                {metadata.dimensions.width}x
+                                {metadata.dimensions.height}
                               </div>
                             </div>
                           )}
                           {metadata.frameRate !== null && (
                             <div className="rounded-base border border-border bg-main/5 px-3 py-2">
-                              <div className="text-xs text-foreground/60">Frame Rate</div>
-                              <div className="font-semibold">{metadata.frameRate.toFixed(2)} FPS</div>
+                              <div className="text-xs text-foreground/60">
+                                Frame Rate
+                              </div>
+                              <div className="font-semibold">
+                                {metadata.frameRate.toFixed(2)} FPS
+                              </div>
                             </div>
                           )}
                           {metadata.videoCodec && (
                             <div className="rounded-base border border-border bg-main/5 px-3 py-2">
-                              <div className="text-xs text-foreground/60">Video Codec</div>
-                              <div className="font-semibold">{VIDEO_CODEC_LABELS[metadata.videoCodec as keyof typeof VIDEO_CODEC_LABELS] || metadata.videoCodec}</div>
+                              <div className="text-xs text-foreground/60">
+                                Video Codec
+                              </div>
+                              <div className="font-semibold">
+                                {VIDEO_CODEC_LABELS[
+                                  metadata.videoCodec as keyof typeof VIDEO_CODEC_LABELS
+                                ] || metadata.videoCodec}
+                              </div>
                             </div>
                           )}
                           {metadata.audioCodec && (
                             <div className="rounded-base border border-border bg-main/5 px-3 py-2">
-                              <div className="text-xs text-foreground/60">Audio Codec</div>
-                              <div className="font-semibold">{AUDIO_CODEC_LABELS[metadata.audioCodec as keyof typeof AUDIO_CODEC_LABELS] || metadata.audioCodec}</div>
+                              <div className="text-xs text-foreground/60">
+                                Audio Codec
+                              </div>
+                              <div className="font-semibold">
+                                {AUDIO_CODEC_LABELS[
+                                  metadata.audioCodec as keyof typeof AUDIO_CODEC_LABELS
+                                ] || metadata.audioCodec}
+                              </div>
                             </div>
                           )}
                           {metadata.sampleRate !== null && (
                             <div className="rounded-base border border-border bg-main/5 px-3 py-2">
-                              <div className="text-xs text-foreground/60">Sample Rate</div>
-                              <div className="font-semibold">{metadata.sampleRate} Hz</div>
+                              <div className="text-xs text-foreground/60">
+                                Sample Rate
+                              </div>
+                              <div className="font-semibold">
+                                {metadata.sampleRate} Hz
+                              </div>
                             </div>
                           )}
                           {metadata.numberOfChannels !== null && (
                             <div className="rounded-base border border-border bg-main/5 px-3 py-2">
-                              <div className="text-xs text-foreground/60">Channels</div>
+                              <div className="text-xs text-foreground/60">
+                                Channels
+                              </div>
                               <div className="font-semibold">
-                                {metadata.numberOfChannels === 1 ? "Mono" : metadata.numberOfChannels === 2 ? "Stereo" : `${metadata.numberOfChannels} channels`}
+                                {metadata.numberOfChannels === 1
+                                  ? "Mono"
+                                  : metadata.numberOfChannels === 2
+                                    ? "Stereo"
+                                    : `${metadata.numberOfChannels} channels`}
                               </div>
                             </div>
                           )}
                           {metadata.isHdr && (
                             <div className="rounded-base border border-border bg-main/5 px-3 py-2">
-                              <div className="text-xs text-foreground/60">Color</div>
+                              <div className="text-xs text-foreground/60">
+                                Color
+                              </div>
                               <div className="font-semibold">HDR</div>
                             </div>
                           )}
@@ -767,41 +848,98 @@ export default function ConvertPage() {
             </div>
 
             {/* Audio to Video Format Notice */}
-            {metadata?.isAudioOnly && outputFormat && outputContainers.includes(outputFormat as OutputContainer) && !isAudioOnlyFormat(outputFormat as OutputContainer) && (
-              <div className="rounded-base border-2 border-amber-500 bg-amber-50 p-4">
-                <div className="flex items-start gap-2">
-                  <span className="text-lg">ℹ️</span>
-                  <div>
-                    <p className="font-semibold text-amber-700">Audio-only input file</p>
-                    <p className="text-sm text-amber-700">
-                      Your input file only contains audio. The output will be a {outputFormat.toUpperCase()} container with audio only (no video track).
-                    </p>
+            {metadata?.isAudioOnly &&
+              outputFormat &&
+              outputContainers.includes(outputFormat as OutputContainer) &&
+              !isAudioOnlyFormat(outputFormat as OutputContainer) && (
+                <div className="rounded-base border-2 border-amber-500 bg-amber-50 p-4">
+                  <div className="flex items-start gap-2">
+                    <span className="text-lg">ℹ️</span>
+                    <div>
+                      <p className="font-semibold text-amber-700">
+                        Audio-only input file
+                      </p>
+                      <p className="text-sm text-amber-700">
+                        Your input file only contains audio. The output will be
+                        a {outputFormat.toUpperCase()} container with audio only
+                        (no video track).
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
             {/* Codec Selection */}
-            {outputFormat && outputContainers.includes(outputFormat as OutputContainer) && (
-              <div className="rounded-base border-2 border-border bg-white p-4">
-                <div className="flex items-center gap-2 mb-4">
-                  <h4 className="font-semibold text-sm">Encoding Options</h4>
-                  <span className="text-xs text-foreground/70">(Confused? Leave the default)</span>
-                </div>
-                {loadingCodecs ? (
-                  <div className="flex items-center justify-center gap-2 py-4">
-                    <Loader2 className="size-4 animate-spin" />
-                    <span className="text-sm text-foreground/60">Loading available codecs...</span>
+            {outputFormat &&
+              outputContainers.includes(outputFormat as OutputContainer) && (
+                <div className="rounded-base border-2 border-border bg-white p-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <h4 className="font-semibold text-sm">Encoding Options</h4>
+                    <span className="text-xs text-foreground/70">
+                      (Confused? Leave the default)
+                    </span>
                   </div>
-                ) : (
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {/* Video Codec Selection - only show for non-audio formats and non-audio-only input */}
-                    {!isAudioOnlyFormat(outputFormat as OutputContainer) && !metadata?.isAudioOnly && (
+                  {loadingCodecs ? (
+                    <div className="flex items-center justify-center gap-2 py-4">
+                      <Loader2 className="size-4 animate-spin" />
+                      <span className="text-sm text-foreground/60">
+                        Loading available codecs...
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {/* Video Codec Selection - only show for non-audio formats and non-audio-only input */}
+                      {!isAudioOnlyFormat(outputFormat as OutputContainer) &&
+                        !metadata?.isAudioOnly && (
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">
+                              Video Codec
+                            </label>
+                            <Select
+                              value={videoCodec}
+                              onValueChange={setVideoCodec}
+                            >
+                              <SelectTrigger className="bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                                <SelectValue placeholder="Select video codec" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="copy">
+                                  <span className="flex items-center gap-2">
+                                    <span>📋</span>
+                                    <span>Copy (No re-encoding)</span>
+                                  </span>
+                                </SelectItem>
+                                {availableVideoCodecs.map((codec) => (
+                                  <SelectItem key={codec} value={codec}>
+                                    <span className="flex items-center gap-2">
+                                      <span>🎬</span>
+                                      <span>
+                                        {VIDEO_CODEC_LABELS[codec] || codec}
+                                      </span>
+                                    </span>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <p className="text-xs text-foreground/60">
+                              {videoCodec === "copy"
+                                ? "Copies video stream without re-encoding (fastest)"
+                                : `Re-encodes video using ${VIDEO_CODEC_LABELS[videoCodec as VideoCodec] || videoCodec}`}
+                            </p>
+                          </div>
+                        )}
+
+                      {/* Audio Codec Selection */}
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Video Codec</label>
-                        <Select value={videoCodec} onValueChange={setVideoCodec}>
+                        <label className="text-sm font-medium">
+                          Audio Codec
+                        </label>
+                        <Select
+                          value={audioCodec}
+                          onValueChange={setAudioCodec}
+                        >
                           <SelectTrigger className="bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                            <SelectValue placeholder="Select video codec" />
+                            <SelectValue placeholder="Select audio codec" />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="copy">
@@ -810,60 +948,28 @@ export default function ConvertPage() {
                                 <span>Copy (No re-encoding)</span>
                               </span>
                             </SelectItem>
-                            {availableVideoCodecs.map((codec) => (
+                            {availableAudioCodecs.map((codec) => (
                               <SelectItem key={codec} value={codec}>
                                 <span className="flex items-center gap-2">
-                                  <span>🎬</span>
-                                  <span>{VIDEO_CODEC_LABELS[codec] || codec}</span>
+                                  <span>🎵</span>
+                                  <span>
+                                    {AUDIO_CODEC_LABELS[codec] || codec}
+                                  </span>
                                 </span>
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                         <p className="text-xs text-foreground/60">
-                          {videoCodec === "copy" 
-                            ? "Copies video stream without re-encoding (fastest)"
-                            : `Re-encodes video using ${VIDEO_CODEC_LABELS[videoCodec as VideoCodec] || videoCodec}`
-                          }
+                          {audioCodec === "copy"
+                            ? "Copies audio stream without re-encoding (fastest)"
+                            : `Re-encodes audio using ${AUDIO_CODEC_LABELS[audioCodec as AudioCodec] || audioCodec}`}
                         </p>
                       </div>
-                    )}
-
-                    {/* Audio Codec Selection */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Audio Codec</label>
-                      <Select value={audioCodec} onValueChange={setAudioCodec}>
-                        <SelectTrigger className="bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                          <SelectValue placeholder="Select audio codec" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="copy">
-                            <span className="flex items-center gap-2">
-                              <span>📋</span>
-                              <span>Copy (No re-encoding)</span>
-                            </span>
-                          </SelectItem>
-                          {availableAudioCodecs.map((codec) => (
-                            <SelectItem key={codec} value={codec}>
-                              <span className="flex items-center gap-2">
-                                <span>🎵</span>
-                                <span>{AUDIO_CODEC_LABELS[codec] || codec}</span>
-                              </span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-foreground/60">
-                        {audioCodec === "copy" 
-                          ? "Copies audio stream without re-encoding (fastest)"
-                          : `Re-encodes audio using ${AUDIO_CODEC_LABELS[audioCodec as AudioCodec] || audioCodec}`
-                        }
-                      </p>
                     </div>
-                  </div>
-                )}
-              </div>
-            )}
+                  )}
+                </div>
+              )}
 
             {/* Conversion Progress */}
             {conversionStatus === "converting" && (
@@ -887,22 +993,26 @@ export default function ConvertPage() {
                       </div>
                     </div>
                     <div className="rounded-base border border-border bg-main/5 px-3 py-2">
-                      <div className="text-xs text-foreground/60">Remaining</div>
+                      <div className="text-xs text-foreground/60">
+                        Remaining
+                      </div>
                       <div className="font-mono font-semibold">
-                        {stats.estimatedRemainingSeconds 
+                        {stats.estimatedRemainingSeconds
                           ? formatTime(stats.estimatedRemainingSeconds)
                           : "Calculating..."}
                       </div>
                     </div>
                     <div className="col-span-2 rounded-base border border-border bg-main/5 px-3 py-2">
-                      <div className="text-xs text-foreground/60">Output Size</div>
+                      <div className="text-xs text-foreground/60">
+                        Output Size
+                      </div>
                       <div className="font-mono font-semibold">
                         {formatBytes(stats.currentFileSize)}
                       </div>
                     </div>
                   </div>
                 )}
-                
+
                 <Button
                   variant="neutral"
                   size="sm"
@@ -1007,12 +1117,13 @@ export default function ConvertPage() {
                 onClick={handleConvert}
               >
                 <Video className="size-5" />
-                {outputFormat && outputContainers.includes(outputFormat as OutputContainer) && isAudioOnlyFormat(outputFormat as OutputContainer) 
-                  ? "Convert to Audio" 
-                  : metadata?.isAudioOnly 
-                    ? "Convert Audio" 
-                    : "Convert Media"
-                }
+                {outputFormat &&
+                outputContainers.includes(outputFormat as OutputContainer) &&
+                isAudioOnlyFormat(outputFormat as OutputContainer)
+                  ? "Convert to Audio"
+                  : metadata?.isAudioOnly
+                    ? "Convert Audio"
+                    : "Convert Media"}
               </Button>
             )}
           </CardContent>

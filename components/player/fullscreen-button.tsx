@@ -1,7 +1,7 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import { Maximize, Minimize } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface FullscreenButtonProps {
   isFullscreen: boolean;
