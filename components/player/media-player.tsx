@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import MediaFox from "@mediafox/core";
+import { Music } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FullscreenButton } from "./fullscreen-button";
 import { PlayPauseButton } from "./play-pause-button";
@@ -30,6 +31,16 @@ export function MediaPlayer({ src }: MediaPlayerProps) {
       return src;
     }
     return src;
+  }, [src]);
+
+  // Check if file is audio-only based on MIME type
+  const isAudioOnly = useMemo(() => {
+    if (typeof src === "string") {
+      return false;
+    } else if (src instanceof File) {
+      return src.type.startsWith("audio/");
+    }
+    return false;
   }, [src]);
 
   // Reset loaded state when source changes
@@ -108,12 +119,22 @@ export function MediaPlayer({ src }: MediaPlayerProps) {
           "rounded-md",
           "border-black",
           "overflow-hidden",
-          "bg-black"
+          "bg-black",
+          "relative"
         )}
       >
+        {/* Audio-only visual placeholder */}
+        {isAudioOnly && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-zinc-800 to-zinc-900 z-10">
+            <div className="rounded-full bg-zinc-700 p-6 mb-4">
+              <Music className="size-12 text-zinc-400" />
+            </div>
+            <p className="text-zinc-400 text-sm">Audio File</p>
+          </div>
+        )}
         <canvas
           ref={canvasRef}
-          className={cn("w-full", "block", isFullscreen && "flex-1")}
+          className={cn("w-full", "block", isFullscreen && "flex-1", isAudioOnly && "opacity-0 h-48")}
         />
       </div>
       <div className="h-2" />

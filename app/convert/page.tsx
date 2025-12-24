@@ -47,6 +47,7 @@ import {
 import { registerMp3Encoder } from "@mediabunny/mp3-encoder";
 
 const INPUT_FORMATS = [
+  // Video formats
   { value: "mp4", label: "MP4", icon: "🎬" },
   { value: "mov", label: "MOV (QuickTime)", icon: "🎥" },
   { value: "webm", label: "WebM", icon: "🌐" },
@@ -55,6 +56,13 @@ const INPUT_FORMATS = [
   { value: "flv", label: "FLV", icon: "⚡" },
   { value: "wmv", label: "WMV", icon: "🪟" },
   { value: "mpeg", label: "MPEG", icon: "📺" },
+  // Audio formats
+  { value: "mp3", label: "MP3", icon: "🎵" },
+  { value: "wav", label: "WAV", icon: "🔊" },
+  { value: "aac", label: "AAC", icon: "🎧" },
+  { value: "ogg", label: "OGG", icon: "🎶" },
+  { value: "flac", label: "FLAC", icon: "💿" },
+  { value: "m4a", label: "M4A", icon: "🎼" },
 ];
 
 const OUTPUT_FORMATS = [
@@ -122,7 +130,9 @@ interface FileMetadata {
   dimensions: { width: number; height: number } | null;
   frameRate: number | null;
   sampleRate: number | null;
+  numberOfChannels: number | null;
   isHdr: boolean | null;
+  isAudioOnly: boolean;
 }
 
 export default function ConvertPage() {
@@ -253,6 +263,9 @@ export default function ConvertPage() {
       // Get duration from input, not from tracks
       const duration = await input.computeDuration().catch(() => null);
 
+      // Determine if this is an audio-only file
+      const isAudioOnly = !videoTrack && !!audioTrack;
+
       const metadata: FileMetadata = {
         container: format?.name || "Unknown",
         size: file.size,
@@ -264,7 +277,9 @@ export default function ConvertPage() {
           : null,
         frameRate,
         sampleRate: audioTrack?.sampleRate || null,
+        numberOfChannels: audioTrack?.numberOfChannels || null,
         isHdr,
+        isAudioOnly,
       };
 
       setMetadata(metadata);
@@ -378,16 +393,29 @@ export default function ConvertPage() {
         throw new Error(`Conversion invalid: ${reasons || "Unknown reason"}`);
       }
 
-      // Get video duration for time estimation
-      let videoDuration: number | null = null;
+      // Get media duration for time estimation (try video first, then audio)
+      let mediaDuration: number | null = null;
       try {
         const videoTrack = await input.getPrimaryVideoTrack();
         if (videoTrack) {
-          videoDuration = await videoTrack.computeDuration();
-          console.log("Video duration:", videoDuration, "seconds");
+          mediaDuration = await videoTrack.computeDuration();
+          console.log("Video duration:", mediaDuration, "seconds");
         }
       } catch (e) {
         console.log("Could not get video duration:", e);
+      }
+      
+      // If no video track, try to get audio duration
+      if (mediaDuration === null) {
+        try {
+          const audioTrack = await input.getPrimaryAudioTrack();
+          if (audioTrack) {
+            mediaDuration = await audioTrack.computeDuration();
+            console.log("Audio duration:", mediaDuration, "seconds");
+          }
+        } catch (e) {
+          console.log("Could not get audio duration:", e);
+        }
       }
 
       // Initialize stats
@@ -540,27 +568,27 @@ export default function ConvertPage() {
             MediaBunny Converter
           </h1>
           <p className="text-lg text-foreground/70">
-            Convert your videos to any format with ease
+            Convert your videos and audio files to any format with ease
           </p>
         </div>
 
         {/* Main Converter Card */}
         <Card className="mb-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
           <CardHeader>
-            <CardTitle className="text-2xl">Video Converter</CardTitle>
+            <CardTitle className="text-2xl">Media Converter</CardTitle>
             <CardDescription>
-              Upload a video and select your desired output format
+              Upload a video or audio file and select your desired output format
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* File Upload / Video Preview Section */}
+            {/* File Upload / Media Preview Section */}
             <div className="space-y-2">
               <label className="text-sm font-semibold">
-                {selectedFile ? "Video Preview" : "Upload Video"}
+                {selectedFile ? "Media Preview" : "Upload Media"}
               </label>
               <input
                 type="file"
-                accept="video/*"
+                accept="video/*,audio/*"
                 onChange={handleFileSelect}
                 className="hidden"
                 id="video-upload"
@@ -576,7 +604,7 @@ export default function ConvertPage() {
                       Click to upload or drag and drop
                     </p>
                     <p className="text-sm text-foreground/60">
-                      MP4, WebM, MKV, MOV, AVI and more
+                      MP4, WebM, MKV, MOV, MP3, WAV, AAC and more
                     </p>
                   </div>
                 </label>
@@ -615,7 +643,14 @@ export default function ConvertPage() {
                       </div>
                     ) : metadata ? (
                       <div className="rounded-base border-2 border-border bg-white p-4">
-                        <h4 className="font-semibold mb-3 text-sm">File Information</h4>
+                        <div className="flex items-center gap-2 mb-3">
+                          <h4 className="font-semibold text-sm">File Information</h4>
+                          {metadata.isAudioOnly && (
+                            <span className="rounded-full bg-main/20 px-2 py-0.5 text-xs font-medium">
+                              Audio Only
+                            </span>
+                          )}
+                        </div>
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div className="rounded-base border border-border bg-main/5 px-3 py-2">
                             <div className="text-xs text-foreground/60">Container</div>
@@ -657,6 +692,14 @@ export default function ConvertPage() {
                             <div className="rounded-base border border-border bg-main/5 px-3 py-2">
                               <div className="text-xs text-foreground/60">Sample Rate</div>
                               <div className="font-semibold">{metadata.sampleRate} Hz</div>
+                            </div>
+                          )}
+                          {metadata.numberOfChannels !== null && (
+                            <div className="rounded-base border border-border bg-main/5 px-3 py-2">
+                              <div className="text-xs text-foreground/60">Channels</div>
+                              <div className="font-semibold">
+                                {metadata.numberOfChannels === 1 ? "Mono" : metadata.numberOfChannels === 2 ? "Stereo" : `${metadata.numberOfChannels} channels`}
+                              </div>
                             </div>
                           )}
                           {metadata.isHdr && (
@@ -723,10 +766,28 @@ export default function ConvertPage() {
               </div>
             </div>
 
+            {/* Audio to Video Format Notice */}
+            {metadata?.isAudioOnly && outputFormat && outputContainers.includes(outputFormat as OutputContainer) && !isAudioOnlyFormat(outputFormat as OutputContainer) && (
+              <div className="rounded-base border-2 border-amber-500 bg-amber-50 p-4">
+                <div className="flex items-start gap-2">
+                  <span className="text-lg">ℹ️</span>
+                  <div>
+                    <p className="font-semibold text-amber-700">Audio-only input file</p>
+                    <p className="text-sm text-amber-700">
+                      Your input file only contains audio. The output will be a {outputFormat.toUpperCase()} container with audio only (no video track).
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Codec Selection */}
             {outputFormat && outputContainers.includes(outputFormat as OutputContainer) && (
               <div className="rounded-base border-2 border-border bg-white p-4">
-                <h4 className="font-semibold mb-4 text-sm">Encoding Options</h4>
+                <div className="flex items-center gap-2 mb-4">
+                  <h4 className="font-semibold text-sm">Encoding Options</h4>
+                  <span className="text-xs text-foreground/70">(Confused? Leave the default)</span>
+                </div>
                 {loadingCodecs ? (
                   <div className="flex items-center justify-center gap-2 py-4">
                     <Loader2 className="size-4 animate-spin" />
@@ -734,8 +795,8 @@ export default function ConvertPage() {
                   </div>
                 ) : (
                   <div className="grid gap-4 md:grid-cols-2">
-                    {/* Video Codec Selection - only show for non-audio formats */}
-                    {!isAudioOnlyFormat(outputFormat as OutputContainer) && (
+                    {/* Video Codec Selection - only show for non-audio formats and non-audio-only input */}
+                    {!isAudioOnlyFormat(outputFormat as OutputContainer) && !metadata?.isAudioOnly && (
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Video Codec</label>
                         <Select value={videoCodec} onValueChange={setVideoCodec}>
@@ -946,7 +1007,12 @@ export default function ConvertPage() {
                 onClick={handleConvert}
               >
                 <Video className="size-5" />
-                Convert {outputFormat && outputContainers.includes(outputFormat as OutputContainer) && isAudioOnlyFormat(outputFormat as OutputContainer) ? "to Audio" : "Video"}
+                {outputFormat && outputContainers.includes(outputFormat as OutputContainer) && isAudioOnlyFormat(outputFormat as OutputContainer) 
+                  ? "Convert to Audio" 
+                  : metadata?.isAudioOnly 
+                    ? "Convert Audio" 
+                    : "Convert Media"
+                }
               </Button>
             )}
           </CardContent>
