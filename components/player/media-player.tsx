@@ -142,29 +142,58 @@ export function MediaPlayer({ src }: MediaPlayerProps) {
         <div
           className={cn(
             "flex",
-            "flex-row",
+            "flex-col md:flex-row",
             "border-2",
             "border-b-4",
             "rounded-md",
             "border-black",
-            "items-center",
-            "bg-white"
+            "bg-white",
+            "overflow-hidden"
           )}
         >
-          <PlayPauseButton playerRef={mediaFox} />
-          <Separator />
-          <VolumeControl playerRef={mediaFox} />
-          <Separator />
-          <div className="w-4" />
-          <TimeDisplay playerRef={mediaFox} />
-          <div className="w-4" />
-          <SeekBar playerRef={mediaFox} />
-          <div className="w-4" />
-          <Separator />
-          <FullscreenButton
-            isFullscreen={isFullscreen}
-            onClick={toggleFullscreen}
-          />
+          {/* Mobile SeekBar: Top row on mobile only */}
+          <div className="w-full h-12 border-b-2 border-black flex items-center px-4 md:hidden">
+            <SeekBar playerRef={mediaFox} />
+          </div>
+
+          {/* Main Controls Row */}
+          <div className="flex flex-1 items-center min-w-0">
+            <div className="flex items-center shrink-0">
+              <PlayPauseButton playerRef={mediaFox} />
+              <Separator />
+              <VolumeControl playerRef={mediaFox} />
+              <Separator />
+            </div>
+
+            {/* Desktop Time + SeekBar */}
+            <div className="hidden md:flex flex-1 items-center min-w-0">
+              <div className="px-4 shrink-0">
+                <TimeDisplay playerRef={mediaFox} />
+              </div>
+              <div className="w-4" />
+              <div className="flex-1">
+                <SeekBar playerRef={mediaFox} />
+              </div>
+              <div className="w-4" />
+              <Separator />
+            </div>
+
+            {/* Mobile Time: Centered in the remaining space */}
+            <div className="flex md:hidden flex-1 items-center justify-center px-1 min-w-0">
+              <TimeDisplay playerRef={mediaFox} />
+            </div>
+
+            <div className="md:hidden">
+              <Separator />
+            </div>
+
+            <div className="shrink-0">
+              <FullscreenButton
+                isFullscreen={isFullscreen}
+                onClick={toggleFullscreen}
+              />
+            </div>
+          </div>
         </div>
       ) : (
         <div

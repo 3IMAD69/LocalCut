@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LocalCut Your Local Video Converter / Editor",
-  description:  // im using webcodecs api and mediabunny
-    "LocalCut is a free and open-source web application that allows you to convert and edit videos directly in your browser without uploading them to any server. It leverages the power of WebCodecs API to provide fast and efficient video processing on the client side.",
+  title: "LocalCut Your Local Media Converter / Editor",
+  description:
+    "LocalCut is a free and open-source web application that allows you to convert and edit videos and audios directly in your browser without uploading them to any server. It leverages the power of WebCodecs API to provide fast and efficient video processing on the client side.",
 };
 
 export default function RootLayout({

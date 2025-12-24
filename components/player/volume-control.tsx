@@ -10,21 +10,6 @@ import type MediaFox from "@mediafox/core";
 import React, { useEffect, useState } from "react";
 import { IsMutedIcon, NotMutedIcon } from "./icons";
 
-const playerButtonStyle: React.CSSProperties = {
-  appearance: "none",
-  border: "none",
-  borderRadius: 0,
-  background: "none",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  paddingRight: 20,
-  paddingLeft: 20,
-  cursor: "pointer",
-  height: 50,
-  color: "black",
-};
-
 // Helper to set player properties (workaround for React Compiler)
 function setPlayerVolume(player: MediaFox, volume: number) {
   player.volume = volume;
@@ -66,7 +51,7 @@ export function VolumeControl({ playerRef }: VolumeControlProps) {
     <div className="flex items-center">
       <button
         type="button"
-        style={playerButtonStyle}
+        className="appearance-none border-none rounded-none bg-none flex justify-center items-center px-3 md:px-5 cursor-pointer h-12 text-black hover:bg-black/5 transition-colors"
         onClick={() => {
           setPlayerMuted(playerRef, !playerRef.muted);
         }}
@@ -82,7 +67,7 @@ export function VolumeControl({ playerRef }: VolumeControlProps) {
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="h-8 px-2 text-xs font-mono cursor-pointer bg-transparent border-none"
+            className="h-8 px-1 md:px-2 text-[10px] md:text-xs font-mono cursor-pointer bg-transparent border-none"
           >
             {Math.round(volume * 100)}%
           </button>

@@ -60,7 +60,7 @@ export function SeekBar({ playerRef }: SeekBarProps) {
   );
 
   return (
-    <div className="flex-1 px-4">
+    <div className="flex-1">
       <Slider
         value={[currentTime]}
         onValueChange={handleSeek}
