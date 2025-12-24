@@ -105,6 +105,18 @@ interface ConversionStats {
   currentFileSize: number; // in bytes
 }
 
+interface FileMetadata {
+  container: string;
+  size: number;
+  duration: number | null;
+  videoCodec: string | null;
+  audioCodec: string | null;
+  dimensions: { width: number; height: number } | null;
+  frameRate: number | null;
+  sampleRate: number | null;
+  bitDepth: number | null;
+}
+
 export default function ConvertPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [inputFormat, setInputFormat] = useState<string>("");
@@ -114,6 +126,8 @@ export default function ConvertPage() {
   const [convertedBlob, setConvertedBlob] = useState<Blob | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [stats, setStats] = useState<ConversionStats | null>(null);
+  const [metadata, setMetadata] = useState<FileMetadata | null>(null);
+  const [loadingMetadata, setLoadingMetadata] = useState<boolean>(false);
   const conversionRef = useRef<Conversion | null>(null);
   const statsIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -141,10 +155,55 @@ export default function ConvertPage() {
       setConvertedBlob(null);
       setErrorMessage("");
       setStats(null);
+      setMetadata(null);
       if (statsIntervalRef.current) {
         clearInterval(statsIntervalRef.current);
         statsIntervalRef.current = null;
       }
+
+      // Extract metadata
+      extractMetadata(file);
+    }
+  };
+
+  const extractMetadata = async (file: File) => {
+    setLoadingMetadata(true);
+    try {
+      const input = new MediaInput({
+        source: new BlobSource(file),
+        formats: ALL_FORMATS,
+      });
+
+      const format = await input.getFormat();
+      const videoTrack = await input.getPrimaryVideoTrack().catch(() => null);
+      const audioTrack = await input.getPrimaryAudioTrack().catch(() => null);
+
+      let duration: number | null = null;
+      if (videoTrack) {
+        duration = await videoTrack.computeDuration().catch(() => null);
+      } else if (audioTrack) {
+        duration = await audioTrack.computeDuration().catch(() => null);
+      }
+
+      const metadata: FileMetadata = {
+        container: format?.name || "Unknown",
+        size: file.size,
+        duration,
+        videoCodec: videoTrack?.codec || null,
+        audioCodec: audioTrack?.codec || null,
+        dimensions: videoTrack && videoTrack.displayWidth && videoTrack.displayHeight
+          ? { width: videoTrack.displayWidth, height: videoTrack.displayHeight }
+          : null,
+        frameRate: videoTrack?.frameRate || null,
+        sampleRate: audioTrack?.sampleRate || null,
+        bitDepth: videoTrack?.bitDepth || null,
+      };
+
+      setMetadata(metadata);
+    } catch (error) {
+      console.error("Failed to extract metadata:", error);
+    } finally {
+      setLoadingMetadata(false);
     }
   };
 
@@ -438,26 +497,91 @@ export default function ConvertPage() {
               ) : (
                 <div className="space-y-3">
                   <MediaPlayer src={selectedFile} />
-                  <div className="flex items-center justify-between gap-3 rounded-base border-2 border-border bg-white p-3 max-w-3xl mx-auto">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold truncate">
-                        {selectedFile.name}
-                      </p>
-                      <p className="text-sm text-foreground/60">
-                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                      </p>
+                  <div className="space-y-3 max-w-3xl mx-auto">
+                    {/* File Info Header */}
+                    <div className="flex items-center justify-between gap-3 rounded-base border-2 border-border bg-white p-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold truncate">
+                          {selectedFile.name}
+                        </p>
+                        <p className="text-sm text-foreground/60">
+                          {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
+                      <Button
+                        variant="neutral"
+                        size="sm"
+                        onClick={() =>
+                          document.getElementById("video-upload")?.click()
+                        }
+                        className="shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                      >
+                        <Upload className="size-4" />
+                        Change File
+                      </Button>
                     </div>
-                    <Button
-                      variant="neutral"
-                      size="sm"
-                      onClick={() =>
-                        document.getElementById("video-upload")?.click()
-                      }
-                      className="shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
-                    >
-                      <Upload className="size-4" />
-                      Change File
-                    </Button>
+
+                    {/* Metadata Display */}
+                    {loadingMetadata ? (
+                      <div className="flex items-center justify-center gap-2 rounded-base border-2 border-border bg-white p-4">
+                        <Loader2 className="size-4 animate-spin" />
+                        <span className="text-sm text-foreground/60">Loading metadata...</span>
+                      </div>
+                    ) : metadata ? (
+                      <div className="rounded-base border-2 border-border bg-white p-4">
+                        <h4 className="font-semibold mb-3 text-sm">File Information</h4>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div className="rounded-base border border-border bg-main/5 px-3 py-2">
+                            <div className="text-xs text-foreground/60">Container</div>
+                            <div className="font-semibold">{metadata.container}</div>
+                          </div>
+                          {metadata.duration !== null && (
+                            <div className="rounded-base border border-border bg-main/5 px-3 py-2">
+                              <div className="text-xs text-foreground/60">Duration</div>
+                              <div className="font-semibold">{formatTime(metadata.duration)}</div>
+                            </div>
+                          )}
+                          {metadata.dimensions && (
+                            <div className="rounded-base border border-border bg-main/5 px-3 py-2">
+                              <div className="text-xs text-foreground/60">Dimensions</div>
+                              <div className="font-semibold">
+                                {metadata.dimensions.width}x{metadata.dimensions.height}
+                              </div>
+                            </div>
+                          )}
+                          {metadata.frameRate !== null && (
+                            <div className="rounded-base border border-border bg-main/5 px-3 py-2">
+                              <div className="text-xs text-foreground/60">Frame Rate</div>
+                              <div className="font-semibold">{metadata.frameRate.toFixed(2)} FPS</div>
+                            </div>
+                          )}
+                          {metadata.videoCodec && (
+                            <div className="rounded-base border border-border bg-main/5 px-3 py-2">
+                              <div className="text-xs text-foreground/60">Video Codec</div>
+                              <div className="font-semibold">{metadata.videoCodec}</div>
+                            </div>
+                          )}
+                          {metadata.audioCodec && (
+                            <div className="rounded-base border border-border bg-main/5 px-3 py-2">
+                              <div className="text-xs text-foreground/60">Audio Codec</div>
+                              <div className="font-semibold">{metadata.audioCodec}</div>
+                            </div>
+                          )}
+                          {metadata.sampleRate !== null && (
+                            <div className="rounded-base border border-border bg-main/5 px-3 py-2">
+                              <div className="text-xs text-foreground/60">Sample Rate</div>
+                              <div className="font-semibold">{metadata.sampleRate} Hz</div>
+                            </div>
+                          )}
+                          {metadata.bitDepth !== null && (
+                            <div className="rounded-base border border-border bg-main/5 px-3 py-2">
+                              <div className="text-xs text-foreground/60">Bit Depth</div>
+                              <div className="font-semibold">{metadata.bitDepth} bit</div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               )}
@@ -613,16 +737,27 @@ export default function ConvertPage() {
                     Conversion Complete!
                   </span>
                 </div>
-                <div className="text-sm text-green-700">
-                  <p>
-                    Output size: {(convertedBlob.size / 1024 / 1024).toFixed(2)} MB
-                  </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-green-700">
+                  <div className="rounded-base border border-green-600 bg-green-100 px-3 py-2">
+                    <div className="text-xs text-green-600">Output size</div>
+                    <div className="font-mono font-semibold">
+                      {(convertedBlob.size / 1024 / 1024).toFixed(2)} MB
+                    </div>
+                  </div>
+                  {stats && (
+                    <div className="rounded-base border border-green-600 bg-green-100 px-3 py-2">
+                      <div className="text-xs text-green-600">Time taken</div>
+                      <div className="font-mono font-semibold">
+                        {formatTime(stats.elapsedSeconds)}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <Button
                     size="lg"
                     onClick={handleDownload}
-                    className="flex-1 bg-green-600 text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:bg-green-700"
+                    className="w-full sm:flex-1 bg-green-600 text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:bg-green-700"
                   >
                     <Download className="size-5" />
                     Download File
@@ -631,7 +766,7 @@ export default function ConvertPage() {
                     variant="neutral"
                     size="lg"
                     onClick={resetConversion}
-                    className="shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                    className="w-full sm:w-auto shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
                   >
                     Convert Another
                   </Button>
