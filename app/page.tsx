@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -59,7 +60,9 @@ export default function Home() {
           >
             Documentation
           </a>
-          <Button>Carti</Button>
+          <Button>
+            <Link href="/convert" prefetch={true}>Convert</Link>
+          </Button>
         </div>
       </main>
     </div>
