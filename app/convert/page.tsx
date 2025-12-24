@@ -114,7 +114,7 @@ interface FileMetadata {
   dimensions: { width: number; height: number } | null;
   frameRate: number | null;
   sampleRate: number | null;
-  bitDepth: number | null;
+  isHdr: boolean | null;
 }
 
 export default function ConvertPage() {
@@ -175,15 +175,29 @@ export default function ConvertPage() {
       });
 
       const format = await input.getFormat();
-      const videoTrack = await input.getPrimaryVideoTrack().catch(() => null);
-      const audioTrack = await input.getPrimaryAudioTrack().catch(() => null);
-
-      let duration: number | null = null;
-      if (videoTrack) {
-        duration = await videoTrack.computeDuration().catch(() => null);
-      } else if (audioTrack) {
-        duration = await audioTrack.computeDuration().catch(() => null);
+      const tracks = await input.getTracks();
+      
+      let videoTrack = null;
+      let audioTrack = null;
+      let frameRate: number | null = null;
+      let isHdr: boolean | null = null;
+      
+      // Find video and audio tracks
+      for (const track of tracks) {
+        if (track.isVideoTrack()) {
+          videoTrack = track;
+          // Get frame rate from packet stats
+          const stats = await track.computePacketStats(50).catch(() => null);
+          frameRate = stats?.averagePacketRate || null;
+          // Check for HDR
+          isHdr = await track.hasHighDynamicRange().catch(() => null);
+        } else if (track.isAudioTrack()) {
+          audioTrack = track;
+        }
       }
+
+      // Get duration from input, not from tracks
+      const duration = await input.computeDuration().catch(() => null);
 
       const metadata: FileMetadata = {
         container: format?.name || "Unknown",
@@ -194,12 +208,15 @@ export default function ConvertPage() {
         dimensions: videoTrack && videoTrack.displayWidth && videoTrack.displayHeight
           ? { width: videoTrack.displayWidth, height: videoTrack.displayHeight }
           : null,
-        frameRate: videoTrack?.frameRate || null,
+        frameRate,
         sampleRate: audioTrack?.sampleRate || null,
-        bitDepth: videoTrack?.bitDepth || null,
+        isHdr,
       };
 
       setMetadata(metadata);
+      
+      // Clean up
+      input.dispose();
     } catch (error) {
       console.error("Failed to extract metadata:", error);
     } finally {
@@ -573,10 +590,10 @@ export default function ConvertPage() {
                               <div className="font-semibold">{metadata.sampleRate} Hz</div>
                             </div>
                           )}
-                          {metadata.bitDepth !== null && (
+                          {metadata.isHdr && (
                             <div className="rounded-base border border-border bg-main/5 px-3 py-2">
-                              <div className="text-xs text-foreground/60">Bit Depth</div>
-                              <div className="font-semibold">{metadata.bitDepth} bit</div>
+                              <div className="text-xs text-foreground/60">Color</div>
+                              <div className="font-semibold">HDR</div>
                             </div>
                           )}
                         </div>
