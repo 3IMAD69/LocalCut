@@ -1,8 +1,24 @@
+"use client";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 export default function Home() {
+  const handleClick = () => {
+    if (Notification.permission === "granted") {
+      new Notification("Hello from LocalCut!", {
+        body: "This is a sample notification.",
+      });
+    } else if (Notification.permission !== "denied") {
+      Notification.requestPermission().then((permission) => {
+        if (permission === "granted") {
+          new Notification("Hello from LocalCut!", {
+            body: "This is a sample notification.",
+          });
+        }
+      });
+    }
+  };
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
       <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
@@ -65,6 +81,7 @@ export default function Home() {
               Convert
             </Link>
           </Button>
+          <Button onClick={handleClick}>notify</Button>
         </div>
       </main>
     </div>

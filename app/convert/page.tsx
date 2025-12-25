@@ -151,6 +151,7 @@ interface FileMetadata {
 
 export default function ConvertPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
   const [inputFormat, setInputFormat] = useState<string>("");
   const [outputFormat, setOutputFormat] = useState<string>("");
   const [videoCodec, setVideoCodec] = useState<string>("copy");
@@ -170,6 +171,7 @@ export default function ConvertPage() {
   const [stats, setStats] = useState<ConversionStats | null>(null);
   const [metadata, setMetadata] = useState<FileMetadata | null>(null);
   const [loadingMetadata, setLoadingMetadata] = useState<boolean>(false);
+  const [notifyMe, setNotifyMe] = useState<boolean>(false);
   const conversionRef = useRef<Conversion | null>(null);
   const statsIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -181,6 +183,18 @@ export default function ConvertPage() {
       }
     };
   }, []);
+
+  // Update page title based on conversion status
+  useEffect(() => {
+    if (
+      conversionStatus === "converting" ||
+      conversionStatus === "finalizing"
+    ) {
+      document.title = `${progress}% - Converting...`;
+    } else {
+      document.title = "LocalCut - Converter";
+    }
+  }, [conversionStatus, progress]);
 
   // Load available codecs when output format changes
   useEffect(() => {
@@ -251,6 +265,108 @@ export default function ConvertPage() {
       extractMetadata(file);
     }
   };
+
+  const handleDragEnter = useCallback(
+    (e: React.DragEvent<HTMLLabelElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(true);
+    },
+    [],
+  );
+
+  const handleDragLeave = useCallback(
+    (e: React.DragEvent<HTMLLabelElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
+    },
+    [],
+  );
+
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLLabelElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent<HTMLLabelElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      // Check if it's a video or audio file
+      if (file.type.startsWith("video/") || file.type.startsWith("audio/")) {
+        setSelectedFile(file);
+        // Auto-detect format from file extension
+        const extension = file.name.split(".").pop()?.toLowerCase();
+        if (extension) {
+          setInputFormat(extension);
+        }
+        // Reset conversion state when new file is selected
+        setConversionStatus("idle");
+        setProgress(0);
+        setConvertedBlob(null);
+        setErrorMessage("");
+        setStats(null);
+        setMetadata(null);
+        if (statsIntervalRef.current) {
+          clearInterval(statsIntervalRef.current);
+          statsIntervalRef.current = null;
+        }
+        // Extract metadata
+        extractMetadata(file);
+      }
+    }
+  }, []);
+
+  // Handle paste event (Ctrl+V) to accept files from clipboard
+  const handlePaste = useCallback((e: ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of items) {
+      if (item.kind === "file") {
+        const file = item.getAsFile();
+        if (
+          file &&
+          (file.type.startsWith("video/") || file.type.startsWith("audio/"))
+        ) {
+          e.preventDefault();
+          setSelectedFile(file);
+          // Auto-detect format from file extension
+          const extension = file.name.split(".").pop()?.toLowerCase();
+          if (extension) {
+            setInputFormat(extension);
+          }
+          // Reset conversion state when new file is selected
+          setConversionStatus("idle");
+          setProgress(0);
+          setConvertedBlob(null);
+          setErrorMessage("");
+          setStats(null);
+          setMetadata(null);
+          if (statsIntervalRef.current) {
+            clearInterval(statsIntervalRef.current);
+            statsIntervalRef.current = null;
+          }
+          // Extract metadata
+          extractMetadata(file);
+          break;
+        }
+      }
+    }
+  }, []);
+
+  // Add paste event listener
+  useEffect(() => {
+    document.addEventListener("paste", handlePaste);
+    return () => {
+      document.removeEventListener("paste", handlePaste);
+    };
+  }, [handlePaste]);
 
   const extractMetadata = async (file: File) => {
     setLoadingMetadata(true);
@@ -536,6 +652,18 @@ export default function ConvertPage() {
         clearInterval(statsIntervalRef.current);
         statsIntervalRef.current = null;
       }
+
+      // Send notification if enabled
+      if (
+        notifyMe &&
+        "Notification" in window &&
+        Notification.permission === "granted"
+      ) {
+        new Notification("Conversion Complete!", {
+          body: `Your file has been successfully converted to ${outputFormat.toUpperCase()}.`,
+          icon: "/favicon.ico",
+        });
+      }
     } catch (error) {
       console.error("Conversion error:", error);
       setErrorMessage(
@@ -551,7 +679,7 @@ export default function ConvertPage() {
     } finally {
       conversionRef.current = null;
     }
-  }, [selectedFile, outputFormat, videoCodec, audioCodec]);
+  }, [selectedFile, outputFormat, videoCodec, audioCodec, notifyMe]);
 
   const handleDownload = useCallback(() => {
     if (!convertedBlob || !selectedFile) return;
@@ -590,6 +718,7 @@ export default function ConvertPage() {
     setConvertedBlob(null);
     setErrorMessage("");
     setStats(null);
+    setNotifyMe(false);
 
     if (statsIntervalRef.current) {
       clearInterval(statsIntervalRef.current);
@@ -598,12 +727,12 @@ export default function ConvertPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#f5f5f5] p-4 md:p-8">
+    <div className="min-h-screen bg-[#f5f5f5] dark:bg-black p-4 md:p-8">
       <div className="mx-auto max-w-6xl">
         {/* Header */}
         <div className="mb-8 text-center">
-          <h1 className="mb-3 font-heading text-5xl font-bold tracking-tight">
-            MediaBunny Converter
+          <h1 className="mb-3 font-heading text-5xl font-bold tracking-tight text-foreground">
+            LocalCut - Media Converter
           </h1>
           <p className="text-lg text-foreground/70">
             Convert your videos and audio files to any format with ease
@@ -611,7 +740,7 @@ export default function ConvertPage() {
         </div>
 
         {/* Main Converter Card */}
-        <Card className="mb-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+        <Card className="mb-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,0.1)]">
           <CardHeader>
             <CardTitle className="text-2xl">Media Converter</CardTitle>
             <CardDescription>
@@ -634,12 +763,24 @@ export default function ConvertPage() {
               {!selectedFile ? (
                 <label
                   htmlFor="video-upload"
-                  className="flex h-32 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-base border-2 border-dashed border-border bg-white transition-all hover:translate-x-1 hover:translate-y-1 hover:bg-main/5"
+                  className={`flex h-32 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-base border-2 border-dashed transition-all hover:translate-x-1 hover:translate-y-1 ${
+                    isDragging
+                      ? "border-main bg-main/10 scale-[1.02]"
+                      : "border-border bg-white dark:bg-gray-950 hover:bg-main/5 dark:hover:bg-main/10"
+                  }`}
+                  onDragEnter={handleDragEnter}
+                  onDragLeave={handleDragLeave}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
                 >
-                  <Upload className="size-8" />
+                  <Upload
+                    className={`size-8 transition-transform ${isDragging ? "scale-110" : ""}`}
+                  />
                   <div className="text-center">
                     <p className="font-semibold">
-                      Click to upload or drag and drop
+                      {isDragging
+                        ? "Drop your file here"
+                        : "Click to upload, drag and drop, or paste (Ctrl+V)"}
                     </p>
                     <p className="text-sm text-foreground/60">
                       MP4, WebM, MKV, MOV, MP3, WAV, AAC and more
@@ -651,7 +792,7 @@ export default function ConvertPage() {
                   <MediaPlayer src={selectedFile} />
                   <div className="space-y-3 max-w-3xl mx-auto">
                     {/* File Info Header */}
-                    <div className="flex items-center justify-between gap-3 rounded-base border-2 border-border bg-white p-3">
+                    <div className="flex items-center justify-between gap-3 rounded-base border-2 border-border bg-white dark:bg-gray-950 p-3">
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold truncate">
                           {selectedFile.name}
@@ -666,7 +807,7 @@ export default function ConvertPage() {
                         onClick={() =>
                           document.getElementById("video-upload")?.click()
                         }
-                        className="shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                        className="shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]"
                       >
                         <Upload className="size-4" />
                         Change File
@@ -675,14 +816,14 @@ export default function ConvertPage() {
 
                     {/* Metadata Display */}
                     {loadingMetadata ? (
-                      <div className="flex items-center justify-center gap-2 rounded-base border-2 border-border bg-white p-4">
+                      <div className="flex items-center justify-center gap-2 rounded-base border-2 border-border bg-white dark:bg-gray-950 p-4">
                         <Loader2 className="size-4 animate-spin" />
                         <span className="text-sm text-foreground/60">
                           Loading metadata...
                         </span>
                       </div>
                     ) : metadata ? (
-                      <div className="rounded-base border-2 border-border bg-white p-4">
+                      <div className="rounded-base border-2 border-border bg-white dark:bg-gray-950 p-4">
                         <div className="flex items-center gap-2 mb-3">
                           <h4 className="font-semibold text-sm">
                             File Information
@@ -694,7 +835,7 @@ export default function ConvertPage() {
                           )}
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div className="rounded-base border border-border bg-main/5 px-3 py-2">
+                          <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
                             <div className="text-xs text-foreground/60">
                               Container
                             </div>
@@ -703,7 +844,7 @@ export default function ConvertPage() {
                             </div>
                           </div>
                           {metadata.duration !== null && (
-                            <div className="rounded-base border border-border bg-main/5 px-3 py-2">
+                            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
                               <div className="text-xs text-foreground/60">
                                 Duration
                               </div>
@@ -713,7 +854,7 @@ export default function ConvertPage() {
                             </div>
                           )}
                           {metadata.dimensions && (
-                            <div className="rounded-base border border-border bg-main/5 px-3 py-2">
+                            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
                               <div className="text-xs text-foreground/60">
                                 Dimensions
                               </div>
@@ -724,7 +865,7 @@ export default function ConvertPage() {
                             </div>
                           )}
                           {metadata.frameRate !== null && (
-                            <div className="rounded-base border border-border bg-main/5 px-3 py-2">
+                            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
                               <div className="text-xs text-foreground/60">
                                 Frame Rate
                               </div>
@@ -734,7 +875,7 @@ export default function ConvertPage() {
                             </div>
                           )}
                           {metadata.videoCodec && (
-                            <div className="rounded-base border border-border bg-main/5 px-3 py-2">
+                            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
                               <div className="text-xs text-foreground/60">
                                 Video Codec
                               </div>
@@ -746,7 +887,7 @@ export default function ConvertPage() {
                             </div>
                           )}
                           {metadata.audioCodec && (
-                            <div className="rounded-base border border-border bg-main/5 px-3 py-2">
+                            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
                               <div className="text-xs text-foreground/60">
                                 Audio Codec
                               </div>
@@ -758,7 +899,7 @@ export default function ConvertPage() {
                             </div>
                           )}
                           {metadata.sampleRate !== null && (
-                            <div className="rounded-base border border-border bg-main/5 px-3 py-2">
+                            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
                               <div className="text-xs text-foreground/60">
                                 Sample Rate
                               </div>
@@ -768,7 +909,7 @@ export default function ConvertPage() {
                             </div>
                           )}
                           {metadata.numberOfChannels !== null && (
-                            <div className="rounded-base border border-border bg-main/5 px-3 py-2">
+                            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
                               <div className="text-xs text-foreground/60">
                                 Channels
                               </div>
@@ -782,7 +923,7 @@ export default function ConvertPage() {
                             </div>
                           )}
                           {metadata.isHdr && (
-                            <div className="rounded-base border border-border bg-main/5 px-3 py-2">
+                            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
                               <div className="text-xs text-foreground/60">
                                 Color
                               </div>
@@ -803,7 +944,7 @@ export default function ConvertPage() {
               <div className="space-y-2">
                 <label className="text-sm font-semibold">Input Format</label>
                 <Select value={inputFormat} onValueChange={setInputFormat}>
-                  <SelectTrigger className="h-12 bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                  <SelectTrigger className="h-12 bg-white dark:bg-gray-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
                     <SelectValue placeholder="Select input format" />
                   </SelectTrigger>
                   <SelectContent>
@@ -821,7 +962,7 @@ export default function ConvertPage() {
 
               {/* Arrow Icon */}
               <div className="flex items-end justify-center pb-2 md:pb-0 md:items-center">
-                <div className="rounded-full border-2 border-border bg-main p-3 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                <div className="rounded-full border-2 border-border bg-main p-3 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
                   <ArrowRight className="size-6" />
                 </div>
               </div>
@@ -830,7 +971,7 @@ export default function ConvertPage() {
               <div className="space-y-2">
                 <label className="text-sm font-semibold">Output Format</label>
                 <Select value={outputFormat} onValueChange={setOutputFormat}>
-                  <SelectTrigger className="h-12 bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                  <SelectTrigger className="h-12 bg-white dark:bg-gray-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
                     <SelectValue placeholder="Select output format" />
                   </SelectTrigger>
                   <SelectContent>
@@ -852,14 +993,14 @@ export default function ConvertPage() {
               outputFormat &&
               outputContainers.includes(outputFormat as OutputContainer) &&
               !isAudioOnlyFormat(outputFormat as OutputContainer) && (
-                <div className="rounded-base border-2 border-amber-500 bg-amber-50 p-4">
+                <div className="rounded-base border-2 border-amber-500 bg-amber-50 dark:bg-amber-950 p-4">
                   <div className="flex items-start gap-2">
                     <span className="text-lg">ℹ️</span>
                     <div>
-                      <p className="font-semibold text-amber-700">
+                      <p className="font-semibold text-amber-700 dark:text-amber-300">
                         Audio-only input file
                       </p>
-                      <p className="text-sm text-amber-700">
+                      <p className="text-sm text-amber-700 dark:text-amber-300">
                         Your input file only contains audio. The output will be
                         a {outputFormat.toUpperCase()} container with audio only
                         (no video track).
@@ -872,7 +1013,7 @@ export default function ConvertPage() {
             {/* Codec Selection */}
             {outputFormat &&
               outputContainers.includes(outputFormat as OutputContainer) && (
-                <div className="rounded-base border-2 border-border bg-white p-4">
+                <div className="rounded-base border-2 border-border bg-white dark:bg-gray-950 p-4">
                   <div className="flex items-center gap-2 mb-4">
                     <h4 className="font-semibold text-sm">Encoding Options</h4>
                     <span className="text-xs text-foreground/70">
@@ -899,7 +1040,7 @@ export default function ConvertPage() {
                               value={videoCodec}
                               onValueChange={setVideoCodec}
                             >
-                              <SelectTrigger className="bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                              <SelectTrigger className="bg-white dark:bg-gray-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
                                 <SelectValue placeholder="Select video codec" />
                               </SelectTrigger>
                               <SelectContent>
@@ -938,7 +1079,7 @@ export default function ConvertPage() {
                           value={audioCodec}
                           onValueChange={setAudioCodec}
                         >
-                          <SelectTrigger className="bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                          <SelectTrigger className="bg-white dark:bg-gray-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
                             <SelectValue placeholder="Select audio codec" />
                           </SelectTrigger>
                           <SelectContent>
@@ -971,6 +1112,59 @@ export default function ConvertPage() {
                 </div>
               )}
 
+            {/* Notify Me Option */}
+            {outputFormat &&
+              outputContainers.includes(outputFormat as OutputContainer) && (
+                <div className="rounded-base border-2 border-border bg-white dark:bg-gray-950 p-4">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="notifyMe"
+                      checked={notifyMe}
+                      onChange={async (e) => {
+                        console.log(
+                          "Notify me checkbox changed:",
+                          e.target.checked,
+                        );
+                        if (e.target.checked) {
+                          // Request notification permission if not granted
+                          if ("Notification" in window) {
+                            if (Notification.permission === "default") {
+                              const permission =
+                                await Notification.requestPermission();
+                              setNotifyMe(permission === "granted");
+                            } else if (Notification.permission === "granted") {
+                              setNotifyMe(true);
+                            } else {
+                              // Permission denied
+                              setNotifyMe(false);
+                              alert(
+                                "Notification permission is denied. Please enable it in your browser settings.",
+                              );
+                            }
+                          } else {
+                            alert(
+                              "Notifications are not supported in your browser.",
+                            );
+                            setNotifyMe(false);
+                          }
+                        } else {
+                          console.log("Notifications unchecked");
+                          setNotifyMe(false);
+                        }
+                      }}
+                      className="size-4 cursor-pointer accent-main"
+                    />
+                    <label
+                      htmlFor="notifyMe"
+                      className="text-sm font-medium cursor-pointer"
+                    >
+                      Notify me when conversion is complete
+                    </label>
+                  </div>
+                </div>
+              )}
+
             {/* Conversion Progress */}
             {conversionStatus === "converting" && (
               <div className="space-y-3 rounded-base border-2 border-border bg-white p-4">
@@ -986,13 +1180,13 @@ export default function ConvertPage() {
                 {/* Stats Display */}
                 {stats && (
                   <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div className="rounded-base border border-border bg-main/5 px-3 py-2">
+                    <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
                       <div className="text-xs text-foreground/60">Elapsed</div>
                       <div className="font-mono font-semibold">
                         {formatTime(stats.elapsedSeconds)}
                       </div>
                     </div>
-                    <div className="rounded-base border border-border bg-main/5 px-3 py-2">
+                    <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
                       <div className="text-xs text-foreground/60">
                         Remaining
                       </div>
@@ -1002,7 +1196,7 @@ export default function ConvertPage() {
                           : "Calculating..."}
                       </div>
                     </div>
-                    <div className="col-span-2 rounded-base border border-border bg-main/5 px-3 py-2">
+                    <div className="col-span-2 rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
                       <div className="text-xs text-foreground/60">
                         Output Size
                       </div>
@@ -1017,7 +1211,7 @@ export default function ConvertPage() {
                   variant="neutral"
                   size="sm"
                   onClick={handleCancel}
-                  className="w-full shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                  className="w-full shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]"
                 >
                   Cancel
                 </Button>
@@ -1026,7 +1220,7 @@ export default function ConvertPage() {
 
             {/* Finalizing State */}
             {conversionStatus === "finalizing" && (
-              <div className="space-y-3 rounded-base border-2 border-border bg-white p-4">
+              <div className="space-y-3 rounded-base border-2 border-border bg-white dark:bg-gray-950 p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Loader2 className="size-5 animate-spin text-main" />
@@ -1043,14 +1237,14 @@ export default function ConvertPage() {
 
             {/* Conversion Complete */}
             {conversionStatus === "completed" && convertedBlob && (
-              <div className="space-y-3 rounded-base border-2 border-green-500 bg-green-50 p-4">
+              <div className="space-y-3 rounded-base border-2 border-green-500 bg-green-50 dark:bg-green-950 p-4">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="size-5 text-green-600" />
-                  <span className="font-semibold text-green-700">
+                  <span className="font-semibold text-green-700 dark:text-green-300">
                     Conversion Complete!
                   </span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-green-700">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-green-700 dark:text-green-300">
                   <div className="rounded-base border border-green-600 bg-green-100 px-3 py-2">
                     <div className="text-xs text-green-600">Output size</div>
                     <div className="font-mono font-semibold">
@@ -1058,8 +1252,10 @@ export default function ConvertPage() {
                     </div>
                   </div>
                   {stats && (
-                    <div className="rounded-base border border-green-600 bg-green-100 px-3 py-2">
-                      <div className="text-xs text-green-600">Time taken</div>
+                    <div className="rounded-base border border-green-600 bg-green-100 dark:bg-green-900 px-3 py-2">
+                      <div className="text-xs text-green-600 dark:text-green-400">
+                        Time taken
+                      </div>
                       <div className="font-mono font-semibold">
                         {formatTime(stats.elapsedSeconds)}
                       </div>
@@ -1070,7 +1266,7 @@ export default function ConvertPage() {
                   <Button
                     size="lg"
                     onClick={handleDownload}
-                    className="w-full sm:flex-1 bg-green-600 text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:bg-green-700"
+                    className="w-full sm:flex-1 bg-green-600 text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)] hover:bg-green-700"
                   >
                     <Download className="size-5" />
                     Download File
@@ -1079,7 +1275,7 @@ export default function ConvertPage() {
                     variant="neutral"
                     size="lg"
                     onClick={resetConversion}
-                    className="w-full sm:w-auto shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                    className="w-full sm:w-auto shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]"
                   >
                     Convert Another
                   </Button>
@@ -1089,19 +1285,21 @@ export default function ConvertPage() {
 
             {/* Conversion Error */}
             {conversionStatus === "error" && (
-              <div className="space-y-3 rounded-base border-2 border-red-500 bg-red-50 p-4">
+              <div className="space-y-3 rounded-base border-2 border-red-500 bg-red-50 dark:bg-red-950 p-4">
                 <div className="flex items-center gap-2">
                   <XCircle className="size-5 text-red-600" />
-                  <span className="font-semibold text-red-700">
+                  <span className="font-semibold text-red-700 dark:text-red-300">
                     Conversion Failed
                   </span>
                 </div>
-                <p className="text-sm text-red-700">{errorMessage}</p>
+                <p className="text-sm text-red-700 dark:text-red-300">
+                  {errorMessage}
+                </p>
                 <Button
                   variant="neutral"
                   size="sm"
                   onClick={resetConversion}
-                  className="w-full shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                  className="w-full shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]"
                 >
                   Try Again
                 </Button>
@@ -1112,7 +1310,7 @@ export default function ConvertPage() {
             {conversionStatus === "idle" && (
               <Button
                 size="lg"
-                className="w-full text-base font-bold shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]"
+                className="w-full text-base font-bold shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,0.1)]"
                 disabled={!selectedFile || !inputFormat || !outputFormat}
                 onClick={handleConvert}
               >
@@ -1131,9 +1329,9 @@ export default function ConvertPage() {
 
         {/* Features Grid */}
         <div className="grid gap-4 md:grid-cols-3">
-          <Card className="shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
+          <Card className="shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,0.1)]">
             <CardContent className="flex flex-col items-center justify-center p-6 text-center">
-              <div className="mb-3 rounded-full border-2 border-border bg-main p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+              <div className="mb-3 rounded-full border-2 border-border bg-main p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
                 <FileVideo className="size-8" />
               </div>
               <h3 className="mb-2 font-heading text-lg font-bold">
@@ -1146,9 +1344,9 @@ export default function ConvertPage() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
+          <Card className="shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,0.1)]">
             <CardContent className="flex flex-col items-center justify-center p-6 text-center">
-              <div className="mb-3 rounded-full border-2 border-border bg-main p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+              <div className="mb-3 rounded-full border-2 border-border bg-main p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
                 <Upload className="size-8" />
               </div>
               <h3 className="mb-2 font-heading text-lg font-bold">
@@ -1161,9 +1359,9 @@ export default function ConvertPage() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
+          <Card className="shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,0.1)]">
             <CardContent className="flex flex-col items-center justify-center p-6 text-center">
-              <div className="mb-3 rounded-full border-2 border-border bg-main p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+              <div className="mb-3 rounded-full border-2 border-border bg-main p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
                 <Download className="size-8" />
               </div>
               <h3 className="mb-2 font-heading text-lg font-bold">
