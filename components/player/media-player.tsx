@@ -111,6 +111,7 @@ export function MediaPlayer({ src }: MediaPlayerProps) {
         "w-full",
         "max-w-3xl",
         "mx-auto",
+        isFullscreen && "max-w-none h-screen bg-black",
       )}
     >
       <div
@@ -121,6 +122,7 @@ export function MediaPlayer({ src }: MediaPlayerProps) {
           "overflow-hidden",
           "bg-black",
           "relative",
+          isFullscreen && "flex items-center justify-center flex-1 w-full border-0 rounded-none",
         )}
       >
         {/* Audio-only visual placeholder */}
@@ -135,14 +137,13 @@ export function MediaPlayer({ src }: MediaPlayerProps) {
         <canvas
           ref={canvasRef}
           className={cn(
-            "w-full",
             "block",
-            isFullscreen && "flex-1",
+            isFullscreen ? "max-w-full max-h-full w-auto h-auto" : "w-full",
             isAudioOnly && "opacity-0 h-48",
           )}
         />
       </div>
-      <div className="h-2" />
+      <div className={cn("h-2", isFullscreen && "hidden")} />
       {mediaFox && isLoaded ? (
         <div
           className={cn(
@@ -154,6 +155,7 @@ export function MediaPlayer({ src }: MediaPlayerProps) {
             "border-black",
             "bg-white",
             "overflow-hidden",
+            isFullscreen && "w-full border-0 border-t-2 rounded-none border-b-0",
           )}
         >
           {/* Mobile SeekBar: Top row on mobile only */}
