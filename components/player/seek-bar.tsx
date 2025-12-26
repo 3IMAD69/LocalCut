@@ -18,6 +18,8 @@ export function SeekBar({ playerRef }: SeekBarProps) {
   const [duration, setDuration] = useState(0);
   // Use a ref to track seeking state to avoid re-renders and race conditions
   const isSeekingRef = useRef(false);
+  // Track the last seeked time to avoid duplicate seeks
+  const lastSeekedTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
     const handleTimeUpdate = () => {
@@ -49,7 +51,9 @@ export function SeekBar({ playerRef }: SeekBarProps) {
       const newTime = values[0];
       isSeekingRef.current = true;
       setCurrentTime(newTime);
-      // Seek immediately during drag for responsive feedback
+      // Seek immediately for real-time preview during drag
+      // Track the last seeked time to avoid duplicate seek on commit
+      lastSeekedTimeRef.current = newTime;
       setPlayerCurrentTime(playerRef, newTime);
     },
     [playerRef],
@@ -58,9 +62,12 @@ export function SeekBar({ playerRef }: SeekBarProps) {
   const handleSeekEnd = useCallback(
     (values: number[]) => {
       const newTime = values[0];
-      // Ensure final position is set
-      setPlayerCurrentTime(playerRef, newTime);
-      setCurrentTime(newTime);
+      // Only seek if the value changed since the last seek (avoids double-seek on click)
+      if (lastSeekedTimeRef.current !== newTime) {
+        setPlayerCurrentTime(playerRef, newTime);
+        setCurrentTime(newTime);
+      }
+      lastSeekedTimeRef.current = null;
       // Small delay before allowing timeupdate to take over again
       // This prevents the slider from jumping back momentarily
       requestAnimationFrame(() => {

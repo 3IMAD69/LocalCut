@@ -1,0 +1,57 @@
+# GitHub Copilot Instructions
+
+## Reference Documentation
+
+When working with Mediabunny library code, fetch and reference the comprehensive documentation from:
+- https://mediabunny.dev/llms-full.txt
+
+This URL contains the complete Mediabunny guide including:
+- API documentation with TypeScript definitions
+- Usage examples and patterns
+- Best practices and guidelines
+- All supported formats and codecs
+
+## When to Fetch Documentation
+
+Automatically fetch the documentation when:
+- User asks about Mediabunny functionality
+- Code involves media file processing (video, audio, conversion)
+- Questions about container formats (MP4, WebM, MKV, etc.)
+- Codec-related queries (encoding, decoding)
+- Media stream handling
+- VideoSample, AudioSample, or EncodedPacket usage
+
+## Coding Guidelines
+
+1. **Use the latest Mediabunny APIs** as defined in the fetched documentation
+2. **Prefer TypeScript** for type safety
+3. **Include proper error handling** for media operations
+4. **Close resources** (samples, packets) when done using them
+5. **Handle backpressure** by awaiting promises from media sources
+6. **Follow async/await patterns** for all I/O operations
+
+## Example Patterns
+
+When suggesting Mediabunny code:
+- Always import from 'mediabunny'
+- Use proper type annotations
+- Show complete, working examples
+- Include resource cleanup (close() methods)
+- Demonstrate error handling
+
+## Response Style
+
+- Provide detailed explanations with code examples
+- Reference specific sections from the documentation
+- Explain trade-offs between different approaches
+- Suggest performance optimizations when relevant
+- Clarify timing (seconds vs microseconds)
+
+## Context Awareness
+
+Remember that:
+- All timestamps in Mediabunny use seconds (not microseconds)
+- Samples must be manually closed to free resources
+- Backpressure is communicated via promises
+- Different formats have different capabilities
+- WebCodecs API integration is a core feature
