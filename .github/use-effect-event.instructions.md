@@ -1,7 +1,5 @@
 ---
-alwaysApply: false
-globs:
-  - "**/*.tsx"
+applyTo: "**/*.tsx"
 ---
 
 # Prefer useEffectEvent for Effect Callbacks

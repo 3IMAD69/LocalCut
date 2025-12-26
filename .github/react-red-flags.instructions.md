@@ -1,7 +1,5 @@
 ---
-alwaysApply: false
-globs:
-  - "**/*.tsx"
+applyTo: "**/*.tsx"
 ---
 
 Red flags in a React codebase

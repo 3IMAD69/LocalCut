@@ -1,5 +1,5 @@
 ---
-alwaysApply: true
+applyTo: '**/*'
 ---
 
 Always use `bun` for package management:
