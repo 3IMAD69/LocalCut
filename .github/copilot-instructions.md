@@ -55,3 +55,7 @@ Remember that:
 - Backpressure is communicated via promises
 - Different formats have different capabilities
 - WebCodecs API integration is a core feature
+
+## UI/Design System
+
+This project uses **Neobrutalism** design style. See [ui-design-system.instructions.md](./ui-design-system.instructions.md) for complete guidelines.
