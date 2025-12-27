@@ -727,11 +727,11 @@ export default function ConvertPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#f5f5f5] dark:bg-black p-4 md:p-8">
+    <div className="min-h-screen bg-background dark:bg-black p-4 md:p-8">
       <div className="mx-auto max-w-6xl">
         {/* Header */}
         <div className="mb-8 text-center">
-          <h1 className="mb-3 font-heading text-5xl font-bold tracking-tight text-foreground">
+          <h1 className="mb-3 font-heading text-5xl tracking-tight text-foreground">
             LocalCut - Media Converter
           </h1>
           <p className="text-lg text-foreground/70">
@@ -1334,7 +1334,7 @@ export default function ConvertPage() {
               <div className="mb-3 rounded-full border-2 border-border bg-main p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
                 <FileVideo className="size-8" />
               </div>
-              <h3 className="mb-2 font-heading text-lg font-bold">
+              <h3 className="mb-2 font-heading text-lg">
                 Multiple Formats
               </h3>
               <p className="text-sm text-foreground/70">
@@ -1349,7 +1349,7 @@ export default function ConvertPage() {
               <div className="mb-3 rounded-full border-2 border-border bg-main p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
                 <Upload className="size-8" />
               </div>
-              <h3 className="mb-2 font-heading text-lg font-bold">
+              <h3 className="mb-2 font-heading text-lg">
                 Client-Side Processing
               </h3>
               <p className="text-sm text-foreground/70">
@@ -1364,7 +1364,7 @@ export default function ConvertPage() {
               <div className="mb-3 rounded-full border-2 border-border bg-main p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
                 <Download className="size-8" />
               </div>
-              <h3 className="mb-2 font-heading text-lg font-bold">
+              <h3 className="mb-2 font-heading text-lg">
                 High Quality
               </h3>
               <p className="text-sm text-foreground/70">

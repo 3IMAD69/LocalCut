@@ -8,6 +8,7 @@
         "@hookform/resolvers": "^5.2.2",
         "@mediabunny/mp3-encoder": "^1.27.1",
         "@mediafox/core": "^1.2.0",
+        "@mediafox/react": "^1.2.0",
         "@radix-ui/react-accordion": "^1.2.12",
         "@radix-ui/react-alert-dialog": "^1.1.15",
         "@radix-ui/react-avatar": "^1.1.11",
@@ -269,6 +270,8 @@
     "@mediabunny/mp3-encoder": ["@mediabunny/mp3-encoder@1.27.1", "", { "peerDependencies": { "mediabunny": "^1.0.0" } }, "sha512-q3X/cRcYUPiHhZEtQ7yqDebrXBeD27vnmqsIKWECCXNE6UF93YDCIkrIi8ge2xjcmhrQWLBv7bnSkGIseDfotQ=="],
 
     "@mediafox/core": ["@mediafox/core@1.2.0", "", { "peerDependencies": { "mediabunny": "^1.25.3", "typescript": ">=5.0.0" } }, "sha512-cdSR8NIwV34zfD1DA+M92/LPHttWXr55T4vVWwaMVQf5QvCAhUAmLfM05Im2EhJK8+QNGmONaIbUYuNexpAn3g=="],
+
+    "@mediafox/react": ["@mediafox/react@1.2.0", "", { "peerDependencies": { "@mediafox/core": "^1.2.0", "react": ">=18.0.0" } }, "sha512-/cJExPdPhHqtweLjN9pE3UPeUO4KdgBiU4RwbDFL9nlmzhj1fr+53FdysagcwzmZm+frQTM71NEprvdEU6nwkw=="],
 
     "@modelcontextprotocol/sdk": ["@modelcontextprotocol/sdk@1.25.1", "", { "dependencies": { "@hono/node-server": "^1.19.7", "ajv": "^8.17.1", "ajv-formats": "^3.0.1", "content-type": "^1.0.5", "cors": "^2.8.5", "cross-spawn": "^7.0.5", "eventsource": "^3.0.2", "eventsource-parser": "^3.0.0", "express": "^5.0.1", "express-rate-limit": "^7.5.0", "jose": "^6.1.1", "json-schema-typed": "^8.0.2", "pkce-challenge": "^5.0.0", "raw-body": "^3.0.0", "zod": "^3.25 || ^4.0", "zod-to-json-schema": "^3.25.0" }, "peerDependencies": { "@cfworker/json-schema": "^4.1.1" }, "optionalPeers": ["@cfworker/json-schema"] }, "sha512-yO28oVFFC7EBoiKdAn+VqRm+plcfv4v0xp6osG/VsCB0NlPZWi87ajbCZZ8f/RvOFLEu7//rSRmuZZ7lMoe3gQ=="],
 
