@@ -59,3 +59,12 @@ Remember that:
 ## UI/Design System
 
 This project uses **Neobrutalism** design style. See [ui-design-system.instructions.md](./ui-design-system.instructions.md) for complete guidelines.
+
+---
+
+## MediaFox Documentation
+
+**CRITICAL:** When working with media playback or React components related to media:
+1. **MUST READ** [.github/mediafox-react.instructions.md](.github/mediafox-react.instructions.md) for React integration patterns and mandatory usage rules.
+2. **MUST READ ALL** markdown files in the [.github/mediafox-docs/](.github/mediafox-docs/) folder to understand the core API, state management, and event system.
+3. **DO NOT** use native HTML5 `<video>` or `<audio>` elements. Use MediaFox components which render to `<canvas>`.

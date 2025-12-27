@@ -1,0 +1,226 @@
+# 🔥 COMPLETE REWRITE — MEDIAFOX EDITOR PREVIEW PLAYER (MD-ONLY SPEC)
+
+## ❗ Situation
+The existing editor preview player is **completely broken**.
+
+### Known failures
+- Uses **MediaBunny** → ❌ must be fully removed
+- Mono audio media → ❌ silent
+- Video + audio on the same track → ❌ audio does not play
+- External audio under video → ❌ broken
+- Timeline sync is unreliable
+
+This **cannot be fixed incrementally**.  
+A **full rewrite** using **MediaFox React library** is required.
+
+---
+
+## 🎯 Objective
+Create a **new editor preview player** powered exclusively by **MediaFox React**, fully synced to the editor timeline, with a **correct and deterministic audio pipeline**.
+
+**Primary priority:**  
+👉 Audio must work in **all mono and stereo scenarios**.
+
+---
+
+## 🚨 Absolute Rules
+- ❌ Do **not** reuse any old player code
+- ❌ Do **not** use MediaBunny
+- ❌ Do **not** use `<video>` or `<audio>` HTML tags
+- ✅ Use **MediaFox React library only**
+- ✅ Timeline is the **single source of truth**
+- ✅ Audio correctness is non-negotiable
+
+---
+
+## 🧠 Core Design Principles
+
+### Timeline-Driven Playback
+- The timeline controls **time**, not MediaFox
+- MediaFox renders **only what the timeline requests**
+- Seeking, scrubbing, and playback all originate from timeline state
+
+---
+
+## ▶️ MediaFox Player Core
+
+### Responsibilities
+- Initialize MediaFox
+- Attach MediaFox renderer to the preview canvas
+- Accept timeline time updates
+- Drive frame rendering and audio scheduling
+
+### Forbidden Behavior
+- MediaFox must never autoplay
+- MediaFox must never own playback state
+- No internal clocks independent of the timeline
+
+---
+
+## 🕒 Playback & Sync Model
+
+- Timeline emits:
+  - `currentTime`
+  - `isPlaying`
+- Player reacts deterministically:
+  - If playing → advance time
+  - If paused → render static frame
+  - If seeking → flush and resync audio
+
+No drift. No offsets. No guessing.
+
+---
+
+## 🎧 Audio System (CRITICAL SECTION)
+
+### Fundamental Rule
+**Audio is always independent from video.**
+
+Even when a clip appears as “video with audio” on the timeline, internally:
+
+- Video decoding = video system
+- Audio decoding = audio system
+
+They never share state.
+
+---
+
+### Audio Graph (Conceptual)
+
+MediaFox Audio Source
+→ Channel Mapper
+→ Gain (volume)
+→ Audio Mixer
+→ MediaFox Output
+
+All audio—embedded or external—flows through the same graph.
+
+---
+
+## 🟢 Mono Audio Fix (Root Cause + Solution)
+
+### Root Cause
+- Mono audio was previously routed as if it were stereo
+- Media engine assumed channel layout instead of enforcing it
+- Result: silent output
+
+### New Behavior (Mandatory)
+- Channel count is **explicitly read** from MediaFox metadata
+- Mono audio is **explicitly mapped**:
+  - Mono → dual output (L = R)
+- No implicit channel assumptions
+- No auto-muting paths
+
+Mono audio must **always be audible**.
+
+---
+
+## 🎼 Video + Audio on Same Track (FIX)
+
+### Old Behavior
+- Video decoding suppressed audio decoding
+- Shared pipeline caused audio to be skipped
+
+### New Rule
+- If a video clip contains audio:
+  - Extract audio as a **separate audio source**
+  - Route it through the audio graph like any other audio track
+
+Even if video and audio are on the same timeline track:
+- They are **processed independently**
+- They remain **sample-synced**
+
+---
+
+## 🔊 Audio Mixing Rules
+
+- All active audio tracks are mixed
+- Volume applied per track
+- Muted tracks produce silence
+- Overlapping audio is summed correctly
+- No phase cancellation
+- No clipping
+- Deterministic order of operations
+
+---
+
+## 🎞️ Video Rendering
+
+- MediaFox video renderer only
+- Frame selection based on:
+timeline.currentTime
+- Video never controls playback
+- Video never touches audio state
+
+---
+
+## 🧩 Timeline Integration
+
+### Timeline Responsibilities
+- Define clip start/end
+- Define track muting
+- Define offsets and trims
+- Emit current playback time
+
+### Player Responsibilities
+- Resolve which clips are active at current time
+- Feed resolved state into MediaFox
+- Maintain exact sync
+
+---
+
+## ⚛️ React Integration (Editor Preview)
+
+### Preview Behavior
+- MediaFox canvas rendered in React
+- React subscribes to:
+- currentTime
+- isPlaying
+- UI never manipulates MediaFox directly
+- All control flows through timeline state
+
+---
+
+## 🧪 Required Test Scenarios (MUST PASS)
+
+- Mono video with embedded audio → 🔊 audible
+- Stereo video with embedded audio → 🔊 audible
+- Mono video + mono external audio → 🔊 both audible
+- Stereo video + mono external audio → 🔊 both audible
+- Video + audio on same track → 🔊 audio plays
+- Multiple stacked audio tracks → 🔊 mixed correctly
+- Timeline scrubbing → 🔊 stays in sync
+- Play / Pause / Seek → 🔊 no dropouts
+
+---
+
+## ❌ What Is Explicitly Forbidden
+- HTML media tags
+- MediaBunny usage
+- Implicit audio routing
+- Shared video/audio pipelines
+- Legacy logic reuse
+- “Best effort” audio handling
+
+---
+
+## ✅ Success Definition
+If **any** of the following occur:
+- Mono audio is silent
+- External audio does not play
+- Audio drops when stacked
+- Audio desyncs from timeline
+
+➡️ **The rewrite has failed.**
+
+---
+
+## 🧠 Final Statement
+This is a **clean-slate MediaFox rewrite**.
+
+- Timeline owns time
+- MediaFox renders deterministically
+- Audio is explicit, isolated, and correct
+- Mono audio is treated as a first-class case
+
+**Nothing from the old player survives.**

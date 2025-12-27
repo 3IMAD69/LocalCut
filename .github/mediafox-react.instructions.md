@@ -1,4 +1,48 @@
-# React Integration
+# MediaFox React Integration
+
+## Reference Documentation
+
+**IMPORTANT:** Always read the documentation files in `.github/mediafox-docs/` folder before working with media playback:
+
+### Core Documentation
+- [react.md](.github/mediafox-docs/react.md) - **Primary reference for React integration**
+- [getting-started.md](.github/mediafox-docs/getting-started.md)
+- [installation.md](.github/mediafox-docs/installation.md)
+- [basic-usage.md](.github/mediafox-docs/basic-usage.md)
+
+### Player & Playback
+- [player.md](.github/mediafox-docs/player.md)
+- [playback-controller.md](.github/mediafox-docs/playback-controller.md)
+- [source-manager.md](.github/mediafox-docs/source-manager.md)
+
+### State & Events
+- [state-management.md](.github/mediafox-docs/state-management.md)
+- [store.md](.github/mediafox-docs/store.md)
+- [events.md](.github/mediafox-docs/events.md)
+- [event-emitter.md](.github/mediafox-docs/event-emitter.md)
+
+### Tracks & Playlists
+- [tracks.md](.github/mediafox-docs/tracks.md)
+- [track-manager.md](.github/mediafox-docs/track-manager.md)
+- [playlists.md](.github/mediafox-docs/playlists.md)
+
+### Advanced
+- [plugins.md](.github/mediafox-docs/plugins.md)
+- [performance.md](.github/mediafox-docs/performance.md)
+- [errors.md](.github/mediafox-docs/errors.md)
+- [types.md](.github/mediafox-docs/types.md)
+- [utilities.md](.github/mediafox-docs/utilities.md)
+
+## Mandatory Usage
+
+**ALWAYS use MediaFox for all media playback in this project:**
+- Use `@mediafox/react` for React components
+- Use `@mediafox/core` for core functionality
+- **DO NOT** use native HTML5 `<video>` or `<audio>` elements directly
+- **DO NOT** use other media player libraries (video.js, plyr, react-player, etc.)
+- MediaFox renders to `<canvas>` elements, not video elements
+
+---
 
 MediaFox works seamlessly with React. This guide shows you how to create a custom Media Player component using the official `@mediafox/react` package.
 
