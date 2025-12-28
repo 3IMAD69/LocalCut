@@ -219,7 +219,6 @@ export function EditingPanel({
           description="Strip the audio track from output"
           checked={state.mute.enabled}
           onCheckedChange={handleMuteToggle}
-          disabled // TODO: Implement audio removal
         />
 
         {/* Crop info when active */}

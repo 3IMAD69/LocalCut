@@ -572,8 +572,15 @@ export default function ConvertPage() {
       }
 
       // Build audio options
-      const audioOptions =
-        audioCodec !== "copy" ? { codec: audioCodec as AudioCodec } : undefined;
+      // If mute is enabled, discard the audio track entirely
+      let audioOptions: { discard: true } | { codec: AudioCodec } | undefined;
+      
+      if (editingState.mute.enabled) {
+        audioOptions = { discard: true };
+        console.log("Audio will be stripped from output");
+      } else if (audioCodec !== "copy") {
+        audioOptions = { codec: audioCodec as AudioCodec };
+      }
 
       console.log("Video options:", videoOptions);
       console.log("Audio options:", audioOptions);
@@ -743,7 +750,7 @@ export default function ConvertPage() {
     } finally {
       conversionRef.current = null;
     }
-  }, [selectedFile, outputFormat, videoCodec, audioCodec, editingState.crop, metadata?.dimensions]);
+  }, [selectedFile, outputFormat, videoCodec, audioCodec, editingState.crop, editingState.mute.enabled, metadata?.dimensions]);
 
   const handleDownload = useCallback(() => {
     if (!convertedBlob || !selectedFile) return;
