@@ -17,6 +17,17 @@ import {
 import type { MediaAsset } from "@/components/editor/panels/media-library";
 import { MediaImportProvider, useMediaImport, type ImportedMediaAsset } from "@/lib/media-import";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertTriangle } from "lucide-react";
 
 // Empty initial state for tracks (using TimelineTrackData format)
 const emptyTracks: TimelineTrackData[] = [
@@ -79,6 +90,7 @@ function EditorContent() {
   const [tracks, setTracks] = useState<TimelineTrackData[]>(emptyTracks);
   const [selectedClip, setSelectedClip] = useState<ClipProperties | null>(null);
   const [snapEnabled, setSnapEnabled] = useState(true);
+  const [showWipModal, setShowWipModal] = useState(true);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // Sync tracks to player context whenever they change
@@ -222,6 +234,15 @@ function EditorContent() {
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Header */}
+      {/* Persistent WIP Alert Banner */}
+      <Alert variant="destructive" className="rounded-none border-x-0 border-t-0">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertTitle>🚧 Work in Progress</AlertTitle>
+        <AlertDescription>
+          This editor is under active development. Features may be incomplete or not working.
+        </AlertDescription>
+      </Alert>
+
       <EditorHeader
         projectName="Untitled Project"
         hasUnsavedChanges={hasUnsavedChanges}
@@ -351,6 +372,30 @@ function EditorContent() {
           <span className="text-foreground/60">Ready</span>
         </div>
       </footer>
+
+      {/* Work in Progress Modal */}
+      <Dialog open={showWipModal} onOpenChange={setShowWipModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl">🚧 Work in Progress</DialogTitle>
+            <DialogDescription className="text-base pt-2">
+              The video editor is still under development and is not fully functional yet. 
+              Some features may not work as expected or may be incomplete.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-foreground/80">
+              We&apos;re working hard to bring you a powerful editing experience. 
+              Check back soon for updates!
+            </p>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowWipModal(false)} className="w-full sm:w-auto">
+              I Understand
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
