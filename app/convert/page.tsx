@@ -25,7 +25,16 @@ import {
   type VideoCodec,
 } from "mediabunny";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { MediaPlayer } from "@/components/player/media-player";
+import {
+  EditingPanel,
+  type EditingState,
+  defaultEditingState,
+  type CropRect,
+} from "@/components/editing";
+import {
+  EditableMediaPlayer,
+  type MediaPlayerHandle,
+} from "@/components/player/editable-media-player";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -172,8 +181,35 @@ export default function ConvertPage() {
   const [metadata, setMetadata] = useState<FileMetadata | null>(null);
   const [loadingMetadata, setLoadingMetadata] = useState<boolean>(false);
   const [notifyMe, setNotifyMe] = useState<boolean>(false);
+  const [editingState, setEditingState] =
+    useState<EditingState>(defaultEditingState);
   const conversionRef = useRef<Conversion | null>(null);
   const statsIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const mediaPlayerRef = useRef<MediaPlayerHandle>(null);
+  const notifyMeRef = useRef<boolean>(false);
+
+  // Keep notifyMeRef in sync with notifyMe state
+  useEffect(() => {
+    notifyMeRef.current = notifyMe;
+  }, [notifyMe]);
+
+  // Handle crop toggle - scroll to player when enabled
+  const handleCropToggle = useCallback((enabled: boolean) => {
+    if (enabled && mediaPlayerRef.current) {
+      // Small delay to let the overlay appear before scrolling
+      setTimeout(() => {
+        mediaPlayerRef.current?.scrollIntoView();
+      }, 100);
+    }
+  }, []);
+
+  // Handle crop rect changes from the overlay
+  const handleCropChange = useCallback((crop: CropRect) => {
+    setEditingState((prev) => ({
+      ...prev,
+      crop: { ...prev.crop, rect: crop },
+    }));
+  }, []);
 
   // Cleanup interval on unmount
   useEffect(() => {
@@ -256,6 +292,7 @@ export default function ConvertPage() {
       setErrorMessage("");
       setStats(null);
       setMetadata(null);
+      setEditingState(defaultEditingState);
       if (statsIntervalRef.current) {
         clearInterval(statsIntervalRef.current);
         statsIntervalRef.current = null;
@@ -312,6 +349,7 @@ export default function ConvertPage() {
         setErrorMessage("");
         setStats(null);
         setMetadata(null);
+        setEditingState(defaultEditingState);
         if (statsIntervalRef.current) {
           clearInterval(statsIntervalRef.current);
           statsIntervalRef.current = null;
@@ -348,6 +386,7 @@ export default function ConvertPage() {
           setErrorMessage("");
           setStats(null);
           setMetadata(null);
+          setEditingState(defaultEditingState);
           if (statsIntervalRef.current) {
             clearInterval(statsIntervalRef.current);
             statsIntervalRef.current = null;
@@ -499,13 +538,38 @@ export default function ConvertPage() {
       // Initialize conversion
       console.log("Initializing conversion...");
 
-      // Build video options
+      // Build video options including editing features
       const isAudioOnly = isAudioOnlyFormat(outputFormat as OutputContainer);
-      const videoOptions = isAudioOnly
-        ? { discard: true as const }
-        : videoCodec !== "copy"
-          ? { codec: videoCodec as VideoCodec }
-          : undefined;
+      
+      // Start with base video options
+      let videoOptions: Record<string, unknown> | { discard: true } | undefined;
+      
+      if (isAudioOnly) {
+        videoOptions = { discard: true as const };
+      } else {
+        videoOptions = {};
+        
+        // Add codec if not copying
+        if (videoCodec !== "copy") {
+          videoOptions.codec = videoCodec as VideoCodec;
+        }
+        
+        // Add crop if enabled (MediaBunny crop format)
+        if (editingState.crop.enabled && editingState.crop.rect && metadata?.dimensions) {
+          videoOptions.crop = {
+            left: Math.round(editingState.crop.rect.left * metadata.dimensions.width),
+            top: Math.round(editingState.crop.rect.top * metadata.dimensions.height),
+            width: Math.round(editingState.crop.rect.width * metadata.dimensions.width),
+            height: Math.round(editingState.crop.rect.height * metadata.dimensions.height),
+          };
+          console.log("Crop settings:", videoOptions.crop);
+        }
+        
+        // Only set videoOptions if we have something to configure
+        if (Object.keys(videoOptions).length === 0) {
+          videoOptions = undefined;
+        }
+      }
 
       // Build audio options
       const audioOptions =
@@ -653,9 +717,9 @@ export default function ConvertPage() {
         statsIntervalRef.current = null;
       }
 
-      // Send notification if enabled
+      // Send notification if enabled (use ref to get latest value)
       if (
-        notifyMe &&
+        notifyMeRef.current &&
         "Notification" in window &&
         Notification.permission === "granted"
       ) {
@@ -679,7 +743,7 @@ export default function ConvertPage() {
     } finally {
       conversionRef.current = null;
     }
-  }, [selectedFile, outputFormat, videoCodec, audioCodec, notifyMe]);
+  }, [selectedFile, outputFormat, videoCodec, audioCodec, editingState.crop, metadata?.dimensions]);
 
   const handleDownload = useCallback(() => {
     if (!convertedBlob || !selectedFile) return;
@@ -719,6 +783,7 @@ export default function ConvertPage() {
     setErrorMessage("");
     setStats(null);
     setNotifyMe(false);
+    setEditingState(defaultEditingState);
 
     if (statsIntervalRef.current) {
       clearInterval(statsIntervalRef.current);
@@ -789,7 +854,14 @@ export default function ConvertPage() {
                 </label>
               ) : (
                 <div className="space-y-3">
-                  <MediaPlayer src={selectedFile} />
+                  <EditableMediaPlayer
+                    ref={mediaPlayerRef}
+                    src={selectedFile}
+                    cropEnabled={editingState.crop.enabled}
+                    onCropChange={handleCropChange}
+                    initialCrop={editingState.crop.rect ?? undefined}
+                    videoDimensions={metadata?.dimensions ?? undefined}
+                  />
                   <div className="space-y-3 max-w-3xl mx-auto">
                     {/* File Info Header */}
                     <div className="flex items-center justify-between gap-3 rounded-base border-2 border-border bg-white dark:bg-gray-950 p-3">
@@ -1110,6 +1182,19 @@ export default function ConvertPage() {
                     </div>
                   )}
                 </div>
+              )}
+
+            {/* Editing Panel - hidden for audio-only output formats */}
+            {selectedFile &&
+              outputFormat &&
+              outputContainers.includes(outputFormat as OutputContainer) &&
+              !isAudioOnlyFormat(outputFormat as OutputContainer) && (
+                <EditingPanel
+                  state={editingState}
+                  onStateChange={setEditingState}
+                  onCropToggle={handleCropToggle}
+                  isAudioOnly={metadata?.isAudioOnly}
+                />
               )}
 
             {/* Notify Me Option */}
