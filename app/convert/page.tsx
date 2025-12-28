@@ -23,6 +23,8 @@ import {
   Input as MediaInput,
   Output,
   type VideoCodec,
+  ConversionVideoOptions,
+  ConversionAudioOptions,
 } from "mediabunny";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -542,8 +544,7 @@ export default function ConvertPage() {
       const isAudioOnly = isAudioOnlyFormat(outputFormat as OutputContainer);
       
       // Start with base video options
-      let videoOptions: Record<string, unknown> | { discard: true } | undefined;
-      
+      let videoOptions: ConversionVideoOptions | undefined;
       if (isAudioOnly) {
         videoOptions = { discard: true as const };
       } else {
@@ -554,6 +555,12 @@ export default function ConvertPage() {
           videoOptions.codec = videoCodec as VideoCodec;
         }
         
+        // Add rotation if enabled (MediaBunny rotate format: 0 | 90 | 180 | 270)
+        if (editingState.rotate.enabled && editingState.rotate.degrees !== 0) {
+          videoOptions.rotate = editingState.rotate.degrees;
+          console.log("Rotation settings:", videoOptions.rotate, "degrees clockwise");
+        }
+
         // Add crop if enabled (MediaBunny crop format)
         if (editingState.crop.enabled && editingState.crop.rect && metadata?.dimensions) {
           videoOptions.crop = {
@@ -573,7 +580,7 @@ export default function ConvertPage() {
 
       // Build audio options
       // If mute is enabled, discard the audio track entirely
-      let audioOptions: { discard: true } | { codec: AudioCodec } | undefined;
+      let audioOptions: ConversionAudioOptions;
       
       if (editingState.mute.enabled) {
         audioOptions = { discard: true };
@@ -750,7 +757,7 @@ export default function ConvertPage() {
     } finally {
       conversionRef.current = null;
     }
-  }, [selectedFile, outputFormat, videoCodec, audioCodec, editingState.crop, editingState.mute.enabled, metadata?.dimensions]);
+  }, [selectedFile, outputFormat, videoCodec, audioCodec, editingState.crop, editingState.mute.enabled, editingState.rotate.enabled, editingState.rotate.degrees, metadata?.dimensions]);
 
   const handleDownload = useCallback(() => {
     if (!convertedBlob || !selectedFile) return;

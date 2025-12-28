@@ -2,6 +2,7 @@
 
 import { Crop, RotateCcw, Scissors, Volume2 } from "lucide-react";
 import { useCallback, useId } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -142,7 +143,17 @@ export function EditingPanel({
     (enabled: boolean) => {
       onStateChange({
         ...state,
-        rotate: { ...state.rotate, enabled, degrees: enabled ? 90 : 0 },
+        rotate: { enabled, degrees: enabled ? 90 : 0 },
+      });
+    },
+    [state, onStateChange]
+  );
+
+  const handleRotateDegreeChange = useCallback(
+    (degrees: 0 | 90 | 180 | 270) => {
+      onStateChange({
+        ...state,
+        rotate: { enabled: true, degrees },
       });
     },
     [state, onStateChange]
@@ -200,15 +211,45 @@ export function EditingPanel({
 
         {/* Rotate Toggle - only for video */}
         {!isAudioOnly && (
-          <ToggleItem
-            id={`${idPrefix}-rotate`}
-            icon={<RotateCcw className="size-5" />}
-            label="Rotate"
-            description="Rotate the video 90°, 180°, or 270°"
-            checked={state.rotate.enabled}
-            onCheckedChange={handleRotateToggle}
-            disabled // TODO: Implement rotate controls
-          />
+          <>
+            <ToggleItem
+              id={`${idPrefix}-rotate`}
+              icon={<RotateCcw className="size-5" />}
+              label="Rotate"
+              description="Rotate the video 90°, 180°, or 270°"
+              checked={state.rotate.enabled}
+              onCheckedChange={handleRotateToggle}
+            />
+            
+            {/* Rotation degree selector */}
+            {state.rotate.enabled && (
+              <div className="p-3 rounded-base border-2 border-main bg-main/10">
+                <div className="font-semibold mb-2 flex items-center gap-2 text-sm">
+                  <RotateCcw className="size-4" />
+                  Rotation Angle
+                </div>
+                <div className="flex gap-2">
+                  {([90, 180, 270] as const).map((degree) => (
+                    <Button
+                      key={degree}
+                      size="sm"
+                      variant={state.rotate.degrees === degree ? "default" : "neutral"}
+                      onClick={() => handleRotateDegreeChange(degree)}
+                      className={cn(
+                        "flex-1 font-mono font-bold",
+                        state.rotate.degrees === degree && "ring-2 ring-offset-2 ring-main"
+                      )}
+                    >
+                      {degree}°
+                    </Button>
+                  ))}
+                </div>
+                <p className="text-xs text-foreground/60 mt-2">
+                  Video will be rotated {state.rotate.degrees}° clockwise
+                </p>
+              </div>
+            )}
+          </>
         )}
 
         {/* Mute Toggle */}
