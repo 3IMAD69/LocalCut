@@ -580,7 +580,7 @@ export default function ConvertPage() {
 
       // Build audio options
       // If mute is enabled, discard the audio track entirely
-      let audioOptions: ConversionAudioOptions;
+      let audioOptions: ConversionAudioOptions | undefined;
       
       if (editingState.mute.enabled) {
         audioOptions = { discard: true };
