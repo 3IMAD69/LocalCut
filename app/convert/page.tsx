@@ -263,6 +263,22 @@ export default function ConvertPage() {
     }
   }, [conversionStatus, progress]);
 
+  // Disable crop and rotate when output format is audio-only
+  useEffect(() => {
+    if (
+      outputFormat &&
+      outputContainers.includes(outputFormat as OutputContainer) &&
+      isAudioOnlyFormat(outputFormat as OutputContainer)
+    ) {
+      // Disable crop and rotate for audio-only output formats
+      setEditingState((prev) => ({
+        ...prev,
+        crop: { enabled: false, rect: null },
+        rotate: { enabled: false, degrees: 0 },
+      }));
+    }
+  }, [outputFormat]);
+
   // Load available codecs when output format changes
   useEffect(() => {
     if (
