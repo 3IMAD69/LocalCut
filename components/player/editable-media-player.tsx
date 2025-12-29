@@ -46,6 +46,8 @@ interface EditableMediaPlayerProps {
   trimRange?: TrimRange;
   /** Callback when trim range changes */
   onTrimChange?: (range: TrimRange) => void;
+  /** Callback when crop should be disabled (e.g., when entering fullscreen) */
+  onCropDisable?: () => void;
 }
 
 export const EditableMediaPlayer = forwardRef<
@@ -61,6 +63,7 @@ export const EditableMediaPlayer = forwardRef<
     trimEnabled = false,
     trimRange,
     onTrimChange,
+    onCropDisable,
   },
   ref,
 ) {
@@ -136,10 +139,33 @@ export const EditableMediaPlayer = forwardRef<
     });
   }, [source, mediaFox]);
 
+  const toggleFullscreen = useCallback(() => {
+    if (!containerRef.current) {
+      return;
+    }
+
+    if (!document.fullscreenElement) {
+      // Disable crop before entering fullscreen
+      if (cropEnabled && onCropDisable) {
+        onCropDisable();
+      }
+      containerRef.current.requestFullscreen();
+    } else {
+      document.exitFullscreen();
+    }
+  }, [cropEnabled, onCropDisable]);
+
   // Handle fullscreen changes
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(document.fullscreenElement === containerRef.current);
+      const isNowFullscreen =
+        document.fullscreenElement === containerRef.current;
+      setIsFullscreen(isNowFullscreen);
+
+      // If entering fullscreen and crop is enabled, disable crop
+      if (isNowFullscreen && cropEnabled && onCropDisable) {
+        onCropDisable();
+      }
     };
 
     document.addEventListener("fullscreenchange", handleFullscreenChange);
@@ -147,19 +173,38 @@ export const EditableMediaPlayer = forwardRef<
     return () => {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
     };
-  }, []);
+  }, [cropEnabled, onCropDisable]);
 
-  const toggleFullscreen = useCallback(() => {
-    if (!containerRef.current) {
-      return;
-    }
+  // Handle keyboard shortcuts for fullscreen
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // F key for fullscreen toggle
+      if (e.key === "f" || e.key === "F") {
+        // Don't trigger if user is typing in an input
+        if (
+          e.target instanceof HTMLInputElement ||
+          e.target instanceof HTMLTextAreaElement
+        ) {
+          return;
+        }
 
-    if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen();
-    } else {
-      document.exitFullscreen();
-    }
-  }, []);
+        e.preventDefault();
+
+        // If crop is enabled, disable it before going fullscreen
+        if (!document.fullscreenElement && cropEnabled && onCropDisable) {
+          onCropDisable();
+        }
+
+        toggleFullscreen();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [cropEnabled, onCropDisable, toggleFullscreen]);
 
   return (
     <div
@@ -295,6 +340,7 @@ export const EditableMediaPlayer = forwardRef<
               <FullscreenButton
                 isFullscreen={isFullscreen}
                 onClick={toggleFullscreen}
+                disabled={cropEnabled}
               />
             </div>
           </div>

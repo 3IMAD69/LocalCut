@@ -213,6 +213,14 @@ export default function ConvertPage() {
     }));
   }, []);
 
+  // Handle crop disable (e.g., when entering fullscreen)
+  const handleCropDisable = useCallback(() => {
+    setEditingState((prev) => ({
+      ...prev,
+      crop: { ...prev.crop, enabled: false, rect: null },
+    }));
+  }, []);
+
   // Handle trim toggle - scroll to player when enabled
   const handleTrimToggle = useCallback((enabled: boolean) => {
     if (enabled && mediaPlayerRef.current) {
@@ -955,6 +963,7 @@ export default function ConvertPage() {
                     src={selectedFile}
                     cropEnabled={editingState.crop.enabled}
                     onCropChange={handleCropChange}
+                    onCropDisable={handleCropDisable}
                     initialCrop={editingState.crop.rect ?? undefined}
                     videoDimensions={metadata?.dimensions ?? undefined}
                     trimEnabled={editingState.trim.enabled}
