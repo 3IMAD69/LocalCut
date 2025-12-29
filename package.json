@@ -15,6 +15,7 @@
   "dependencies": {
     "@biomejs/biome": "^2.3.10",
     "@hookform/resolvers": "^5.2.2",
+    "@icons-pack/react-simple-icons": "^13.8.0",
     "@mediabunny/mp3-encoder": "^1.27.1",
     "@mediafox/core": "^1.2.0",
     "@mediafox/react": "^1.2.0",
