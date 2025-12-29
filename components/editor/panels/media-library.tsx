@@ -1,11 +1,19 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import { Film, Music, Plus, Upload, FolderOpen, X, Loader2 } from "lucide-react";
-import { useState, useCallback } from "react";
+import {
+  Film,
+  FolderOpen,
+  Loader2,
+  Music,
+  Plus,
+  Upload,
+  X,
+} from "lucide-react";
+import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 
 export interface MediaAsset {
   id: string;
@@ -47,7 +55,7 @@ function MainEmptyState({ onImport }: { onImport?: () => void }) {
       <div
         className={cn(
           "w-20 h-20 border-4 border-border bg-main/20",
-          "flex items-center justify-center mb-4"
+          "flex items-center justify-center mb-4",
         )}
       >
         <Film className="h-10 w-10 text-foreground/40" />
@@ -97,7 +105,7 @@ function ErrorState({ message }: { message: string }) {
       <div
         className={cn(
           "w-12 h-12 border-2 border-red-400 bg-red-400/20",
-          "flex items-center justify-center mb-2"
+          "flex items-center justify-center mb-2",
         )}
       >
         <X className="h-6 w-6 text-red-500" />
@@ -158,7 +166,7 @@ export function MediaLibrary({
         onFileDrop(files);
       }
     },
-    [onFileDrop]
+    [onFileDrop],
   );
 
   const renderAssetCard = (asset: MediaAsset) => (
@@ -169,7 +177,7 @@ export function MediaLibrary({
         "group relative border-2 border-border bg-secondary-background",
         "cursor-pointer transition-all text-left w-full",
         "hover:shadow-shadow hover:-translate-x-boxShadowX hover:-translate-y-boxShadowY",
-        selectedAssetId === asset.id && "ring-2 ring-main"
+        selectedAssetId === asset.id && "ring-2 ring-main",
       )}
       onClick={() => handleAssetClick(asset)}
       onDoubleClick={() => handleAddToTimeline(asset)}
@@ -183,7 +191,7 @@ export function MediaLibrary({
         className={cn(
           "aspect-video w-full border-b-2 border-border",
           "flex items-center justify-center",
-          asset.type === "video" ? "bg-chart-2/20" : "bg-chart-3/20"
+          asset.type === "video" ? "bg-chart-2/20" : "bg-chart-3/20",
         )}
       >
         <div className="flex flex-col items-center gap-1 text-foreground/40">
@@ -209,7 +217,7 @@ export function MediaLibrary({
       <div
         className={cn(
           "absolute top-1 right-1 flex gap-1",
-          "opacity-0 group-hover:opacity-100 transition-opacity"
+          "opacity-0 group-hover:opacity-100 transition-opacity",
         )}
       >
         <button
@@ -217,7 +225,7 @@ export function MediaLibrary({
           className={cn(
             "h-6 w-6 flex items-center justify-center",
             "border-2 border-border bg-main",
-            "hover:bg-chart-1 cursor-pointer"
+            "hover:bg-chart-1 cursor-pointer",
           )}
           onClick={(e) => {
             e.stopPropagation();
@@ -232,7 +240,7 @@ export function MediaLibrary({
           className={cn(
             "h-6 w-6 flex items-center justify-center",
             "border-2 border-border bg-secondary-background",
-            "hover:bg-red-400 cursor-pointer"
+            "hover:bg-red-400 cursor-pointer",
           )}
           onClick={(e) => {
             e.stopPropagation();
@@ -252,7 +260,7 @@ export function MediaLibrary({
       className={cn(
         "flex flex-col border-2 border-border bg-background h-full relative",
         isDragOver && "ring-2 ring-main ring-inset",
-        className
+        className,
       )}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -286,7 +294,7 @@ export function MediaLibrary({
         <div
           className={cn(
             "absolute inset-0 z-50 bg-main/20 border-4 border-dashed border-main",
-            "flex items-center justify-center"
+            "flex items-center justify-center",
           )}
         >
           <div className="text-center">
@@ -354,7 +362,7 @@ export function MediaLibrary({
               "mx-2 mb-2 p-3 border-2 border-dashed border-border",
               "flex flex-col items-center justify-center gap-1 w-[calc(100%-1rem)]",
               "text-foreground/40 text-xs bg-transparent",
-              "cursor-pointer hover:border-main hover:text-foreground/60"
+              "cursor-pointer hover:border-main hover:text-foreground/60",
             )}
             onClick={onImport}
           >

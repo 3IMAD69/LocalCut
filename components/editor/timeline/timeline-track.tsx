@@ -1,7 +1,7 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 
 export type ClipType = "video" | "audio";
 
@@ -46,7 +46,7 @@ export function TimelineTrack({
       className={cn(
         "relative h-16 border-2 border-border bg-secondary-background",
         "flex items-center",
-        isSelected && "ring-2 ring-main"
+        isSelected && "ring-2 ring-main",
       )}
     >
       {/* Track Label */}
@@ -56,7 +56,7 @@ export function TimelineTrack({
           "flex items-center justify-center",
           "border-r-2 border-border",
           "bg-background font-heading text-xs uppercase tracking-wide",
-          type === "video" ? "text-chart-2" : "text-chart-3"
+          type === "video" ? "text-chart-2" : "text-chart-3",
         )}
       >
         {label}
@@ -75,7 +75,7 @@ export function TimelineTrack({
               "flex items-center",
               "transition-all duration-75",
               hoveredClip === clip.id && "ring-2 ring-main ring-offset-1",
-              type === "video" ? "bg-chart-2" : "bg-chart-3"
+              type === "video" ? "bg-chart-2" : "bg-chart-3",
             )}
             style={getClipStyle(clip)}
             onClick={() => onClipSelect?.(clip.id)}
@@ -87,7 +87,7 @@ export function TimelineTrack({
               className={cn(
                 "absolute left-0 top-0 bottom-0 w-2",
                 "bg-black/20 hover:bg-black/40",
-                "cursor-ew-resize"
+                "cursor-ew-resize",
               )}
             />
 
@@ -103,7 +103,7 @@ export function TimelineTrack({
               className={cn(
                 "absolute right-0 top-0 bottom-0 w-2",
                 "bg-black/20 hover:bg-black/40",
-                "cursor-ew-resize"
+                "cursor-ew-resize",
               )}
             />
           </button>

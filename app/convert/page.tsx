@@ -17,21 +17,21 @@ import {
   BlobSource,
   BufferTarget,
   Conversion,
+  type ConversionAudioOptions,
+  type ConversionVideoOptions,
   canEncodeAudio,
   getEncodableAudioCodecs,
   getEncodableVideoCodecs,
   Input as MediaInput,
   Output,
   type VideoCodec,
-  ConversionVideoOptions,
-  ConversionAudioOptions,
 } from "mediabunny";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  type CropRect,
+  defaultEditingState,
   EditingPanel,
   type EditingState,
-  defaultEditingState,
-  type CropRect,
 } from "@/components/editing";
 import {
   EditableMediaPlayer,
@@ -213,6 +213,27 @@ export default function ConvertPage() {
     }));
   }, []);
 
+  // Handle trim toggle - scroll to player when enabled
+  const handleTrimToggle = useCallback((enabled: boolean) => {
+    if (enabled && mediaPlayerRef.current) {
+      // Small delay to let the trim UI appear before scrolling
+      setTimeout(() => {
+        mediaPlayerRef.current?.scrollIntoView();
+      }, 100);
+    }
+  }, []);
+
+  // Handle trim range changes from the seek bar
+  const handleTrimChange = useCallback(
+    (range: { start: number; end: number }) => {
+      setEditingState((prev) => ({
+        ...prev,
+        trim: { ...prev.trim, start: range.start, end: range.end },
+      }));
+    },
+    [],
+  );
+
   // Cleanup interval on unmount
   useEffect(() => {
     return () => {
@@ -278,6 +299,73 @@ export default function ConvertPage() {
     loadCodecs();
   }, [outputFormat]);
 
+  const extractMetadata = useCallback(async (file: File) => {
+    setLoadingMetadata(true);
+    try {
+      const input = new MediaInput({
+        source: new BlobSource(file),
+        formats: ALL_FORMATS,
+      });
+
+      const format = await input.getFormat();
+      const tracks = await input.getTracks();
+
+      let videoTrack = null;
+      let audioTrack = null;
+      let frameRate: number | null = null;
+      let isHdr: boolean | null = null;
+
+      // Find video and audio tracks
+      for (const track of tracks) {
+        if (track.isVideoTrack()) {
+          videoTrack = track;
+          // Get frame rate from packet stats
+          const stats = await track.computePacketStats(50).catch(() => null);
+          frameRate = stats?.averagePacketRate || null;
+          // Check for HDR
+          isHdr = await track.hasHighDynamicRange().catch(() => null);
+        } else if (track.isAudioTrack()) {
+          audioTrack = track;
+        }
+      }
+
+      // Get duration from input, not from tracks
+      const duration = await input.computeDuration().catch(() => null);
+
+      // Determine if this is an audio-only file
+      const isAudioOnly = !videoTrack && !!audioTrack;
+
+      const metadata: FileMetadata = {
+        container: format?.name || "Unknown",
+        size: file.size,
+        duration,
+        videoCodec: videoTrack?.codec || null,
+        audioCodec: audioTrack?.codec || null,
+        dimensions:
+          videoTrack?.displayWidth && videoTrack.displayHeight
+            ? {
+                width: videoTrack.displayWidth,
+                height: videoTrack.displayHeight,
+              }
+            : null,
+        frameRate,
+        sampleRate: audioTrack?.sampleRate || null,
+        numberOfChannels: audioTrack?.numberOfChannels || null,
+        isHdr,
+        isAudioOnly,
+      };
+
+      setMetadata(metadata);
+
+      // Clean up
+      input.dispose();
+    } catch (error) {
+      console.error("Failed to extract metadata:", error);
+    } finally {
+      setLoadingMetadata(false);
+    }
+  }, []);
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -328,53 +416,17 @@ export default function ConvertPage() {
     e.stopPropagation();
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent<HTMLLabelElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
+  const handleDrop = useCallback(
+    (e: React.DragEvent<HTMLLabelElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
 
-    const files = e.dataTransfer.files;
-    if (files && files.length > 0) {
-      const file = files[0];
-      // Check if it's a video or audio file
-      if (file.type.startsWith("video/") || file.type.startsWith("audio/")) {
-        setSelectedFile(file);
-        // Auto-detect format from file extension
-        const extension = file.name.split(".").pop()?.toLowerCase();
-        if (extension) {
-          setInputFormat(extension);
-        }
-        // Reset conversion state when new file is selected
-        setConversionStatus("idle");
-        setProgress(0);
-        setConvertedBlob(null);
-        setErrorMessage("");
-        setStats(null);
-        setMetadata(null);
-        setEditingState(defaultEditingState);
-        if (statsIntervalRef.current) {
-          clearInterval(statsIntervalRef.current);
-          statsIntervalRef.current = null;
-        }
-        // Extract metadata
-        extractMetadata(file);
-      }
-    }
-  }, []);
-
-  // Handle paste event (Ctrl+V) to accept files from clipboard
-  const handlePaste = useCallback((e: ClipboardEvent) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-
-    for (const item of items) {
-      if (item.kind === "file") {
-        const file = item.getAsFile();
-        if (
-          file &&
-          (file.type.startsWith("video/") || file.type.startsWith("audio/"))
-        ) {
-          e.preventDefault();
+      const files = e.dataTransfer.files;
+      if (files && files.length > 0) {
+        const file = files[0];
+        // Check if it's a video or audio file
+        if (file.type.startsWith("video/") || file.type.startsWith("audio/")) {
           setSelectedFile(file);
           // Auto-detect format from file extension
           const extension = file.name.split(".").pop()?.toLowerCase();
@@ -395,11 +447,59 @@ export default function ConvertPage() {
           }
           // Extract metadata
           extractMetadata(file);
-          break;
         }
       }
-    }
-  }, []);
+    },
+    [
+      // Extract metadata
+      extractMetadata,
+    ],
+  );
+
+  // Handle paste event (Ctrl+V) to accept files from clipboard
+  const handlePaste = useCallback(
+    (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (const item of items) {
+        if (item.kind === "file") {
+          const file = item.getAsFile();
+          if (
+            file &&
+            (file.type.startsWith("video/") || file.type.startsWith("audio/"))
+          ) {
+            e.preventDefault();
+            setSelectedFile(file);
+            // Auto-detect format from file extension
+            const extension = file.name.split(".").pop()?.toLowerCase();
+            if (extension) {
+              setInputFormat(extension);
+            }
+            // Reset conversion state when new file is selected
+            setConversionStatus("idle");
+            setProgress(0);
+            setConvertedBlob(null);
+            setErrorMessage("");
+            setStats(null);
+            setMetadata(null);
+            setEditingState(defaultEditingState);
+            if (statsIntervalRef.current) {
+              clearInterval(statsIntervalRef.current);
+              statsIntervalRef.current = null;
+            }
+            // Extract metadata
+            extractMetadata(file);
+            break;
+          }
+        }
+      }
+    },
+    [
+      // Extract metadata
+      extractMetadata,
+    ],
+  );
 
   // Add paste event listener
   useEffect(() => {
@@ -409,75 +509,8 @@ export default function ConvertPage() {
     };
   }, [handlePaste]);
 
-  const extractMetadata = async (file: File) => {
-    setLoadingMetadata(true);
-    try {
-      const input = new MediaInput({
-        source: new BlobSource(file),
-        formats: ALL_FORMATS,
-      });
-
-      const format = await input.getFormat();
-      const tracks = await input.getTracks();
-
-      let videoTrack = null;
-      let audioTrack = null;
-      let frameRate: number | null = null;
-      let isHdr: boolean | null = null;
-
-      // Find video and audio tracks
-      for (const track of tracks) {
-        if (track.isVideoTrack()) {
-          videoTrack = track;
-          // Get frame rate from packet stats
-          const stats = await track.computePacketStats(50).catch(() => null);
-          frameRate = stats?.averagePacketRate || null;
-          // Check for HDR
-          isHdr = await track.hasHighDynamicRange().catch(() => null);
-        } else if (track.isAudioTrack()) {
-          audioTrack = track;
-        }
-      }
-
-      // Get duration from input, not from tracks
-      const duration = await input.computeDuration().catch(() => null);
-
-      // Determine if this is an audio-only file
-      const isAudioOnly = !videoTrack && !!audioTrack;
-
-      const metadata: FileMetadata = {
-        container: format?.name || "Unknown",
-        size: file.size,
-        duration,
-        videoCodec: videoTrack?.codec || null,
-        audioCodec: audioTrack?.codec || null,
-        dimensions:
-          videoTrack && videoTrack.displayWidth && videoTrack.displayHeight
-            ? {
-                width: videoTrack.displayWidth,
-                height: videoTrack.displayHeight,
-              }
-            : null,
-        frameRate,
-        sampleRate: audioTrack?.sampleRate || null,
-        numberOfChannels: audioTrack?.numberOfChannels || null,
-        isHdr,
-        isAudioOnly,
-      };
-
-      setMetadata(metadata);
-
-      // Clean up
-      input.dispose();
-    } catch (error) {
-      console.error("Failed to extract metadata:", error);
-    } finally {
-      setLoadingMetadata(false);
-    }
-  };
-
   const formatTime = (seconds: number): string => {
-    if (!isFinite(seconds) || seconds < 0) return "--:--";
+    if (!Number.isFinite(seconds) || seconds < 0) return "--:--";
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, "0")}`;
@@ -542,36 +575,52 @@ export default function ConvertPage() {
 
       // Build video options including editing features
       const isAudioOnly = isAudioOnlyFormat(outputFormat as OutputContainer);
-      
+
       // Start with base video options
       let videoOptions: ConversionVideoOptions | undefined;
       if (isAudioOnly) {
         videoOptions = { discard: true as const };
       } else {
         videoOptions = {};
-        
+
         // Add codec if not copying
         if (videoCodec !== "copy") {
           videoOptions.codec = videoCodec as VideoCodec;
         }
-        
+
         // Add rotation if enabled (MediaBunny rotate format: 0 | 90 | 180 | 270)
         if (editingState.rotate.enabled && editingState.rotate.degrees !== 0) {
           videoOptions.rotate = editingState.rotate.degrees;
-          console.log("Rotation settings:", videoOptions.rotate, "degrees clockwise");
+          console.log(
+            "Rotation settings:",
+            videoOptions.rotate,
+            "degrees clockwise",
+          );
         }
 
         // Add crop if enabled (MediaBunny crop format)
-        if (editingState.crop.enabled && editingState.crop.rect && metadata?.dimensions) {
+        if (
+          editingState.crop.enabled &&
+          editingState.crop.rect &&
+          metadata?.dimensions
+        ) {
           videoOptions.crop = {
-            left: Math.round(editingState.crop.rect.left * metadata.dimensions.width),
-            top: Math.round(editingState.crop.rect.top * metadata.dimensions.height),
-            width: Math.round(editingState.crop.rect.width * metadata.dimensions.width),
-            height: Math.round(editingState.crop.rect.height * metadata.dimensions.height),
+            left: Math.round(
+              editingState.crop.rect.left * metadata.dimensions.width,
+            ),
+            top: Math.round(
+              editingState.crop.rect.top * metadata.dimensions.height,
+            ),
+            width: Math.round(
+              editingState.crop.rect.width * metadata.dimensions.width,
+            ),
+            height: Math.round(
+              editingState.crop.rect.height * metadata.dimensions.height,
+            ),
           };
           console.log("Crop settings:", videoOptions.crop);
         }
-        
+
         // Only set videoOptions if we have something to configure
         if (Object.keys(videoOptions).length === 0) {
           videoOptions = undefined;
@@ -581,7 +630,7 @@ export default function ConvertPage() {
       // Build audio options
       // If mute is enabled, discard the audio track entirely
       let audioOptions: ConversionAudioOptions | undefined;
-      
+
       if (editingState.mute.enabled) {
         audioOptions = { discard: true };
         console.log("Audio will be stripped from output");
@@ -589,14 +638,33 @@ export default function ConvertPage() {
         audioOptions = { codec: audioCodec as AudioCodec };
       }
 
+      // Build trim options
+      let trimOptions: { start?: number; end?: number } | undefined;
+      if (
+        editingState.trim.enabled &&
+        (editingState.trim.start > 0 ||
+          (metadata?.duration && editingState.trim.end < metadata.duration))
+      ) {
+        trimOptions = {};
+        if (editingState.trim.start > 0) {
+          trimOptions.start = editingState.trim.start;
+        }
+        if (metadata?.duration && editingState.trim.end < metadata.duration) {
+          trimOptions.end = editingState.trim.end;
+        }
+        console.log("Trim settings:", trimOptions);
+      }
+
       console.log("Video options:", videoOptions);
       console.log("Audio options:", audioOptions);
+      console.log("Trim options:", trimOptions);
 
       const conversion = await Conversion.init({
         input,
         output,
         video: videoOptions,
         audio: audioOptions,
+        trim: trimOptions,
       });
 
       conversionRef.current = conversion;
@@ -650,7 +718,7 @@ export default function ConvertPage() {
       setStats(initialStats);
 
       // Track output file size
-      target.onwrite = (start: number, end: number) => {
+      target.onwrite = (_start: number, end: number) => {
         setStats((prev) => (prev ? { ...prev, currentFileSize: end } : null));
       };
 
@@ -757,7 +825,21 @@ export default function ConvertPage() {
     } finally {
       conversionRef.current = null;
     }
-  }, [selectedFile, outputFormat, videoCodec, audioCodec, editingState.crop, editingState.mute.enabled, editingState.rotate.enabled, editingState.rotate.degrees, metadata?.dimensions]);
+  }, [
+    selectedFile,
+    outputFormat,
+    videoCodec,
+    audioCodec,
+    editingState.crop,
+    editingState.mute.enabled,
+    editingState.rotate.enabled,
+    editingState.rotate.degrees,
+    editingState.trim.enabled,
+    editingState.trim.start,
+    editingState.trim.end,
+    metadata?.dimensions,
+    metadata?.duration,
+  ]);
 
   const handleDownload = useCallback(() => {
     if (!convertedBlob || !selectedFile) return;
@@ -829,9 +911,9 @@ export default function ConvertPage() {
           <CardContent className="space-y-6">
             {/* File Upload / Media Preview Section */}
             <div className="space-y-2">
-              <label className="text-sm font-semibold">
+              <span className="text-sm font-semibold block">
                 {selectedFile ? "Media Preview" : "Upload Media"}
-              </label>
+              </span>
               <input
                 type="file"
                 accept="video/*,audio/*"
@@ -875,6 +957,16 @@ export default function ConvertPage() {
                     onCropChange={handleCropChange}
                     initialCrop={editingState.crop.rect ?? undefined}
                     videoDimensions={metadata?.dimensions ?? undefined}
+                    trimEnabled={editingState.trim.enabled}
+                    trimRange={
+                      editingState.trim.enabled
+                        ? {
+                            start: editingState.trim.start,
+                            end: editingState.trim.end,
+                          }
+                        : undefined
+                    }
+                    onTrimChange={handleTrimChange}
                   />
                   <div className="space-y-3 max-w-3xl mx-auto">
                     {/* File Info Header */}
@@ -1028,7 +1120,9 @@ export default function ConvertPage() {
             <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr]">
               {/* Input Format */}
               <div className="space-y-2">
-                <label className="text-sm font-semibold">Input Format</label>
+                <span className="text-sm font-semibold block">
+                  Input Format
+                </span>
                 <Select value={inputFormat} onValueChange={setInputFormat}>
                   <SelectTrigger className="h-12 bg-white dark:bg-gray-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
                     <SelectValue placeholder="Select input format" />
@@ -1055,7 +1149,9 @@ export default function ConvertPage() {
 
               {/* Output Format */}
               <div className="space-y-2">
-                <label className="text-sm font-semibold">Output Format</label>
+                <span className="text-sm font-semibold block">
+                  Output Format
+                </span>
                 <Select value={outputFormat} onValueChange={setOutputFormat}>
                   <SelectTrigger className="h-12 bg-white dark:bg-gray-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
                     <SelectValue placeholder="Select output format" />
@@ -1119,9 +1215,9 @@ export default function ConvertPage() {
                       {!isAudioOnlyFormat(outputFormat as OutputContainer) &&
                         !metadata?.isAudioOnly && (
                           <div className="space-y-2">
-                            <label className="text-sm font-medium">
+                            <span className="text-sm font-medium block">
                               Video Codec
-                            </label>
+                            </span>
                             <Select
                               value={videoCodec}
                               onValueChange={setVideoCodec}
@@ -1158,9 +1254,9 @@ export default function ConvertPage() {
 
                       {/* Audio Codec Selection */}
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">
+                        <span className="text-sm font-medium block">
                           Audio Codec
-                        </label>
+                        </span>
                         <Select
                           value={audioCodec}
                           onValueChange={setAudioCodec}
@@ -1207,6 +1303,8 @@ export default function ConvertPage() {
                   state={editingState}
                   onStateChange={setEditingState}
                   onCropToggle={handleCropToggle}
+                  onTrimToggle={handleTrimToggle}
+                  mediaDuration={metadata?.duration ?? undefined}
                   isAudioOnly={metadata?.isAudioOnly}
                 />
               )}

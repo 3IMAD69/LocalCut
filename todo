@@ -1,2 +1,5 @@
 +fix this glitch later 
 select output (video format) + select crop then select mp3 as output the crop box ui will still be in the player
++ disable fullscreen if crop is enabled
++ may or may not disable rotate if crop is enabled vise versa
++ make space play/pause the video 

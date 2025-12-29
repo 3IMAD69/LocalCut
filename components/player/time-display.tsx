@@ -8,7 +8,7 @@ interface TimeDisplayProps {
 }
 
 function formatTime(seconds: number): string {
-  if (isNaN(seconds) || !isFinite(seconds)) return "0:00";
+  if (Number.isNaN(seconds) || !Number.isFinite(seconds)) return "0:00";
 
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);

@@ -124,7 +124,7 @@ export const getMediabunnyOutput = (
     return new Mp3OutputFormat();
   }
 
-  throw new Error("Unsupported container type: " + (container satisfies never));
+  throw new Error(`Unsupported container type: ${container satisfies never}`);
 };
 
 export const isAudioOnlyFormat = (container: OutputContainer): boolean => {

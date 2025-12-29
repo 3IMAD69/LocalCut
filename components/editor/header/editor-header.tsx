@@ -1,13 +1,12 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import {
-  Save,
-  FolderOpen,
   Download,
-  Settings,
-  HelpCircle,
   Film,
+  FolderOpen,
+  HelpCircle,
+  Save,
+  Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +15,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 interface EditorHeaderProps {
   projectName?: string;
@@ -48,7 +48,7 @@ export function EditorHeader({
         className={cn(
           "flex items-center justify-between h-14",
           "px-4 border-b-2 border-border bg-main",
-          className
+          className,
         )}
       >
         {/* Left: Logo & Project Name */}
@@ -58,7 +58,7 @@ export function EditorHeader({
             <div
               className={cn(
                 "w-8 h-8 border-2 border-border bg-secondary-background",
-                "flex items-center justify-center"
+                "flex items-center justify-center",
               )}
             >
               <Film className="h-5 w-5 text-main-foreground" />
@@ -77,7 +77,10 @@ export function EditorHeader({
               {projectName}
             </span>
             {hasUnsavedChanges && (
-              <span className="w-2 h-2 rounded-full bg-chart-3" title="Unsaved changes" />
+              <span
+                className="w-2 h-2 rounded-full bg-chart-3"
+                title="Unsaved changes"
+              />
             )}
           </div>
         </div>

@@ -1,13 +1,13 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import { Minus, Plus, Film } from "lucide-react";
+import { Film, Minus, Plus } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 import { Playhead } from "./playhead";
 import { TimelineRuler } from "./timeline-ruler";
-import { TimelineTrack, type TimelineClip } from "./timeline-track";
+import { type TimelineClip, TimelineTrack } from "./timeline-track";
 
 interface Track {
   id: string;
@@ -34,7 +34,7 @@ function TimelineEmptyOverlay() {
           className={cn(
             "w-16 h-16 border-2 border-dashed border-border",
             "flex items-center justify-center mx-auto mb-3",
-            "bg-secondary-background/50"
+            "bg-secondary-background/50",
           )}
         >
           <Film className="h-8 w-8 text-foreground/30" />
@@ -84,7 +84,12 @@ export function Timeline({
   const isEmpty = tracks.every((track) => track.clips.length === 0);
 
   return (
-    <div className={cn("flex flex-col border-2 border-border bg-background", className)}>
+    <div
+      className={cn(
+        "flex flex-col border-2 border-border bg-background",
+        className,
+      )}
+    >
       {/* Timeline Header with Controls */}
       <div className="flex items-center justify-between px-4 py-2 border-b-2 border-border bg-secondary-background">
         <div className="flex items-center gap-2">
@@ -92,7 +97,7 @@ export function Timeline({
             Timeline
           </span>
         </div>
-        
+
         {/* Zoom Controls */}
         <div className="flex items-center gap-1">
           <Button
@@ -138,7 +143,10 @@ export function Timeline({
           }}
         >
           {/* Ruler */}
-          <TimelineRuler duration={duration} pixelsPerSecond={pixelsPerSecond} />
+          <TimelineRuler
+            duration={duration}
+            pixelsPerSecond={pixelsPerSecond}
+          />
 
           {/* Tracks */}
           <div className="flex flex-col">

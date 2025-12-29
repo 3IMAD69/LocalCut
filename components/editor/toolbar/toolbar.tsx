@@ -1,17 +1,16 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import {
-  Scissors,
-  Trash2,
-  Copy,
   ClipboardPaste,
-  Undo2,
+  Copy,
+  Magnet,
   Redo2,
+  Scissors,
+  SplitSquareHorizontal,
+  Trash2,
+  Undo2,
   ZoomIn,
   ZoomOut,
-  Magnet,
-  SplitSquareHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +19,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 interface ToolbarProps {
   onUndo?: () => void;
@@ -66,7 +66,7 @@ function ToolButton({
             "h-9 w-9",
             active && "bg-main text-main-foreground",
             variant === "danger" && "hover:bg-red-400 hover:text-white",
-            disabled && "opacity-40"
+            disabled && "opacity-40",
           )}
           onClick={onClick}
           disabled={disabled}
@@ -108,7 +108,7 @@ export function Toolbar({
         className={cn(
           "flex items-center gap-1 px-3 py-2",
           "border-2 border-border bg-secondary-background",
-          className
+          className,
         )}
       >
         {/* History */}

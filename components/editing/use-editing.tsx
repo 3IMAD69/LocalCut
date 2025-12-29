@@ -2,17 +2,14 @@
 
 import {
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useMemo,
   useState,
-  type ReactNode,
 } from "react";
-import {
-  defaultEditingState,
-  type EditingState,
-} from "./editing-panel";
 import type { CropRect } from "./crop-overlay";
+import { defaultEditingState, type EditingState } from "./editing-panel";
 
 interface EditingContextValue {
   /** Current editing state */
@@ -26,9 +23,14 @@ interface EditingContextValue {
   /** Reset all editing state */
   resetState: () => void;
   /** Get MediaBunny-compatible crop options */
-  getMediabunnyCropOptions: () => { left: number; top: number; width: number; height: number } | undefined;
+  getMediabunnyCropOptions: () =>
+    | { left: number; top: number; width: number; height: number }
+    | undefined;
   /** Get all MediaBunny conversion video options from editing state */
-  getVideoConversionOptions: (videoDimensions?: { width: number; height: number }) => Record<string, unknown>;
+  getVideoConversionOptions: (videoDimensions?: {
+    width: number;
+    height: number;
+  }) => Record<string, unknown>;
 }
 
 const EditingContext = createContext<EditingContextValue | null>(null);
@@ -39,9 +41,12 @@ interface EditingProviderProps {
   initialState?: EditingState;
 }
 
-export function EditingProvider({ children, initialState }: EditingProviderProps) {
+export function EditingProvider({
+  children,
+  initialState,
+}: EditingProviderProps) {
   const [state, setState] = useState<EditingState>(
-    initialState ?? defaultEditingState
+    initialState ?? defaultEditingState,
   );
 
   const setCropRect = useCallback((rect: CropRect | null) => {
@@ -113,7 +118,7 @@ export function EditingProvider({ children, initialState }: EditingProviderProps
 
       return options;
     },
-    [state.crop, state.rotate]
+    [state.crop, state.rotate],
   );
 
   const value = useMemo<EditingContextValue>(
@@ -126,13 +131,18 @@ export function EditingProvider({ children, initialState }: EditingProviderProps
       getMediabunnyCropOptions,
       getVideoConversionOptions,
     }),
-    [state, setCropRect, toggleCrop, resetState, getMediabunnyCropOptions, getVideoConversionOptions]
+    [
+      state,
+      setCropRect,
+      toggleCrop,
+      resetState,
+      getMediabunnyCropOptions,
+      getVideoConversionOptions,
+    ],
   );
 
   return (
-    <EditingContext.Provider value={value}>
-      {children}
-    </EditingContext.Provider>
+    <EditingContext.Provider value={value}>{children}</EditingContext.Provider>
   );
 }
 

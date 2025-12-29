@@ -1,19 +1,18 @@
 "use client";
 
-import { cn } from "@/lib/utils";
+import MediaFox from "@mediafox/core";
 import {
-  Play,
+  Film,
+  Loader2,
+  Maximize,
   Pause,
+  Play,
   SkipBack,
   SkipForward,
   Volume2,
   VolumeX,
-  Maximize,
-  Film,
-  Loader2,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import MediaFox from "@mediafox/core";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import {
@@ -22,6 +21,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import { useTimelinePlayer } from "./timeline-player-context";
 
 interface TimelinePlayerProps {
@@ -44,13 +44,13 @@ function EmptyPreview() {
     <div
       className={cn(
         "absolute inset-0 flex flex-col items-center justify-center",
-        "bg-gradient-to-br from-zinc-900 to-zinc-800"
+        "bg-gradient-to-br from-zinc-900 to-zinc-800",
       )}
     >
       <div
         className={cn(
           "w-20 h-20 border-4 border-border bg-main/20",
-          "flex items-center justify-center mb-4"
+          "flex items-center justify-center mb-4",
         )}
       >
         <Film className="h-10 w-10 text-foreground/30" />
@@ -69,7 +69,7 @@ function LoadingOverlay() {
     <div
       className={cn(
         "absolute inset-0 flex flex-col items-center justify-center",
-        "bg-black/60 backdrop-blur-sm z-20"
+        "bg-black/60 backdrop-blur-sm z-20",
       )}
     >
       <Loader2 className="h-8 w-8 animate-spin text-main mb-2" />
@@ -157,7 +157,7 @@ export function TimelinePlayer({
     player
       .setRenderTarget(canvas)
       .catch((err: Error) =>
-        console.error("Failed to set video render target:", err)
+        console.error("Failed to set video render target:", err),
       );
 
     return () => {
@@ -195,7 +195,7 @@ export function TimelinePlayer({
       player
         .setRenderTarget(canvas)
         .catch((err: Error) =>
-          console.error("Failed to set render target:", err)
+          console.error("Failed to set render target:", err),
         );
     }
   }, [canvasRef]);
@@ -469,7 +469,7 @@ export function TimelinePlayer({
     (values: number[]) => {
       seek(values[0]);
     },
-    [seek]
+    [seek],
   );
 
   return (
@@ -479,7 +479,7 @@ export function TimelinePlayer({
         className={cn(
           "flex flex-col border-2 border-border bg-background",
           isFullscreen && "fixed inset-0 z-50 border-0",
-          className
+          className,
         )}
       >
         {/* Header */}
@@ -487,7 +487,7 @@ export function TimelinePlayer({
           className={cn(
             "flex items-center justify-between px-3 py-2",
             "border-b-2 border-border bg-secondary-background",
-            isFullscreen && "hidden"
+            isFullscreen && "hidden",
           )}
         >
           <span className="text-xs font-heading uppercase tracking-wide">
@@ -508,7 +508,7 @@ export function TimelinePlayer({
         <div
           className={cn(
             "relative flex-1 bg-black min-h-[300px] flex items-center justify-center",
-            isFullscreen && "min-h-0"
+            isFullscreen && "min-h-0",
           )}
         >
           {/* Canvas for video rendering */}
@@ -518,7 +518,7 @@ export function TimelinePlayer({
               "aspect-video w-full max-w-full max-h-full",
               "border-2 border-border",
               isFullscreen && "border-0",
-              !hasClips && "hidden"
+              !hasClips && "hidden",
             )}
             width={1920}
             height={1080}
@@ -544,14 +544,14 @@ export function TimelinePlayer({
               className={cn(
                 "absolute inset-0 flex items-center justify-center",
                 "bg-black/20 opacity-0 hover:opacity-100 transition-opacity",
-                "cursor-pointer"
+                "cursor-pointer",
               )}
               onClick={togglePlayPause}
             >
               <div
                 className={cn(
                   "w-16 h-16 border-4 border-white bg-black/50",
-                  "flex items-center justify-center"
+                  "flex items-center justify-center",
                 )}
               >
                 {state.isPlaying ? (
@@ -569,7 +569,7 @@ export function TimelinePlayer({
               className={cn(
                 "absolute top-2 left-2 px-2 py-1",
                 "bg-black/70 text-white text-xs font-heading",
-                "border border-white/20"
+                "border border-white/20",
               )}
             >
               {activeVideoClip.clip.name}
@@ -581,7 +581,7 @@ export function TimelinePlayer({
         <div
           className={cn(
             "px-3 py-2 border-t-2 border-border bg-secondary-background",
-            isFullscreen && "border-t-0"
+            isFullscreen && "border-t-0",
           )}
         >
           <Slider
@@ -599,7 +599,7 @@ export function TimelinePlayer({
           className={cn(
             "flex items-center justify-between px-3 py-2",
             "border-t-2 border-border bg-secondary-background",
-            isFullscreen && "border-t-0"
+            isFullscreen && "border-t-0",
           )}
         >
           {/* Left: Transport Controls */}

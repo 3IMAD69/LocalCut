@@ -30,16 +30,7 @@ interface CropOverlayProps {
   videoDimensions?: { width: number; height: number };
 }
 
-type ResizeHandle =
-  | "nw"
-  | "n"
-  | "ne"
-  | "e"
-  | "se"
-  | "s"
-  | "sw"
-  | "w"
-  | null;
+type ResizeHandle = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w" | null;
 
 export function CropOverlay({
   containerRef,
@@ -61,7 +52,12 @@ export function CropOverlay({
   const [isResizing, setIsResizing] = useState(false);
   const [resizeHandle, setResizeHandle] = useState<ResizeHandle>(null);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [initialBox, setInitialBox] = useState({ x: 0, y: 0, width: 0, height: 0 });
+  const [initialBox, setInitialBox] = useState({
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+  });
 
   const overlayRef = useRef<HTMLDivElement>(null);
   const [containerBounds, setContainerBounds] = useState<DOMRect | null>(null);
@@ -102,7 +98,7 @@ export function CropOverlay({
   // Using microtask to defer state update and avoid synchronous setState in effect
   useLayoutEffect(() => {
     if (!isActive || !containerBounds) return;
-    
+
     // Only initialize once when first activated
     if (isInitializedRef.current) return;
     isInitializedRef.current = true;
@@ -125,7 +121,7 @@ export function CropOverlay({
           width: containerWidth * 0.8,
           height: containerHeight * 0.8,
         };
-    
+
     // Use queueMicrotask to break synchronous execution chain
     queueMicrotask(() => {
       setCropBox(newCropBox);
@@ -171,7 +167,7 @@ export function CropOverlay({
       setDragStart({ x: e.clientX, y: e.clientY });
       setInitialBox({ ...cropBox });
     },
-    [containerBounds, cropBox]
+    [containerBounds, cropBox],
   );
 
   // Handle mouse down on resize handle
@@ -187,7 +183,7 @@ export function CropOverlay({
       setDragStart({ x: e.clientX, y: e.clientY });
       setInitialBox({ ...cropBox });
     },
-    [containerBounds, cropBox]
+    [containerBounds, cropBox],
   );
 
   // Handle mouse move (dragging or resizing)
@@ -205,8 +201,14 @@ export function CropOverlay({
         let newY = initialBox.y + deltaY;
 
         // Constrain to container bounds
-        newX = Math.max(0, Math.min(newX, containerBounds.width - cropBox.width));
-        newY = Math.max(0, Math.min(newY, containerBounds.height - cropBox.height));
+        newX = Math.max(
+          0,
+          Math.min(newX, containerBounds.width - cropBox.width),
+        );
+        newY = Math.max(
+          0,
+          Math.min(newY, containerBounds.height - cropBox.height),
+        );
 
         setCropBox((prev) => ({ ...prev, x: newX, y: newY }));
       } else if (isResizing && resizeHandle) {
@@ -224,7 +226,10 @@ export function CropOverlay({
         }
         if (resizeHandle.includes("w")) {
           const maxDeltaX = initialBox.width - minSize;
-          const constrainedDeltaX = Math.max(-initialBox.x, Math.min(deltaX, maxDeltaX));
+          const constrainedDeltaX = Math.max(
+            -initialBox.x,
+            Math.min(deltaX, maxDeltaX),
+          );
           newX = initialBox.x + constrainedDeltaX;
           newWidth = initialBox.width - constrainedDeltaX;
         }
@@ -232,11 +237,17 @@ export function CropOverlay({
         // Handle vertical resizing
         if (resizeHandle.includes("s")) {
           newHeight = Math.max(minSize, initialBox.height + deltaY);
-          newHeight = Math.min(newHeight, containerBounds.height - initialBox.y);
+          newHeight = Math.min(
+            newHeight,
+            containerBounds.height - initialBox.y,
+          );
         }
         if (resizeHandle.includes("n")) {
           const maxDeltaY = initialBox.height - minSize;
-          const constrainedDeltaY = Math.max(-initialBox.y, Math.min(deltaY, maxDeltaY));
+          const constrainedDeltaY = Math.max(
+            -initialBox.y,
+            Math.min(deltaY, maxDeltaY),
+          );
           newY = initialBox.y + constrainedDeltaY;
           newHeight = initialBox.height - constrainedDeltaY;
         }
@@ -258,7 +269,16 @@ export function CropOverlay({
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isDragging, isResizing, resizeHandle, dragStart, initialBox, containerBounds, cropBox.width, cropBox.height]);
+  }, [
+    isDragging,
+    isResizing,
+    resizeHandle,
+    dragStart,
+    initialBox,
+    containerBounds,
+    cropBox.width,
+    cropBox.height,
+  ]);
 
   if (!isActive || !containerBounds) return null;
 
@@ -266,14 +286,46 @@ export function CropOverlay({
 
   // Resize handle positions
   const handles: { position: ResizeHandle; className: string }[] = [
-    { position: "nw", className: "top-0 left-0 cursor-nw-resize -translate-x-1/2 -translate-y-1/2" },
-    { position: "n", className: "top-0 left-1/2 cursor-n-resize -translate-x-1/2 -translate-y-1/2" },
-    { position: "ne", className: "top-0 right-0 cursor-ne-resize translate-x-1/2 -translate-y-1/2" },
-    { position: "e", className: "top-1/2 right-0 cursor-e-resize translate-x-1/2 -translate-y-1/2" },
-    { position: "se", className: "bottom-0 right-0 cursor-se-resize translate-x-1/2 translate-y-1/2" },
-    { position: "s", className: "bottom-0 left-1/2 cursor-s-resize -translate-x-1/2 translate-y-1/2" },
-    { position: "sw", className: "bottom-0 left-0 cursor-sw-resize -translate-x-1/2 translate-y-1/2" },
-    { position: "w", className: "top-1/2 left-0 cursor-w-resize -translate-x-1/2 -translate-y-1/2" },
+    {
+      position: "nw",
+      className:
+        "top-0 left-0 cursor-nw-resize -translate-x-1/2 -translate-y-1/2",
+    },
+    {
+      position: "n",
+      className:
+        "top-0 left-1/2 cursor-n-resize -translate-x-1/2 -translate-y-1/2",
+    },
+    {
+      position: "ne",
+      className:
+        "top-0 right-0 cursor-ne-resize translate-x-1/2 -translate-y-1/2",
+    },
+    {
+      position: "e",
+      className:
+        "top-1/2 right-0 cursor-e-resize translate-x-1/2 -translate-y-1/2",
+    },
+    {
+      position: "se",
+      className:
+        "bottom-0 right-0 cursor-se-resize translate-x-1/2 translate-y-1/2",
+    },
+    {
+      position: "s",
+      className:
+        "bottom-0 left-1/2 cursor-s-resize -translate-x-1/2 translate-y-1/2",
+    },
+    {
+      position: "sw",
+      className:
+        "bottom-0 left-0 cursor-sw-resize -translate-x-1/2 translate-y-1/2",
+    },
+    {
+      position: "w",
+      className:
+        "top-1/2 left-0 cursor-w-resize -translate-x-1/2 -translate-y-1/2",
+    },
   ];
 
   return (
@@ -310,7 +362,7 @@ export function CropOverlay({
           "border-2 border-white",
           "shadow-[0_0_0_2px_rgba(0,0,0,0.5)]",
           isDragging && "cursor-grabbing",
-          !isDragging && !isResizing && "cursor-grab"
+          !isDragging && !isResizing && "cursor-grab",
         )}
         style={{
           left: cropBox.x,
@@ -356,7 +408,7 @@ export function CropOverlay({
               "absolute pointer-events-auto",
               "size-4 bg-white border-2 border-black rounded-sm",
               "hover:bg-main hover:scale-110 transition-transform",
-              className
+              className,
             )}
             onMouseDown={(e) => handleResizeStart(e, position)}
           />

@@ -21,7 +21,7 @@ export function Playhead({
     <div
       className={cn(
         "absolute top-0 bottom-0 z-20 pointer-events-none",
-        className
+        className,
       )}
       style={{ left: `${leftPosition}px` }}
     >
@@ -32,10 +32,10 @@ export function Playhead({
           "w-0 h-0",
           "border-l-[8px] border-l-transparent",
           "border-r-[8px] border-r-transparent",
-          "border-t-[10px] border-t-chart-1"
+          "border-t-[10px] border-t-chart-1",
         )}
       />
-      
+
       {/* Playhead line */}
       <div className="absolute top-2 bottom-0 w-0.5 bg-chart-1 -translate-x-1/2" />
     </div>

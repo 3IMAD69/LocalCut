@@ -1,13 +1,12 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import {
-  Play,
+  Maximize,
   Pause,
+  Play,
   SkipBack,
   SkipForward,
   Volume2,
-  Maximize,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -18,6 +17,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 interface VideoPreviewProps {
   currentTime: number;
@@ -60,7 +60,7 @@ export function VideoPreview({
       <div
         className={cn(
           "flex flex-col border-2 border-border bg-background",
-          className
+          className,
         )}
       >
         {/* Header */}
@@ -83,7 +83,7 @@ export function VideoPreview({
               "aspect-video w-full max-w-full max-h-full",
               "bg-gradient-to-br from-zinc-900 to-zinc-800",
               "flex items-center justify-center",
-              "border-2 border-border"
+              "border-2 border-border",
             )}
           >
             <div className="text-center text-foreground/30">
@@ -99,7 +99,7 @@ export function VideoPreview({
             className={cn(
               "absolute inset-0 flex items-center justify-center",
               "bg-black/20 opacity-0 hover:opacity-100 transition-opacity",
-              "cursor-pointer"
+              "cursor-pointer",
             )}
             onClick={onPlayPause}
           >
@@ -107,7 +107,7 @@ export function VideoPreview({
               className={cn(
                 "w-16 h-16 rounded-full",
                 "border-4 border-white bg-black/50",
-                "flex items-center justify-center"
+                "flex items-center justify-center",
               )}
             >
               {isPlaying ? (
@@ -187,9 +187,9 @@ export function VideoPreview({
             {/* Volume Control */}
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button 
-                  variant="noShadow" 
-                  size="icon" 
+                <Button
+                  variant="noShadow"
+                  size="icon"
                   className="h-9 w-9"
                   onClick={() => setShowVolumeSlider(!showVolumeSlider)}
                 >

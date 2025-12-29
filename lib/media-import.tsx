@@ -1,14 +1,14 @@
 "use client";
 
+import { ALL_FORMATS, BlobSource, Input } from "mediabunny";
 import {
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
-  useState,
   useRef,
-  type ReactNode,
+  useState,
 } from "react";
-import { Input, ALL_FORMATS, BlobSource } from "mediabunny";
 
 // Types for imported media assets
 export interface ImportedMediaAsset {
@@ -35,13 +35,13 @@ interface MediaImportContextType {
   assets: ImportedMediaAsset[];
   isImporting: boolean;
   importError: string | null;
-  
+
   // Actions
   importFiles: (files: FileList | File[]) => Promise<void>;
   removeAsset: (assetId: string) => void;
   clearAllAssets: () => void;
   openFilePicker: () => void;
-  
+
   // File input ref for triggering file picker
   fileInputRef: React.RefObject<HTMLInputElement | null>;
 }
@@ -77,21 +77,29 @@ function generateId(): string {
 
 // Determine media type from file
 function getMediaType(file: File): "video" | "audio" | null {
-  if (ACCEPTED_VIDEO_TYPES.some((type) => file.type.startsWith(type.split("/")[0]))) {
+  if (
+    ACCEPTED_VIDEO_TYPES.some((type) =>
+      file.type.startsWith(type.split("/")[0]),
+    )
+  ) {
     if (file.type.startsWith("video/")) return "video";
   }
-  if (ACCEPTED_AUDIO_TYPES.some((type) => file.type.startsWith(type.split("/")[0]))) {
+  if (
+    ACCEPTED_AUDIO_TYPES.some((type) =>
+      file.type.startsWith(type.split("/")[0]),
+    )
+  ) {
     if (file.type.startsWith("audio/")) return "audio";
   }
-  
+
   // Fallback: check by extension
   const ext = file.name.split(".").pop()?.toLowerCase();
   const videoExtensions = ["mp4", "webm", "mov", "mkv", "avi"];
   const audioExtensions = ["mp3", "wav", "ogg", "aac", "flac", "m4a"];
-  
+
   if (ext && videoExtensions.includes(ext)) return "video";
   if (ext && audioExtensions.includes(ext)) return "audio";
-  
+
   return null;
 }
 
@@ -106,99 +114,107 @@ export function MediaImportProvider({ children }: MediaImportProviderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Process a single file and extract metadata using MediaBunny
-  const processFile = useCallback(async (file: File): Promise<ImportedMediaAsset | null> => {
-    const mediaType = getMediaType(file);
-    if (!mediaType) {
-      console.warn(`Unsupported file type: ${file.type} (${file.name})`);
-      return null;
-    }
-
-    try {
-      // Create MediaBunny Input from file
-      const input = new Input({
-        formats: ALL_FORMATS,
-        source: new BlobSource(file),
-      });
-
-      // Get duration
-      const duration = await input.computeDuration();
-
-      // Build base asset
-      const asset: ImportedMediaAsset = {
-        id: generateId(),
-        name: file.name,
-        type: mediaType,
-        file,
-        duration,
-        input,
-      };
-
-      // Get track-specific metadata
-      if (mediaType === "video") {
-        const videoTrack = await input.getPrimaryVideoTrack();
-        if (videoTrack) {
-          asset.width = videoTrack.displayWidth;
-          asset.height = videoTrack.displayHeight;
-          asset.videoCodec = videoTrack.codec ?? undefined;
-        }
-        
-        // Also check for audio track in video files
-        const audioTrack = await input.getPrimaryAudioTrack();
-        if (audioTrack) {
-          asset.sampleRate = audioTrack.sampleRate;
-          asset.channels = audioTrack.numberOfChannels;
-          asset.audioCodec = audioTrack.codec ?? undefined;
-        }
-      } else {
-        const audioTrack = await input.getPrimaryAudioTrack();
-        if (audioTrack) {
-          asset.sampleRate = audioTrack.sampleRate;
-          asset.channels = audioTrack.numberOfChannels;
-          asset.audioCodec = audioTrack.codec ?? undefined;
-        }
+  const processFile = useCallback(
+    async (file: File): Promise<ImportedMediaAsset | null> => {
+      const mediaType = getMediaType(file);
+      if (!mediaType) {
+        console.warn(`Unsupported file type: ${file.type} (${file.name})`);
+        return null;
       }
 
-      return asset;
-    } catch (error) {
-      console.error(`Failed to process file ${file.name}:`, error);
-      return null;
-    }
-  }, []);
+      try {
+        // Create MediaBunny Input from file
+        const input = new Input({
+          formats: ALL_FORMATS,
+          source: new BlobSource(file),
+        });
+
+        // Get duration
+        const duration = await input.computeDuration();
+
+        // Build base asset
+        const asset: ImportedMediaAsset = {
+          id: generateId(),
+          name: file.name,
+          type: mediaType,
+          file,
+          duration,
+          input,
+        };
+
+        // Get track-specific metadata
+        if (mediaType === "video") {
+          const videoTrack = await input.getPrimaryVideoTrack();
+          if (videoTrack) {
+            asset.width = videoTrack.displayWidth;
+            asset.height = videoTrack.displayHeight;
+            asset.videoCodec = videoTrack.codec ?? undefined;
+          }
+
+          // Also check for audio track in video files
+          const audioTrack = await input.getPrimaryAudioTrack();
+          if (audioTrack) {
+            asset.sampleRate = audioTrack.sampleRate;
+            asset.channels = audioTrack.numberOfChannels;
+            asset.audioCodec = audioTrack.codec ?? undefined;
+          }
+        } else {
+          const audioTrack = await input.getPrimaryAudioTrack();
+          if (audioTrack) {
+            asset.sampleRate = audioTrack.sampleRate;
+            asset.channels = audioTrack.numberOfChannels;
+            asset.audioCodec = audioTrack.codec ?? undefined;
+          }
+        }
+
+        return asset;
+      } catch (error) {
+        console.error(`Failed to process file ${file.name}:`, error);
+        return null;
+      }
+    },
+    [],
+  );
 
   // Import multiple files
-  const importFiles = useCallback(async (files: FileList | File[]) => {
-    const fileArray = Array.from(files);
-    if (fileArray.length === 0) return;
+  const importFiles = useCallback(
+    async (files: FileList | File[]) => {
+      const fileArray = Array.from(files);
+      if (fileArray.length === 0) return;
 
-    setIsImporting(true);
-    setImportError(null);
+      setIsImporting(true);
+      setImportError(null);
 
-    try {
-      const results = await Promise.all(
-        fileArray.map((file) => processFile(file))
-      );
+      try {
+        const results = await Promise.all(
+          fileArray.map((file) => processFile(file)),
+        );
 
-      const successfulImports = results.filter(
-        (asset): asset is ImportedMediaAsset => asset !== null
-      );
+        const successfulImports = results.filter(
+          (asset): asset is ImportedMediaAsset => asset !== null,
+        );
 
-      if (successfulImports.length === 0) {
-        setImportError("No valid media files found. Please select video or audio files.");
-      } else {
-        setAssets((prev) => [...prev, ...successfulImports]);
-        
-        if (successfulImports.length < fileArray.length) {
-          const skipped = fileArray.length - successfulImports.length;
-          console.warn(`${skipped} file(s) could not be imported`);
+        if (successfulImports.length === 0) {
+          setImportError(
+            "No valid media files found. Please select video or audio files.",
+          );
+        } else {
+          setAssets((prev) => [...prev, ...successfulImports]);
+
+          if (successfulImports.length < fileArray.length) {
+            const skipped = fileArray.length - successfulImports.length;
+            console.warn(`${skipped} file(s) could not be imported`);
+          }
         }
+      } catch (error) {
+        console.error("Import failed:", error);
+        setImportError("Failed to import media files. Please try again.");
+      } finally {
+        setIsImporting(false);
       }
-    } catch (error) {
-      console.error("Import failed:", error);
-      setImportError("Failed to import media files. Please try again.");
-    } finally {
-      setIsImporting(false);
-    }
-  }, [processFile]);
+    },
+    [processFile],
+  );
 
   // Remove a single asset
   const removeAsset = useCallback((assetId: string) => {
@@ -236,7 +252,7 @@ export function MediaImportProvider({ children }: MediaImportProviderProps) {
       // Reset input value to allow re-selecting same files
       event.target.value = "";
     },
-    [importFiles]
+    [importFiles],
   );
 
   const value: MediaImportContextType = {
@@ -279,7 +295,7 @@ export function useMediaImport() {
 // Helper hook to convert ImportedMediaAsset to the UI MediaAsset type
 export function useMediaAssets() {
   const { assets } = useMediaImport();
-  
+
   return assets.map((asset) => ({
     id: asset.id,
     name: asset.name,

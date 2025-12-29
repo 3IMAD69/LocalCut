@@ -30,7 +30,7 @@ export function TimelineRuler({
 
   const tickInterval = getTickInterval();
   const ticks: number[] = [];
-  
+
   for (let i = 0; i <= duration; i += tickInterval) {
     ticks.push(i);
   }
@@ -40,7 +40,7 @@ export function TimelineRuler({
       className={cn(
         "relative h-8 border-2 border-border bg-background",
         "flex items-end",
-        className
+        className,
       )}
     >
       {/* Empty space for track labels */}

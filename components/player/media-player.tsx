@@ -122,7 +122,8 @@ export function MediaPlayer({ src }: MediaPlayerProps) {
           "overflow-hidden",
           "bg-black",
           "relative",
-          isFullscreen && "flex items-center justify-center flex-1 w-full border-0 rounded-none",
+          isFullscreen &&
+            "flex items-center justify-center flex-1 w-full border-0 rounded-none",
         )}
       >
         {/* Audio-only visual placeholder */}
@@ -155,7 +156,8 @@ export function MediaPlayer({ src }: MediaPlayerProps) {
             "border-black",
             "bg-white",
             "overflow-hidden",
-            isFullscreen && "w-full border-0 border-t-2 rounded-none border-b-0",
+            isFullscreen &&
+              "w-full border-0 border-t-2 rounded-none border-b-0",
           )}
         >
           {/* Mobile SeekBar: Top row on mobile only */}

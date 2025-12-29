@@ -1,22 +1,23 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { AlertTriangle } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  type ClipProperties,
   EditorHeader,
   MediaLibrary,
   PropertiesPanel,
   Timeline,
-  Toolbar,
+  type TimelineClipWithAsset,
   TimelinePlayer,
   TimelinePlayerProvider,
-  useTimelinePlayer,
-  type ClipProperties,
   type TimelineTrackData,
-  type TimelineClipWithAsset,
+  Toolbar,
+  useTimelinePlayer,
 } from "@/components/editor";
 import type { MediaAsset } from "@/components/editor/panels/media-library";
-import { MediaImportProvider, useMediaImport, type ImportedMediaAsset } from "@/lib/media-import";
-import { cn } from "@/lib/utils";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -25,9 +26,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertTriangle } from "lucide-react";
+import {
+  type ImportedMediaAsset,
+  MediaImportProvider,
+  useMediaImport,
+} from "@/lib/media-import";
+import { cn } from "@/lib/utils";
 
 // Empty initial state for tracks (using TimelineTrackData format)
 const emptyTracks: TimelineTrackData[] = [
@@ -116,7 +120,7 @@ function EditorContent() {
             prev.map((track) => ({
               ...track,
               clips: track.clips.filter((c) => c.id !== selectedClip.id),
-            }))
+            })),
           );
           setSelectedClip(null);
           setHasUnsavedChanges(true);
@@ -134,63 +138,69 @@ function EditorContent() {
   // Calculate total duration from clips (minimum 60s for empty timeline)
   const duration = Math.max(
     ...tracks.flatMap((t) =>
-      t.clips.length > 0 ? t.clips.map((c) => c.startTime + c.duration) : [0]
+      t.clips.length > 0 ? t.clips.map((c) => c.startTime + c.duration) : [0],
     ),
-    60
+    60,
   );
 
   // Handlers
-  const handleSeek = useCallback((time: number) => {
-    playerSeek(time);
-  }, [playerSeek]);
-  
+  const handleSeek = useCallback(
+    (time: number) => {
+      playerSeek(time);
+    },
+    [playerSeek],
+  );
+
   const handleAssetSelect = (asset: MediaAsset) => {
     console.log("Selected asset:", asset.name);
   };
 
-  const handleAssetAdd = useCallback((asset: MediaAsset) => {
-    // Get the full imported asset with Input reference
-    const fullAsset = assetMap.get(asset.id);
+  const handleAssetAdd = useCallback(
+    (asset: MediaAsset) => {
+      // Get the full imported asset with Input reference
+      const fullAsset = assetMap.get(asset.id);
 
-    // Add asset to timeline with asset reference for playback
-    const newClip: TimelineClipWithAsset = {
-      id: `clip-${Date.now()}`,
-      name: asset.name,
-      type: asset.type,
-      startTime: 0,
-      duration: asset.duration,
-      color: asset.type === "video" ? "#0099ff" : "#ff7a05",
-      asset: fullAsset, // Include full asset reference for playback
-      trimStart: 0,
-      trimEnd: asset.duration,
-    };
-
-    setTracks((prev) => {
-      // Find the appropriate track for this asset type
-      const trackIndex = prev.findIndex((t) => t.type === asset.type);
-      if (trackIndex === -1) return prev;
-
-      // Calculate start time (after last clip in track)
-      const track = prev[trackIndex];
-      const lastClipEnd = track.clips.reduce(
-        (max, clip) => Math.max(max, clip.startTime + clip.duration),
-        0
-      );
-      newClip.startTime = lastClipEnd;
-
-      // Add clip to track
-      const updatedTracks = [...prev];
-      updatedTracks[trackIndex] = {
-        ...track,
-        clips: [...track.clips, newClip],
+      // Add asset to timeline with asset reference for playback
+      const newClip: TimelineClipWithAsset = {
+        id: `clip-${Date.now()}`,
+        name: asset.name,
+        type: asset.type,
+        startTime: 0,
+        duration: asset.duration,
+        color: asset.type === "video" ? "#0099ff" : "#ff7a05",
+        asset: fullAsset, // Include full asset reference for playback
+        trimStart: 0,
+        trimEnd: asset.duration,
       };
 
-      return updatedTracks;
-    });
+      setTracks((prev) => {
+        // Find the appropriate track for this asset type
+        const trackIndex = prev.findIndex((t) => t.type === asset.type);
+        if (trackIndex === -1) return prev;
 
-    setHasUnsavedChanges(true);
-    console.log("Added to timeline:", asset.name);
-  }, [assetMap]);
+        // Calculate start time (after last clip in track)
+        const track = prev[trackIndex];
+        const lastClipEnd = track.clips.reduce(
+          (max, clip) => Math.max(max, clip.startTime + clip.duration),
+          0,
+        );
+        newClip.startTime = lastClipEnd;
+
+        // Add clip to track
+        const updatedTracks = [...prev];
+        updatedTracks[trackIndex] = {
+          ...track,
+          clips: [...track.clips, newClip],
+        };
+
+        return updatedTracks;
+      });
+
+      setHasUnsavedChanges(true);
+      console.log("Added to timeline:", asset.name);
+    },
+    [assetMap],
+  );
 
   const handleClipSelect = (clipId: string) => {
     // Find the clip in tracks
@@ -235,11 +245,15 @@ function EditorContent() {
     <div className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Header */}
       {/* Persistent WIP Alert Banner */}
-      <Alert variant="destructive" className="rounded-none border-x-0 border-t-0">
+      <Alert
+        variant="destructive"
+        className="rounded-none border-x-0 border-t-0"
+      >
         <AlertTriangle className="h-4 w-4" />
         <AlertTitle>🚧 Work in Progress</AlertTitle>
         <AlertDescription>
-          This editor is under active development. Features may be incomplete or not working.
+          This editor is under active development. Features may be incomplete or
+          not working.
         </AlertDescription>
       </Alert>
 
@@ -298,7 +312,7 @@ function EditorContent() {
                   prev.map((track) => ({
                     ...track,
                     clips: track.clips.filter((c) => c.id !== selectedClip.id),
-                  }))
+                  })),
                 );
                 setSelectedClip(null);
                 setHasUnsavedChanges(true);
@@ -346,7 +360,7 @@ function EditorContent() {
         className={cn(
           "h-8 flex items-center justify-between px-4",
           "border-t-2 border-border bg-secondary-background",
-          "text-xs font-heading"
+          "text-xs font-heading",
         )}
       >
         <div className="flex items-center gap-4">
@@ -364,7 +378,7 @@ function EditorContent() {
           <span
             className={cn(
               "px-2 py-0.5 border border-border",
-              snapEnabled ? "bg-main text-main-foreground" : "bg-transparent"
+              snapEnabled ? "bg-main text-main-foreground" : "bg-transparent",
             )}
           >
             Snap: {snapEnabled ? "ON" : "OFF"}
@@ -379,18 +393,22 @@ function EditorContent() {
           <DialogHeader>
             <DialogTitle className="text-2xl">🚧 Work in Progress</DialogTitle>
             <DialogDescription className="text-base pt-2">
-              The video editor is still under development and is not fully functional yet. 
-              Some features may not work as expected or may be incomplete.
+              The video editor is still under development and is not fully
+              functional yet. Some features may not work as expected or may be
+              incomplete.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <p className="text-sm text-foreground/80">
-              We&apos;re working hard to bring you a powerful editing experience. 
-              Check back soon for updates!
+              We&apos;re working hard to bring you a powerful editing
+              experience. Check back soon for updates!
             </p>
           </div>
           <DialogFooter>
-            <Button onClick={() => setShowWipModal(false)} className="w-full sm:w-auto">
+            <Button
+              onClick={() => setShowWipModal(false)}
+              className="w-full sm:w-auto"
+            >
               I Understand
             </Button>
           </DialogFooter>

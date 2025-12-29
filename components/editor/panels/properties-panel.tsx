@@ -1,24 +1,24 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import {
-  RotateCw,
+  ChevronDown,
   Crop,
   Maximize2,
-  Scissors,
   RefreshCw,
-  ChevronDown,
+  RotateCw,
+  Scissors,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+import { cn } from "@/lib/utils";
 
 export interface ClipProperties {
   id: string;
@@ -73,7 +73,7 @@ function PropertySection({
             "w-full flex items-center justify-between",
             "px-3 py-2 border-b-2 border-border",
             "bg-secondary-background hover:bg-main/10",
-            "text-xs font-heading uppercase tracking-wide"
+            "text-xs font-heading uppercase tracking-wide",
           )}
         >
           <div className="flex items-center gap-2">
@@ -83,7 +83,7 @@ function PropertySection({
           <ChevronDown
             className={cn(
               "h-4 w-4 transition-transform",
-              isOpen && "rotate-180"
+              isOpen && "rotate-180",
             )}
           />
         </button>
@@ -103,7 +103,9 @@ interface PropertyRowProps {
 function PropertyRow({ label, children }: PropertyRowProps) {
   return (
     <div className="flex items-center gap-2">
-      <Label className="w-20 text-xs text-foreground/70 shrink-0">{label}</Label>
+      <Label className="w-20 text-xs text-foreground/70 shrink-0">
+        {label}
+      </Label>
       <div className="flex-1">{children}</div>
     </div>
   );
@@ -156,7 +158,7 @@ export function PropertiesPanel({
       <div
         className={cn(
           "flex flex-col border-2 border-border bg-background h-full",
-          className
+          className,
         )}
       >
         <div className="flex items-center px-3 py-2 border-b-2 border-border bg-secondary-background">
@@ -181,7 +183,7 @@ export function PropertiesPanel({
     <div
       className={cn(
         "flex flex-col border-2 border-border bg-background h-full",
-        className
+        className,
       )}
     >
       {/* Header */}
@@ -192,7 +194,7 @@ export function PropertiesPanel({
         <span
           className={cn(
             "px-2 py-0.5 border-2 border-border text-[10px] font-heading uppercase",
-            clip.type === "video" ? "bg-chart-2" : "bg-chart-3"
+            clip.type === "video" ? "bg-chart-2" : "bg-chart-3",
           )}
         >
           {clip.type}
@@ -274,7 +276,9 @@ export function PropertiesPanel({
                   max={180}
                   className="flex-1"
                 />
-                <span className="text-xs w-12 text-right">{clip.rotation}°</span>
+                <span className="text-xs w-12 text-right">
+                  {clip.rotation}°
+                </span>
               </div>
             </PropertyRow>
             <div className="flex gap-1 mt-2">

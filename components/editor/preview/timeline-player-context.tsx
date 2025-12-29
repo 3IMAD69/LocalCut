@@ -2,16 +2,16 @@
 
 import {
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from "react";
-import type { TimelineClip } from "../timeline/timeline-track";
 import type { ImportedMediaAsset } from "@/lib/media-import";
+import type { TimelineClip } from "../timeline/timeline-track";
 
 // Timeline track definition with clips and their associated assets
 export interface TimelineTrackData {
@@ -93,7 +93,7 @@ interface TimelinePlayerContextType {
 }
 
 const TimelinePlayerContext = createContext<TimelinePlayerContextType | null>(
-  null
+  null,
 );
 
 interface TimelinePlayerProviderProps {
@@ -125,9 +125,9 @@ export function TimelinePlayerProvider({
       ...tracks.flatMap((track) =>
         track.clips.length > 0
           ? track.clips.map((clip) => clip.startTime + clip.duration)
-          : [0]
+          : [0],
       ),
-      0.1 // Minimum duration
+      0.1, // Minimum duration
     );
   }, [tracks]);
 
@@ -143,7 +143,7 @@ export function TimelinePlayerProvider({
       ...state,
       duration: calculatedDuration,
     }),
-    [state, calculatedDuration]
+    [state, calculatedDuration],
   );
 
   // Get active clips at a specific time
@@ -173,25 +173,25 @@ export function TimelinePlayerProvider({
 
       return active;
     },
-    [tracks]
+    [tracks],
   );
 
   // Active clips at current playhead
   const activeClips = useMemo(
     () => getActiveClipsAt(state.currentTime),
-    [getActiveClipsAt, state.currentTime]
+    [getActiveClipsAt, state.currentTime],
   );
 
   // Convenience: first active video clip
   const activeVideoClip = useMemo(
     () => activeClips.find((c) => c.trackType === "video") ?? null,
-    [activeClips]
+    [activeClips],
   );
 
   // Convenience: all active audio clips
   const activeAudioClips = useMemo(
     () => activeClips.filter((c) => c.trackType === "audio"),
-    [activeClips]
+    [activeClips],
   );
 
   // Playback controls
@@ -334,7 +334,7 @@ export function useTimelinePlayer() {
   const context = useContext(TimelinePlayerContext);
   if (!context) {
     throw new Error(
-      "useTimelinePlayer must be used within a TimelinePlayerProvider"
+      "useTimelinePlayer must be used within a TimelinePlayerProvider",
     );
   }
   return context;
