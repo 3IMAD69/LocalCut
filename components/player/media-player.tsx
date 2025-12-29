@@ -100,6 +100,44 @@ export function MediaPlayer({ src }: MediaPlayerProps) {
     }
   }, []);
 
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+
+      // Spacebar for play/pause
+      if (e.code === "Space") {
+        e.preventDefault();
+        if (mediaFox) {
+          if (mediaFox.paused) {
+            mediaFox.play();
+          } else {
+            mediaFox.pause();
+          }
+        }
+        return;
+      }
+
+      // F key for fullscreen toggle
+      if (e.key === "f" || e.key === "F") {
+        e.preventDefault();
+        toggleFullscreen();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [mediaFox, toggleFullscreen]);
+
   return (
     <div
       ref={containerRef}

@@ -178,16 +178,29 @@ export const EditableMediaPlayer = forwardRef<
   // Handle keyboard shortcuts for fullscreen
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+
+      // Spacebar for play/pause
+      if (e.code === "Space") {
+        e.preventDefault();
+        if (mediaFox) {
+          if (mediaFox.paused) {
+            mediaFox.play();
+          } else {
+            mediaFox.pause();
+          }
+        }
+        return;
+      }
+
       // F key for fullscreen toggle
       if (e.key === "f" || e.key === "F") {
-        // Don't trigger if user is typing in an input
-        if (
-          e.target instanceof HTMLInputElement ||
-          e.target instanceof HTMLTextAreaElement
-        ) {
-          return;
-        }
-
         e.preventDefault();
 
         // If crop is enabled, disable it before going fullscreen
@@ -204,7 +217,7 @@ export const EditableMediaPlayer = forwardRef<
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [cropEnabled, onCropDisable, toggleFullscreen]);
+  }, [cropEnabled, onCropDisable, toggleFullscreen, mediaFox]);
 
   return (
     <div
