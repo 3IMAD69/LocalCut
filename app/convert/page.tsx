@@ -5,7 +5,6 @@ import {
   ArrowRight,
   CheckCircle2,
   Download,
-  FileVideo,
   Loader2,
   Upload,
   Video,
@@ -38,13 +37,6 @@ import {
   type MediaPlayerHandle,
 } from "@/components/player/editable-media-player";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import {
   Select,
