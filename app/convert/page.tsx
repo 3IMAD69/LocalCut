@@ -913,683 +913,657 @@ export default function ConvertPage() {
 
   return (
     <div className="min-h-screen bg-background dark:bg-black p-4 md:p-8">
-      <div className="mx-auto max-w-6xl">
-        {/* Header */}
-        <div className="mb-8 text-center">
-          <h1 className="mb-3 font-heading text-5xl tracking-tight text-foreground">
-            LocalCut - Media Converter
-          </h1>
-          <p className="text-lg text-foreground/70">
-            Convert your videos and audio files to any format with ease
+      {/* Header */}
+      <div className="mb-8 text-center">
+        <h1 className="mb-3 font-heading text-5xl tracking-tight text-foreground">
+          LocalCut - Media Converter
+        </h1>
+        <p className="text-lg text-foreground/70">
+          Convert your videos and audio files to any format with ease
+        </p>
+      </div>
+
+      {/* Main Converter Section */}
+      <div className="mb-6 border-4 border-black dark:border-white rounded-base bg-white dark:bg-gray-950 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,0.1)] p-6 md:p-8">
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold mb-2">Media Converter</h2>
+          <p className="text-foreground/70">
+            Upload a video or audio file and select your desired output format
           </p>
         </div>
-
-        {/* Main Converter Card */}
-        <Card className="mb-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,0.1)]">
-          <CardHeader>
-            <CardTitle className="text-2xl">Media Converter</CardTitle>
-            <CardDescription>
-              Upload a video or audio file and select your desired output format
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* File Upload / Media Preview Section */}
-            <div className="space-y-2">
-              <span className="text-sm font-semibold block">
-                {selectedFile ? "Media Preview" : "Upload Media"}
-              </span>
-              <input
-                type="file"
-                accept="video/*,audio/*"
-                onChange={handleFileSelect}
-                className="hidden"
-                id="video-upload"
-              />
-              {!selectedFile ? (
-                <label
-                  htmlFor="video-upload"
-                  className={`flex h-32 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-base border-2 border-dashed transition-all hover:translate-x-1 hover:translate-y-1 ${
-                    isDragging
-                      ? "border-main bg-main/10 scale-[1.02]"
-                      : "border-border bg-white dark:bg-gray-950 hover:bg-main/5 dark:hover:bg-main/10"
-                  }`}
-                  onDragEnter={handleDragEnter}
-                  onDragLeave={handleDragLeave}
-                  onDragOver={handleDragOver}
-                  onDrop={handleDrop}
-                >
-                  <Upload
-                    className={`size-8 transition-transform ${isDragging ? "scale-110" : ""}`}
-                  />
-                  <div className="text-center">
-                    <p className="font-semibold">
-                      {isDragging
-                        ? "Drop your file here"
-                        : "Click to upload, drag and drop, or paste (Ctrl+V)"}
-                    </p>
-                    <p className="text-sm text-foreground/60">
-                      MP4, WebM, MKV, MOV, MP3, WAV, AAC and more
-                    </p>
-                  </div>
-                </label>
-              ) : (
-                <div className="space-y-3">
-                  <EditableMediaPlayer
-                    ref={mediaPlayerRef}
-                    src={selectedFile}
-                    cropEnabled={editingState.crop.enabled}
-                    onCropChange={handleCropChange}
-                    onCropDisable={handleCropDisable}
-                    initialCrop={editingState.crop.rect ?? undefined}
-                    videoDimensions={metadata?.dimensions ?? undefined}
-                    trimEnabled={editingState.trim.enabled}
-                    trimRange={
-                      editingState.trim.enabled
-                        ? {
-                            start: editingState.trim.start,
-                            end: editingState.trim.end,
+        <div className="space-y-6 lg:space-y-0">
+          {/* Two-column layout for desktop */}
+          <div className="lg:grid lg:grid-cols-[45%_1fr] lg:gap-8 lg:items-start">
+            {/* Left Column: Media & Info (Red Zone) */}
+            <div className="space-y-6 lg:sticky lg:top-8 lg:self-start">
+              {/* File Upload / Media Preview Section */}
+              <div className="space-y-2">
+                <span className="text-sm font-semibold block">
+                  {selectedFile ? "Media Preview" : "Upload Media"}
+                </span>
+                <input
+                  type="file"
+                  accept="video/*,audio/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  id="video-upload"
+                />
+                {!selectedFile ? (
+                  <label
+                    htmlFor="video-upload"
+                    className={`flex h-32 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-base border-2 border-dashed transition-all hover:translate-x-1 hover:translate-y-1 ${
+                      isDragging
+                        ? "border-main bg-main/10 scale-[1.02]"
+                        : "border-border bg-white dark:bg-gray-950 hover:bg-main/5 dark:hover:bg-main/10"
+                    }`}
+                    onDragEnter={handleDragEnter}
+                    onDragLeave={handleDragLeave}
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
+                  >
+                    <Upload
+                      className={`size-8 transition-transform ${isDragging ? "scale-110" : ""}`}
+                    />
+                    <div className="text-center">
+                      <p className="font-semibold">
+                        {isDragging
+                          ? "Drop your file here"
+                          : "Click to upload, drag and drop, or paste (Ctrl+V)"}
+                      </p>
+                      <p className="text-sm text-foreground/60">
+                        MP4, WebM, MKV, MOV, MP3, WAV, AAC and more
+                      </p>
+                    </div>
+                  </label>
+                ) : (
+                  <div className="space-y-3">
+                    <EditableMediaPlayer
+                      ref={mediaPlayerRef}
+                      src={selectedFile}
+                      cropEnabled={editingState.crop.enabled}
+                      onCropChange={handleCropChange}
+                      onCropDisable={handleCropDisable}
+                      initialCrop={editingState.crop.rect ?? undefined}
+                      videoDimensions={metadata?.dimensions ?? undefined}
+                      trimEnabled={editingState.trim.enabled}
+                      trimRange={
+                        editingState.trim.enabled
+                          ? {
+                              start: editingState.trim.start,
+                              end: editingState.trim.end,
+                            }
+                          : undefined
+                      }
+                      onTrimChange={handleTrimChange}
+                    />
+                    <div className="space-y-3 max-w-3xl mx-auto">
+                      {/* File Info Header */}
+                      <div className="flex items-center justify-between gap-3 rounded-base border-2 border-border bg-white dark:bg-gray-950 p-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold truncate">
+                            {selectedFile.name}
+                          </p>
+                          <p className="text-sm text-foreground/60">
+                            {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        </div>
+                        <Button
+                          variant="neutral"
+                          size="sm"
+                          onClick={() =>
+                            document.getElementById("video-upload")?.click()
                           }
-                        : undefined
-                    }
-                    onTrimChange={handleTrimChange}
-                  />
-                  <div className="space-y-3 max-w-3xl mx-auto">
-                    {/* File Info Header */}
-                    <div className="flex items-center justify-between gap-3 rounded-base border-2 border-border bg-white dark:bg-gray-950 p-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold truncate">
-                          {selectedFile.name}
-                        </p>
-                        <p className="text-sm text-foreground/60">
-                          {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                        </p>
+                          className="shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]"
+                        >
+                          <Upload className="size-4" />
+                          Change File
+                        </Button>
                       </div>
-                      <Button
-                        variant="neutral"
-                        size="sm"
-                        onClick={() =>
-                          document.getElementById("video-upload")?.click()
-                        }
-                        className="shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]"
-                      >
-                        <Upload className="size-4" />
-                        Change File
-                      </Button>
-                    </div>
-
-                    {/* Metadata Display */}
-                    {loadingMetadata ? (
-                      <div className="flex items-center justify-center gap-2 rounded-base border-2 border-border bg-white dark:bg-gray-950 p-4">
-                        <Loader2 className="size-4 animate-spin" />
-                        <span className="text-sm text-foreground/60">
-                          Loading metadata...
-                        </span>
-                      </div>
-                    ) : metadata ? (
-                      <div className="rounded-base border-2 border-border bg-white dark:bg-gray-950 p-4">
-                        <div className="flex items-center gap-2 mb-3">
-                          <h4 className="font-semibold text-sm">
-                            File Information
-                          </h4>
-                          {metadata.isAudioOnly && (
-                            <span className="rounded-full bg-main/20 px-2 py-0.5 text-xs font-medium">
-                              Audio Only
-                            </span>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
-                            <div className="text-xs text-foreground/60">
-                              Container
-                            </div>
-                            <div className="font-semibold">
-                              {metadata.container}
-                            </div>
-                          </div>
-                          {metadata.duration !== null && (
-                            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
-                              <div className="text-xs text-foreground/60">
-                                Duration
-                              </div>
-                              <div className="font-semibold">
-                                {formatTime(metadata.duration)}
-                              </div>
-                            </div>
-                          )}
-                          {metadata.dimensions && (
-                            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
-                              <div className="text-xs text-foreground/60">
-                                Dimensions
-                              </div>
-                              <div className="font-semibold">
-                                {metadata.dimensions.width}x
-                                {metadata.dimensions.height}
-                              </div>
-                            </div>
-                          )}
-                          {metadata.frameRate !== null && (
-                            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
-                              <div className="text-xs text-foreground/60">
-                                Frame Rate
-                              </div>
-                              <div className="font-semibold">
-                                {metadata.frameRate.toFixed(2)} FPS
-                              </div>
-                            </div>
-                          )}
-                          {metadata.videoCodec && (
-                            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
-                              <div className="text-xs text-foreground/60">
-                                Video Codec
-                              </div>
-                              <div className="font-semibold">
-                                {VIDEO_CODEC_LABELS[
-                                  metadata.videoCodec as keyof typeof VIDEO_CODEC_LABELS
-                                ] || metadata.videoCodec}
-                              </div>
-                            </div>
-                          )}
-                          {metadata.audioCodec && (
-                            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
-                              <div className="text-xs text-foreground/60">
-                                Audio Codec
-                              </div>
-                              <div className="font-semibold">
-                                {AUDIO_CODEC_LABELS[
-                                  metadata.audioCodec as keyof typeof AUDIO_CODEC_LABELS
-                                ] || metadata.audioCodec}
-                              </div>
-                            </div>
-                          )}
-                          {metadata.sampleRate !== null && (
-                            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
-                              <div className="text-xs text-foreground/60">
-                                Sample Rate
-                              </div>
-                              <div className="font-semibold">
-                                {metadata.sampleRate} Hz
-                              </div>
-                            </div>
-                          )}
-                          {metadata.numberOfChannels !== null && (
-                            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
-                              <div className="text-xs text-foreground/60">
-                                Channels
-                              </div>
-                              <div className="font-semibold">
-                                {metadata.numberOfChannels === 1
-                                  ? "Mono"
-                                  : metadata.numberOfChannels === 2
-                                    ? "Stereo"
-                                    : `${metadata.numberOfChannels} channels`}
-                              </div>
-                            </div>
-                          )}
-                          {metadata.isHdr && (
-                            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
-                              <div className="text-xs text-foreground/60">
-                                Color
-                              </div>
-                              <div className="font-semibold">HDR</div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Format Selection Row */}
-            <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr]">
-              {/* Input Format */}
-              <div className="space-y-2">
-                <span className="text-sm font-semibold block">
-                  Input Format
-                </span>
-                <Select value={inputFormat} onValueChange={setInputFormat}>
-                  <SelectTrigger className="h-12 bg-white dark:bg-gray-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
-                    <SelectValue placeholder="Select input format" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {INPUT_FORMATS.map((format) => (
-                      <SelectItem key={format.value} value={format.value}>
-                        <span className="flex items-center gap-2">
-                          <span>{format.icon}</span>
-                          <span>{format.label}</span>
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Arrow Icon */}
-              <div className="flex items-end justify-center pb-2 md:pb-0 md:items-center">
-                <div className="rounded-full border-2 border-border bg-main p-3 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
-                  <ArrowRight className="size-6" />
-                </div>
-              </div>
-
-              {/* Output Format */}
-              <div className="space-y-2">
-                <span className="text-sm font-semibold block">
-                  Output Format
-                </span>
-                <Select value={outputFormat} onValueChange={setOutputFormat}>
-                  <SelectTrigger className="h-12 bg-white dark:bg-gray-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
-                    <SelectValue placeholder="Select output format" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {OUTPUT_FORMATS.map((format) => (
-                      <SelectItem key={format.value} value={format.value}>
-                        <span className="flex items-center gap-2">
-                          <span>{format.icon}</span>
-                          <span>{format.label}</span>
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Audio to Video Format Notice */}
-            {metadata?.isAudioOnly &&
-              outputFormat &&
-              outputContainers.includes(outputFormat as OutputContainer) &&
-              !isAudioOnlyFormat(outputFormat as OutputContainer) && (
-                <div className="rounded-base border-2 border-amber-500 bg-amber-50 dark:bg-amber-950 p-4">
-                  <div className="flex items-start gap-2">
-                    <span className="text-lg">ℹ️</span>
-                    <div>
-                      <p className="font-semibold text-amber-700 dark:text-amber-300">
-                        Audio-only input file
-                      </p>
-                      <p className="text-sm text-amber-700 dark:text-amber-300">
-                        Your input file only contains audio. The output will be
-                        a {outputFormat.toUpperCase()} container with audio only
-                        (no video track).
-                      </p>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
+            </div>
+            {/* End Left Column */}
 
-            {/* Codec Selection */}
-            {outputFormat &&
-              outputContainers.includes(outputFormat as OutputContainer) && (
-                <div className="rounded-base border-2 border-border bg-white dark:bg-gray-950 p-4">
-                  <div className="flex items-center gap-2 mb-4">
-                    <h4 className="font-semibold text-sm">Encoding Options</h4>
-                    <span className="text-xs text-foreground/70">
-                      (Confused? Leave the default)
+            {/* Right Column: Editor & Actions (Black Zone) */}
+            <div className="space-y-6 mt-6 lg:mt-7">
+              {/* File Information - Metadata Display */}
+              {selectedFile &&
+                (loadingMetadata ? (
+                  <div className="flex items-center justify-center gap-2 rounded-base border-2 border-border bg-white dark:bg-gray-950 p-4">
+                    <Loader2 className="size-4 animate-spin" />
+                    <span className="text-sm text-foreground/60">
+                      Loading metadata...
                     </span>
                   </div>
-                  {loadingCodecs ? (
-                    <div className="flex items-center justify-center gap-2 py-4">
-                      <Loader2 className="size-4 animate-spin" />
-                      <span className="text-sm text-foreground/60">
-                        Loading available codecs...
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="grid gap-4 md:grid-cols-2">
-                      {/* Video Codec Selection - only show for non-audio formats and non-audio-only input */}
-                      {!isAudioOnlyFormat(outputFormat as OutputContainer) &&
-                        !metadata?.isAudioOnly && (
-                          <div className="space-y-2">
-                            <span className="text-sm font-medium block">
-                              Video Codec
-                            </span>
-                            <Select
-                              value={videoCodec}
-                              onValueChange={setVideoCodec}
-                            >
-                              <SelectTrigger className="bg-white dark:bg-gray-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
-                                <SelectValue placeholder="Select video codec" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="copy">
-                                  <span className="flex items-center gap-2">
-                                    <span>📋</span>
-                                    <span>Copy (No re-encoding)</span>
-                                  </span>
-                                </SelectItem>
-                                {availableVideoCodecs.map((codec) => (
-                                  <SelectItem key={codec} value={codec}>
-                                    <span className="flex items-center gap-2">
-                                      <span>🎬</span>
-                                      <span>
-                                        {VIDEO_CODEC_LABELS[codec] || codec}
-                                      </span>
-                                    </span>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <p className="text-xs text-foreground/60">
-                              {videoCodec === "copy"
-                                ? "Copies video stream without re-encoding (fastest)"
-                                : `Re-encodes video using ${VIDEO_CODEC_LABELS[videoCodec as VideoCodec] || videoCodec}`}
-                            </p>
-                          </div>
-                        )}
-
-                      {/* Audio Codec Selection */}
-                      <div className="space-y-2">
-                        <span className="text-sm font-medium block">
-                          Audio Codec
+                ) : metadata ? (
+                  <div className="rounded-base border-2 border-border bg-white dark:bg-gray-950 p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <h4 className="font-semibold text-sm">
+                        File Information
+                      </h4>
+                      {metadata.isAudioOnly && (
+                        <span className="rounded-full bg-main/20 px-2 py-0.5 text-xs font-medium">
+                          Audio Only
                         </span>
-                        <Select
-                          value={audioCodec}
-                          onValueChange={setAudioCodec}
-                        >
-                          <SelectTrigger className="bg-white dark:bg-gray-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
-                            <SelectValue placeholder="Select audio codec" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="copy">
-                              <span className="flex items-center gap-2">
-                                <span>📋</span>
-                                <span>Copy (No re-encoding)</span>
-                              </span>
-                            </SelectItem>
-                            {availableAudioCodecs.map((codec) => (
-                              <SelectItem key={codec} value={codec}>
-                                <span className="flex items-center gap-2">
-                                  <span>🎵</span>
-                                  <span>
-                                    {AUDIO_CODEC_LABELS[codec] || codec}
-                                  </span>
-                                </span>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs text-foreground/60">
-                          {audioCodec === "copy"
-                            ? "Copies audio stream without re-encoding (fastest)"
-                            : `Re-encodes audio using ${AUDIO_CODEC_LABELS[audioCodec as AudioCodec] || audioCodec}`}
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+                        <div className="text-xs text-foreground/60">
+                          Container
+                        </div>
+                        <div className="font-semibold">
+                          {metadata.container}
+                        </div>
+                      </div>
+                      {metadata.duration !== null && (
+                        <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+                          <div className="text-xs text-foreground/60">
+                            Duration
+                          </div>
+                          <div className="font-semibold">
+                            {formatTime(metadata.duration)}
+                          </div>
+                        </div>
+                      )}
+                      {metadata.dimensions && (
+                        <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+                          <div className="text-xs text-foreground/60">
+                            Dimensions
+                          </div>
+                          <div className="font-semibold">
+                            {metadata.dimensions.width}x
+                            {metadata.dimensions.height}
+                          </div>
+                        </div>
+                      )}
+                      {metadata.frameRate !== null && (
+                        <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+                          <div className="text-xs text-foreground/60">
+                            Frame Rate
+                          </div>
+                          <div className="font-semibold">
+                            {metadata.frameRate.toFixed(2)} FPS
+                          </div>
+                        </div>
+                      )}
+                      {metadata.videoCodec && (
+                        <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+                          <div className="text-xs text-foreground/60">
+                            Video Codec
+                          </div>
+                          <div className="font-semibold">
+                            {VIDEO_CODEC_LABELS[
+                              metadata.videoCodec as keyof typeof VIDEO_CODEC_LABELS
+                            ] || metadata.videoCodec}
+                          </div>
+                        </div>
+                      )}
+                      {metadata.audioCodec && (
+                        <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+                          <div className="text-xs text-foreground/60">
+                            Audio Codec
+                          </div>
+                          <div className="font-semibold">
+                            {AUDIO_CODEC_LABELS[
+                              metadata.audioCodec as keyof typeof AUDIO_CODEC_LABELS
+                            ] || metadata.audioCodec}
+                          </div>
+                        </div>
+                      )}
+                      {metadata.sampleRate !== null && (
+                        <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+                          <div className="text-xs text-foreground/60">
+                            Sample Rate
+                          </div>
+                          <div className="font-semibold">
+                            {metadata.sampleRate} Hz
+                          </div>
+                        </div>
+                      )}
+                      {metadata.numberOfChannels !== null && (
+                        <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+                          <div className="text-xs text-foreground/60">
+                            Channels
+                          </div>
+                          <div className="font-semibold">
+                            {metadata.numberOfChannels === 1
+                              ? "Mono"
+                              : metadata.numberOfChannels === 2
+                                ? "Stereo"
+                                : `${metadata.numberOfChannels} channels`}
+                          </div>
+                        </div>
+                      )}
+                      {metadata.isHdr && (
+                        <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+                          <div className="text-xs text-foreground/60">
+                            Color
+                          </div>
+                          <div className="font-semibold">HDR</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : null)}
+
+              {/* Format Selection Row */}
+              <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr]">
+                {/* Input Format */}
+                <div className="space-y-2">
+                  <span className="text-sm font-semibold block">
+                    Input Format
+                  </span>
+                  <Select value={inputFormat} onValueChange={setInputFormat}>
+                    <SelectTrigger className="h-12 bg-white dark:bg-gray-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
+                      <SelectValue placeholder="Select input format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {INPUT_FORMATS.map((format) => (
+                        <SelectItem key={format.value} value={format.value}>
+                          <span className="flex items-center gap-2">
+                            <span>{format.icon}</span>
+                            <span>{format.label}</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Arrow Icon */}
+                <div className="flex items-end justify-center pb-2 md:pb-0 md:items-center">
+                  <div className="rounded-full border-2 border-border bg-main p-3 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
+                    <ArrowRight className="size-6" />
+                  </div>
+                </div>
+
+                {/* Output Format */}
+                <div className="space-y-2">
+                  <span className="text-sm font-semibold block">
+                    Output Format
+                  </span>
+                  <Select value={outputFormat} onValueChange={setOutputFormat}>
+                    <SelectTrigger className="h-12 bg-white dark:bg-gray-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
+                      <SelectValue placeholder="Select output format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {OUTPUT_FORMATS.map((format) => (
+                        <SelectItem key={format.value} value={format.value}>
+                          <span className="flex items-center gap-2">
+                            <span>{format.icon}</span>
+                            <span>{format.label}</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Audio to Video Format Notice */}
+              {metadata?.isAudioOnly &&
+                outputFormat &&
+                outputContainers.includes(outputFormat as OutputContainer) &&
+                !isAudioOnlyFormat(outputFormat as OutputContainer) && (
+                  <div className="rounded-base border-2 border-amber-500 bg-amber-50 dark:bg-amber-950 p-4">
+                    <div className="flex items-start gap-2">
+                      <span className="text-lg">ℹ️</span>
+                      <div>
+                        <p className="font-semibold text-amber-700 dark:text-amber-300">
+                          Audio-only input file
                         </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-            {/* Editing Panel - hidden for audio-only output formats */}
-            {selectedFile &&
-              outputFormat &&
-              outputContainers.includes(outputFormat as OutputContainer) &&
-              !isAudioOnlyFormat(outputFormat as OutputContainer) && (
-                <EditingPanel
-                  state={editingState}
-                  onStateChange={setEditingState}
-                  onCropToggle={handleCropToggle}
-                  onTrimToggle={handleTrimToggle}
-                  mediaDuration={metadata?.duration ?? undefined}
-                  isAudioOnly={metadata?.isAudioOnly}
-                />
-              )}
-
-            {/* Notify Me Option */}
-            {outputFormat &&
-              outputContainers.includes(outputFormat as OutputContainer) && (
-                <div className="rounded-base border-2 border-border bg-white dark:bg-gray-950 p-4">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      id="notifyMe"
-                      checked={notifyMe}
-                      onChange={async (e) => {
-                        console.log(
-                          "Notify me checkbox changed:",
-                          e.target.checked,
-                        );
-                        if (e.target.checked) {
-                          // Request notification permission if not granted
-                          if ("Notification" in window) {
-                            if (Notification.permission === "default") {
-                              const permission =
-                                await Notification.requestPermission();
-                              setNotifyMe(permission === "granted");
-                            } else if (Notification.permission === "granted") {
-                              setNotifyMe(true);
-                            } else {
-                              // Permission denied
-                              setNotifyMe(false);
-                              alert(
-                                "Notification permission is denied. Please enable it in your browser settings.",
-                              );
-                            }
-                          } else {
-                            alert(
-                              "Notifications are not supported in your browser.",
-                            );
-                            setNotifyMe(false);
-                          }
-                        } else {
-                          console.log("Notifications unchecked");
-                          setNotifyMe(false);
-                        }
-                      }}
-                      className="size-4 cursor-pointer accent-main"
-                    />
-                    <label
-                      htmlFor="notifyMe"
-                      className="text-sm font-medium cursor-pointer"
-                    >
-                      Notify me when conversion is complete
-                    </label>
-                  </div>
-                </div>
-              )}
-
-            {/* Conversion Progress */}
-            {conversionStatus === "converting" && (
-              <div className="space-y-3 rounded-base border-2 border-border bg-white p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="size-5 animate-spin text-main" />
-                    <span className="font-semibold">Converting...</span>
-                  </div>
-                  <span className="font-mono text-sm">{progress}%</span>
-                </div>
-                <Progress value={progress} className="h-3" />
-
-                {/* Stats Display */}
-                {stats && (
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
-                      <div className="text-xs text-foreground/60">Elapsed</div>
-                      <div className="font-mono font-semibold">
-                        {formatTime(stats.elapsedSeconds)}
-                      </div>
-                    </div>
-                    <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
-                      <div className="text-xs text-foreground/60">
-                        Remaining
-                      </div>
-                      <div className="font-mono font-semibold">
-                        {stats.estimatedRemainingSeconds
-                          ? formatTime(stats.estimatedRemainingSeconds)
-                          : "Calculating..."}
-                      </div>
-                    </div>
-                    <div className="col-span-2 rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
-                      <div className="text-xs text-foreground/60">
-                        Output Size
-                      </div>
-                      <div className="font-mono font-semibold">
-                        {formatBytes(stats.currentFileSize)}
+                        <p className="text-sm text-amber-700 dark:text-amber-300">
+                          Your input file only contains audio. The output will
+                          be a {outputFormat.toUpperCase()} container with audio
+                          only (no video track).
+                        </p>
                       </div>
                     </div>
                   </div>
                 )}
 
-                <Button
-                  variant="neutral"
-                  size="sm"
-                  onClick={handleCancel}
-                  className="w-full shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]"
-                >
-                  Cancel
-                </Button>
-              </div>
-            )}
+              {/* Codec Selection */}
+              {outputFormat &&
+                outputContainers.includes(outputFormat as OutputContainer) && (
+                  <div className="rounded-base border-2 border-border bg-white dark:bg-gray-950 p-4">
+                    <div className="flex items-center gap-2 mb-4">
+                      <h4 className="font-semibold text-sm">
+                        Encoding Options
+                      </h4>
+                      <span className="text-xs text-foreground/70">
+                        (Confused? Leave the default)
+                      </span>
+                    </div>
+                    {loadingCodecs ? (
+                      <div className="flex items-center justify-center gap-2 py-4">
+                        <Loader2 className="size-4 animate-spin" />
+                        <span className="text-sm text-foreground/60">
+                          Loading available codecs...
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="grid gap-4 md:grid-cols-2">
+                        {/* Video Codec Selection - only show for non-audio formats and non-audio-only input */}
+                        {!isAudioOnlyFormat(outputFormat as OutputContainer) &&
+                          !metadata?.isAudioOnly && (
+                            <div className="space-y-2">
+                              <span className="text-sm font-medium block">
+                                Video Codec
+                              </span>
+                              <Select
+                                value={videoCodec}
+                                onValueChange={setVideoCodec}
+                              >
+                                <SelectTrigger className="bg-white dark:bg-gray-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
+                                  <SelectValue placeholder="Select video codec" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="copy">
+                                    <span className="flex items-center gap-2">
+                                      <span>📋</span>
+                                      <span>Copy (No re-encoding)</span>
+                                    </span>
+                                  </SelectItem>
+                                  {availableVideoCodecs.map((codec) => (
+                                    <SelectItem key={codec} value={codec}>
+                                      <span className="flex items-center gap-2">
+                                        <span>🎬</span>
+                                        <span>
+                                          {VIDEO_CODEC_LABELS[codec] || codec}
+                                        </span>
+                                      </span>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <p className="text-xs text-foreground/60">
+                                {videoCodec === "copy"
+                                  ? "Copies video stream without re-encoding (fastest)"
+                                  : `Re-encodes video using ${VIDEO_CODEC_LABELS[videoCodec as VideoCodec] || videoCodec}`}
+                              </p>
+                            </div>
+                          )}
 
-            {/* Finalizing State */}
-            {conversionStatus === "finalizing" && (
-              <div className="space-y-3 rounded-base border-2 border-border bg-white dark:bg-gray-950 p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="size-5 animate-spin text-main" />
-                    <span className="font-semibold">Finalizing file...</span>
+                        {/* Audio Codec Selection */}
+                        <div className="space-y-2">
+                          <span className="text-sm font-medium block">
+                            Audio Codec
+                          </span>
+                          <Select
+                            value={audioCodec}
+                            onValueChange={setAudioCodec}
+                          >
+                            <SelectTrigger className="bg-white dark:bg-gray-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
+                              <SelectValue placeholder="Select audio codec" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="copy">
+                                <span className="flex items-center gap-2">
+                                  <span>📋</span>
+                                  <span>Copy (No re-encoding)</span>
+                                </span>
+                              </SelectItem>
+                              {availableAudioCodecs.map((codec) => (
+                                <SelectItem key={codec} value={codec}>
+                                  <span className="flex items-center gap-2">
+                                    <span>🎵</span>
+                                    <span>
+                                      {AUDIO_CODEC_LABELS[codec] || codec}
+                                    </span>
+                                  </span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-foreground/60">
+                            {audioCodec === "copy"
+                              ? "Copies audio stream without re-encoding (fastest)"
+                              : `Re-encodes audio using ${AUDIO_CODEC_LABELS[audioCodec as AudioCodec] || audioCodec}`}
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <span className="font-mono text-sm">99%</span>
-                </div>
-                <Progress value={99} className="h-3" />
-                <p className="text-xs text-foreground/60">
-                  Writing file metadata and optimizing structure...
-                </p>
-              </div>
-            )}
+                )}
 
-            {/* Conversion Complete */}
-            {conversionStatus === "completed" && convertedBlob && (
-              <div className="space-y-3 rounded-base border-2 border-green-500 bg-green-50 dark:bg-green-950 p-4">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="size-5 text-green-600" />
-                  <span className="font-semibold text-green-700 dark:text-green-300">
-                    Conversion Complete!
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-green-700 dark:text-green-300">
-                  <div className="rounded-base border border-green-600 bg-green-100 px-3 py-2">
-                    <div className="text-xs text-green-600">Output size</div>
-                    <div className="font-mono font-semibold">
-                      {(convertedBlob.size / 1024 / 1024).toFixed(2)} MB
+              {/* Editing Panel - hidden for audio-only output formats */}
+              {selectedFile &&
+                outputFormat &&
+                outputContainers.includes(outputFormat as OutputContainer) &&
+                !isAudioOnlyFormat(outputFormat as OutputContainer) && (
+                  <EditingPanel
+                    state={editingState}
+                    onStateChange={setEditingState}
+                    onCropToggle={handleCropToggle}
+                    onTrimToggle={handleTrimToggle}
+                    mediaDuration={metadata?.duration ?? undefined}
+                    isAudioOnly={metadata?.isAudioOnly}
+                  />
+                )}
+
+              {/* Notify Me Option */}
+              {outputFormat &&
+                outputContainers.includes(outputFormat as OutputContainer) && (
+                  <div className="rounded-base border-2 border-border bg-white dark:bg-gray-950 p-4">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        id="notifyMe"
+                        checked={notifyMe}
+                        onChange={async (e) => {
+                          console.log(
+                            "Notify me checkbox changed:",
+                            e.target.checked,
+                          );
+                          if (e.target.checked) {
+                            // Request notification permission if not granted
+                            if ("Notification" in window) {
+                              if (Notification.permission === "default") {
+                                const permission =
+                                  await Notification.requestPermission();
+                                setNotifyMe(permission === "granted");
+                              } else if (
+                                Notification.permission === "granted"
+                              ) {
+                                setNotifyMe(true);
+                              } else {
+                                // Permission denied
+                                setNotifyMe(false);
+                                alert(
+                                  "Notification permission is denied. Please enable it in your browser settings.",
+                                );
+                              }
+                            } else {
+                              alert(
+                                "Notifications are not supported in your browser.",
+                              );
+                              setNotifyMe(false);
+                            }
+                          } else {
+                            console.log("Notifications unchecked");
+                            setNotifyMe(false);
+                          }
+                        }}
+                        className="size-4 cursor-pointer accent-main"
+                      />
+                      <label
+                        htmlFor="notifyMe"
+                        className="text-sm font-medium cursor-pointer"
+                      >
+                        Notify me when conversion is complete
+                      </label>
                     </div>
                   </div>
+                )}
+
+              {/* Conversion Progress */}
+              {conversionStatus === "converting" && (
+                <div className="space-y-3 rounded-base border-2 border-border bg-white p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="size-5 animate-spin text-main" />
+                      <span className="font-semibold">Converting...</span>
+                    </div>
+                    <span className="font-mono text-sm">{progress}%</span>
+                  </div>
+                  <Progress value={progress} className="h-3" />
+
+                  {/* Stats Display */}
                   {stats && (
-                    <div className="rounded-base border border-green-600 bg-green-100 dark:bg-green-900 px-3 py-2">
-                      <div className="text-xs text-green-600 dark:text-green-400">
-                        Time taken
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+                        <div className="text-xs text-foreground/60">
+                          Elapsed
+                        </div>
+                        <div className="font-mono font-semibold">
+                          {formatTime(stats.elapsedSeconds)}
+                        </div>
                       </div>
-                      <div className="font-mono font-semibold">
-                        {formatTime(stats.elapsedSeconds)}
+                      <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+                        <div className="text-xs text-foreground/60">
+                          Remaining
+                        </div>
+                        <div className="font-mono font-semibold">
+                          {stats.estimatedRemainingSeconds
+                            ? formatTime(stats.estimatedRemainingSeconds)
+                            : "Calculating..."}
+                        </div>
+                      </div>
+                      <div className="col-span-2 rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+                        <div className="text-xs text-foreground/60">
+                          Output Size
+                        </div>
+                        <div className="font-mono font-semibold">
+                          {formatBytes(stats.currentFileSize)}
+                        </div>
                       </div>
                     </div>
                   )}
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <Button
-                    size="lg"
-                    onClick={handleDownload}
-                    className="w-full sm:flex-1 bg-green-600 text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)] hover:bg-green-700"
-                  >
-                    <Download className="size-5" />
-                    Download File
-                  </Button>
+
                   <Button
                     variant="neutral"
-                    size="lg"
-                    onClick={resetConversion}
-                    className="w-full sm:w-auto shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]"
+                    size="sm"
+                    onClick={handleCancel}
+                    className="w-full shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]"
                   >
-                    Convert Another
+                    Cancel
                   </Button>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Conversion Error */}
-            {conversionStatus === "error" && (
-              <div className="space-y-3 rounded-base border-2 border-red-500 bg-red-50 dark:bg-red-950 p-4">
-                <div className="flex items-center gap-2">
-                  <XCircle className="size-5 text-red-600" />
-                  <span className="font-semibold text-red-700 dark:text-red-300">
-                    Conversion Failed
-                  </span>
+              {/* Finalizing State */}
+              {conversionStatus === "finalizing" && (
+                <div className="space-y-3 rounded-base border-2 border-border bg-white dark:bg-gray-950 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="size-5 animate-spin text-main" />
+                      <span className="font-semibold">Finalizing file...</span>
+                    </div>
+                    <span className="font-mono text-sm">99%</span>
+                  </div>
+                  <Progress value={99} className="h-3" />
+                  <p className="text-xs text-foreground/60">
+                    Writing file metadata and optimizing structure...
+                  </p>
                 </div>
-                <p className="text-sm text-red-700 dark:text-red-300">
-                  {errorMessage}
-                </p>
+              )}
+
+              {/* Conversion Complete */}
+              {conversionStatus === "completed" && convertedBlob && (
+                <div className="space-y-3 rounded-base border-2 border-green-500 bg-green-50 dark:bg-green-950 p-4">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="size-5 text-green-600" />
+                    <span className="font-semibold text-green-700 dark:text-green-300">
+                      Conversion Complete!
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-green-700 dark:text-green-300">
+                    <div className="rounded-base border border-green-600 bg-green-100 px-3 py-2">
+                      <div className="text-xs text-green-600">Output size</div>
+                      <div className="font-mono font-semibold">
+                        {(convertedBlob.size / 1024 / 1024).toFixed(2)} MB
+                      </div>
+                    </div>
+                    {stats && (
+                      <div className="rounded-base border border-green-600 bg-green-100 dark:bg-green-900 px-3 py-2">
+                        <div className="text-xs text-green-600 dark:text-green-400">
+                          Time taken
+                        </div>
+                        <div className="font-mono font-semibold">
+                          {formatTime(stats.elapsedSeconds)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Button
+                      size="lg"
+                      onClick={handleDownload}
+                      className="w-full sm:flex-1 bg-green-600 text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)] hover:bg-green-700"
+                    >
+                      <Download className="size-5" />
+                      Download File
+                    </Button>
+                    <Button
+                      variant="neutral"
+                      size="lg"
+                      onClick={resetConversion}
+                      className="w-full sm:w-auto shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]"
+                    >
+                      Convert Another
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Conversion Error */}
+              {conversionStatus === "error" && (
+                <div className="space-y-3 rounded-base border-2 border-red-500 bg-red-50 dark:bg-red-950 p-4">
+                  <div className="flex items-center gap-2">
+                    <XCircle className="size-5 text-red-600" />
+                    <span className="font-semibold text-red-700 dark:text-red-300">
+                      Conversion Failed
+                    </span>
+                  </div>
+                  <p className="text-sm text-red-700 dark:text-red-300">
+                    {errorMessage}
+                  </p>
+                  <Button
+                    variant="neutral"
+                    size="sm"
+                    onClick={resetConversion}
+                    className="w-full shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]"
+                  >
+                    Try Again
+                  </Button>
+                </div>
+              )}
+
+              {/* Convert Button */}
+              {conversionStatus === "idle" && (
                 <Button
-                  variant="neutral"
-                  size="sm"
-                  onClick={resetConversion}
-                  className="w-full shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]"
+                  size="lg"
+                  className="w-full text-base font-bold shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,0.1)]"
+                  disabled={!selectedFile || !inputFormat || !outputFormat}
+                  onClick={handleConvert}
                 >
-                  Try Again
+                  <Video className="size-5" />
+                  {outputFormat &&
+                  outputContainers.includes(outputFormat as OutputContainer) &&
+                  isAudioOnlyFormat(outputFormat as OutputContainer)
+                    ? "Convert to Audio"
+                    : metadata?.isAudioOnly
+                      ? "Convert Audio"
+                      : "Convert Media"}
                 </Button>
-              </div>
-            )}
-
-            {/* Convert Button */}
-            {conversionStatus === "idle" && (
-              <Button
-                size="lg"
-                className="w-full text-base font-bold shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,0.1)]"
-                disabled={!selectedFile || !inputFormat || !outputFormat}
-                onClick={handleConvert}
-              >
-                <Video className="size-5" />
-                {outputFormat &&
-                outputContainers.includes(outputFormat as OutputContainer) &&
-                isAudioOnlyFormat(outputFormat as OutputContainer)
-                  ? "Convert to Audio"
-                  : metadata?.isAudioOnly
-                    ? "Convert Audio"
-                    : "Convert Media"}
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Features Grid */}
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card className="shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,0.1)]">
-            <CardContent className="flex flex-col items-center justify-center p-6 text-center">
-              <div className="mb-3 rounded-full border-2 border-border bg-main p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
-                <FileVideo className="size-8" />
-              </div>
-              <h3 className="mb-2 font-heading text-lg">Multiple Formats</h3>
-              <p className="text-sm text-foreground/70">
-                Support for MP4, WebM, MKV, MOV, and many more video & audio
-                formats
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,0.1)]">
-            <CardContent className="flex flex-col items-center justify-center p-6 text-center">
-              <div className="mb-3 rounded-full border-2 border-border bg-main p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
-                <Upload className="size-8" />
-              </div>
-              <h3 className="mb-2 font-heading text-lg">
-                Client-Side Processing
-              </h3>
-              <p className="text-sm text-foreground/70">
-                All conversions happen in your browser - your files never leave
-                your device
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,0.1)]">
-            <CardContent className="flex flex-col items-center justify-center p-6 text-center">
-              <div className="mb-3 rounded-full border-2 border-border bg-main p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
-                <Download className="size-8" />
-              </div>
-              <h3 className="mb-2 font-heading text-lg">High Quality</h3>
-              <p className="text-sm text-foreground/70">
-                Hardware-accelerated encoding with customizable quality settings
-              </p>
-            </CardContent>
-          </Card>
+              )}
+            </div>
+            {/* End Right Column */}
+          </div>
+          {/* End Two-column layout */}
         </div>
       </div>
     </div>
