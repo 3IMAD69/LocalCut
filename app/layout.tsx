@@ -5,6 +5,8 @@ import { Archivo } from "next/font/google";
 import Link from "next/link";
 import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
+import { Analytics } from "@vercel/analytics/next";
+import Script from "next/script";
 
 const archivo = Archivo({
   variable: "--font-archivo",
@@ -25,12 +27,13 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       {/* <head>
-        <script
+        <Script
           crossOrigin="anonymous"
           src="//unpkg.com/react-scan/dist/auto.global.js"
         />
       </head> */}
       <body className={`${archivo.variable} antialiased`}>
+        <Analytics />
         <ThemeProvider
           attribute="class"
           defaultTheme="light"
