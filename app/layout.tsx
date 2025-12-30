@@ -6,7 +6,6 @@ import Link from "next/link";
 import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
-import Script from "next/script";
 
 const archivo = Archivo({
   variable: "--font-archivo",
