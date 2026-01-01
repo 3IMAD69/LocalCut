@@ -977,6 +977,11 @@ export default function ConvertPage() {
                       onCropDisable={handleCropDisable}
                       initialCrop={editingState.crop.rect ?? undefined}
                       videoDimensions={metadata?.dimensions ?? undefined}
+                      rotateDegrees={
+                        editingState.rotate.enabled
+                          ? editingState.rotate.degrees
+                          : 0
+                      }
                       trimEnabled={editingState.trim.enabled}
                       trimRange={
                         editingState.trim.enabled

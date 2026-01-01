@@ -12,6 +12,10 @@ import {
   useState,
 } from "react";
 import { CropOverlay, type CropRect } from "@/components/editing/crop-overlay";
+import {
+  createRotatePlugin,
+  type RotationDegrees,
+} from "@/components/player/plugins/rotate-plugin";
 import { cn } from "@/lib/utils";
 import { FullscreenButton } from "./fullscreen-button";
 import { PlayPauseButton } from "./play-pause-button";
@@ -48,6 +52,8 @@ interface EditableMediaPlayerProps {
   onTrimChange?: (range: TrimRange) => void;
   /** Callback when crop should be disabled (e.g., when entering fullscreen) */
   onCropDisable?: () => void;
+  /** Clockwise rotation applied in the MediaFox render pipeline (no CSS rotation). */
+  rotateDegrees?: RotationDegrees;
 }
 
 export const EditableMediaPlayer = forwardRef<
@@ -64,6 +70,7 @@ export const EditableMediaPlayer = forwardRef<
     trimRange,
     onTrimChange,
     onCropDisable,
+    rotateDegrees,
   },
   ref,
 ) {
@@ -73,14 +80,11 @@ export const EditableMediaPlayer = forwardRef<
   const [mediaFox, setMediaFox] = useState<MediaFox | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [currentSrc, setCurrentSrc] = useState(src);
 
-  const source = useMemo(() => {
-    if (typeof src === "string") {
-      return src;
-    }
-    return src;
-  }, [src]);
+  const rotatePluginRef = useRef(createRotatePlugin(0));
+  const rotatePluginInstalledRef = useRef(false);
+
+  const source = src;
 
   // Check if file is audio-only based on MIME type
   const isAudioOnly = useMemo(() => {
@@ -92,11 +96,22 @@ export const EditableMediaPlayer = forwardRef<
     return false;
   }, [src]);
 
-  // Reset loaded state when source changes
-  if (currentSrc !== src) {
-    setCurrentSrc(src);
-    setIsLoaded(false);
-  }
+  const effectiveRotateDegrees: RotationDegrees = useMemo(() => {
+    const requested = rotateDegrees ?? 0;
+    return isAudioOnly ? 0 : requested;
+  }, [rotateDegrees, isAudioOnly]);
+
+  const displayDimensions = useMemo(() => {
+    if (!videoDimensions) return null;
+
+    const isQuarterTurn =
+      effectiveRotateDegrees === 90 || effectiveRotateDegrees === 270;
+
+    return {
+      width: isQuarterTurn ? videoDimensions.height : videoDimensions.width,
+      height: isQuarterTurn ? videoDimensions.width : videoDimensions.height,
+    };
+  }, [videoDimensions, effectiveRotateDegrees]);
 
   // Expose methods to parent via ref
   useImperativeHandle(
@@ -134,10 +149,52 @@ export const EditableMediaPlayer = forwardRef<
 
     mediaFox.setRenderTarget(canvasRef.current);
 
-    mediaFox.load(source).then(() => {
-      setIsLoaded(true);
-    });
+    const plugin = rotatePluginRef.current;
+    const ensurePluginsAndLoad = async () => {
+      try {
+        if (!rotatePluginInstalledRef.current) {
+          await mediaFox.use(plugin);
+          rotatePluginInstalledRef.current = true;
+        }
+
+        setIsLoaded(false);
+        await mediaFox.load(source);
+        setIsLoaded(true);
+      } catch {
+        // Keep existing UX (player will show Loading/error via other parts)
+      }
+    };
+
+    ensurePluginsAndLoad();
   }, [source, mediaFox]);
+
+  // Apply rotation to the player render pipeline (no CSS transform)
+  useEffect(() => {
+    rotatePluginRef.current.setDegrees(effectiveRotateDegrees);
+
+    // Ensure the render target pixel buffer matches the rotated dimensions.
+    // This prevents letterboxing when rotating 90°/270°.
+    if (canvasRef.current && displayDimensions) {
+      const nextWidth = displayDimensions.width;
+      const nextHeight = displayDimensions.height;
+
+      if (
+        canvasRef.current.width !== nextWidth ||
+        canvasRef.current.height !== nextHeight
+      ) {
+        canvasRef.current.width = nextWidth;
+        canvasRef.current.height = nextHeight;
+      }
+    }
+
+    // Force re-render of current frame when rotation changes while paused.
+    // Seeking to the current time triggers MediaFox to re-decode and render
+    // the frame with the updated rotation applied.
+    if (mediaFox && isLoaded) {
+      const currentTime = mediaFox.currentTime;
+      mediaFox.seek(currentTime);
+    }
+  }, [effectiveRotateDegrees, displayDimensions, mediaFox, isLoaded]);
 
   const toggleFullscreen = useCallback(() => {
     if (!containerRef.current) {
@@ -247,6 +304,13 @@ export const EditableMediaPlayer = forwardRef<
           cropEnabled && "ring-2 ring-main ring-offset-2",
           trimEnabled && !cropEnabled && "ring-2 ring-main ring-offset-2",
         )}
+        style={
+          !isFullscreen && displayDimensions
+            ? {
+                aspectRatio: `${displayDimensions.width} / ${displayDimensions.height}`,
+              }
+            : undefined
+        }
       >
         {/* Audio-only visual placeholder */}
         {isAudioOnly && (
@@ -261,7 +325,9 @@ export const EditableMediaPlayer = forwardRef<
           ref={canvasRef}
           className={cn(
             "block",
-            isFullscreen ? "max-w-full max-h-full w-auto h-auto" : "w-full",
+            isFullscreen
+              ? "max-w-full max-h-full w-auto h-auto"
+              : "w-full h-full",
             isAudioOnly && "opacity-0 h-48",
           )}
         />
