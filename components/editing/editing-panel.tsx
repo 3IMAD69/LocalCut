@@ -137,8 +137,6 @@ export function EditingPanel({
       onStateChange({
         ...state,
         crop: { ...state.crop, enabled },
-        // Disable rotate when enabling crop
-        rotate: enabled ? { enabled: false, degrees: 0 } : state.rotate,
       });
       onCropToggle?.(enabled);
     },
@@ -167,8 +165,6 @@ export function EditingPanel({
       onStateChange({
         ...state,
         rotate: { enabled, degrees: enabled ? 90 : 0 },
-        // Disable crop when enabling rotate
-        crop: enabled ? { enabled: false, rect: null } : state.crop,
       });
     },
     [state, onStateChange],
@@ -217,14 +213,9 @@ export function EditingPanel({
             id={`${idPrefix}-crop`}
             icon={<Crop className="size-5" />}
             label="Crop"
-            description={
-              state.rotate.enabled
-                ? "Disabled when rotate is active"
-                : "Select a region to crop from the video"
-            }
+            description="Select a region to crop from the video"
             checked={state.crop.enabled}
             onCheckedChange={handleCropToggle}
-            disabled={state.rotate.enabled}
           />
         )}
 
@@ -265,14 +256,9 @@ export function EditingPanel({
               id={`${idPrefix}-rotate`}
               icon={<RotateCcw className="size-5" />}
               label="Rotate"
-              description={
-                state.crop.enabled
-                  ? "Disabled when crop is active"
-                  : "Rotate the video 90°, 180°, or 270°"
-              }
+              description="Rotate the video 90°, 180°, or 270°"
               checked={state.rotate.enabled}
               onCheckedChange={handleRotateToggle}
-              disabled={state.crop.enabled}
             />
 
             {/* Rotation degree selector */}
