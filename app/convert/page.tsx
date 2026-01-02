@@ -1,15 +1,7 @@
 "use client";
 
 import { registerMp3Encoder } from "@mediabunny/mp3-encoder";
-import {
-  ArrowRight,
-  CheckCircle2,
-  Download,
-  Loader2,
-  Upload,
-  Video,
-  XCircle,
-} from "lucide-react";
+import { ArrowRight, Loader2, Upload } from "lucide-react";
 import {
   ALL_FORMATS,
   type AudioCodec,
@@ -38,7 +30,6 @@ import {
   type MediaPlayerHandle,
 } from "@/components/player/editable-media-player";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -49,7 +40,6 @@ import {
 import {
   AUDIO_CODEC_LABELS,
   getCommonAudioCodecs,
-  getFileExtension,
   getMediabunnyOutput,
   getMimeType,
   getSupportedVideoCodecs,
@@ -58,6 +48,11 @@ import {
   outputContainers,
   VIDEO_CODEC_LABELS,
 } from "@/lib/mediabunny";
+import {
+  type ConversionStats,
+  ConversionStatusDisplay,
+  type ConversionStatusHandle,
+} from "./conversion-status-display";
 
 const INPUT_FORMATS = [
   // Video formats
@@ -123,22 +118,6 @@ const OUTPUT_FORMATS = [
   },
 ];
 
-type ConversionStatus =
-  | "idle"
-  | "converting"
-  | "finalizing"
-  | "completed"
-  | "error";
-
-interface ConversionStats {
-  startTime: number;
-  lastUpdateTime: number;
-  elapsedSeconds: number;
-  estimatedTotalSeconds: number | null;
-  estimatedRemainingSeconds: number | null;
-  currentFileSize: number; // in bytes
-}
-
 interface FileMetadata {
   container: string;
   size: number;
@@ -167,12 +146,6 @@ export default function ConvertPage() {
     AudioCodec[]
   >([]);
   const [loadingCodecs, setLoadingCodecs] = useState<boolean>(false);
-  const [conversionStatus, setConversionStatus] =
-    useState<ConversionStatus>("idle");
-  const [progress, setProgress] = useState<number>(0);
-  const [convertedBlob, setConvertedBlob] = useState<Blob | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string>("");
-  const [stats, setStats] = useState<ConversionStats | null>(null);
   const [metadata, setMetadata] = useState<FileMetadata | null>(null);
   const [loadingMetadata, setLoadingMetadata] = useState<boolean>(false);
   const [notifyMe, setNotifyMe] = useState<boolean>(false);
@@ -182,6 +155,7 @@ export default function ConvertPage() {
   const statsIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const mediaPlayerRef = useRef<MediaPlayerHandle>(null);
   const notifyMeRef = useRef<boolean>(false);
+  const statusRef = useRef<ConversionStatusHandle>(null);
 
   // Keep notifyMeRef in sync with notifyMe state
   useEffect(() => {
@@ -243,18 +217,6 @@ export default function ConvertPage() {
       }
     };
   }, []);
-
-  // Update page title based on conversion status
-  useEffect(() => {
-    if (
-      conversionStatus === "converting" ||
-      conversionStatus === "finalizing"
-    ) {
-      document.title = `${progress}% - Converting...`;
-    } else {
-      document.title = "LocalCut - Converter";
-    }
-  }, [conversionStatus, progress]);
 
   // Disable crop and rotate when output format is audio-only
   useEffect(() => {
@@ -393,11 +355,7 @@ export default function ConvertPage() {
         setInputFormat(extension);
       }
       // Reset conversion state when new file is selected
-      setConversionStatus("idle");
-      setProgress(0);
-      setConvertedBlob(null);
-      setErrorMessage("");
-      setStats(null);
+      statusRef.current?.reset();
       setMetadata(null);
       setEditingState(defaultEditingState);
       if (statsIntervalRef.current) {
@@ -451,11 +409,7 @@ export default function ConvertPage() {
             setInputFormat(extension);
           }
           // Reset conversion state when new file is selected
-          setConversionStatus("idle");
-          setProgress(0);
-          setConvertedBlob(null);
-          setErrorMessage("");
-          setStats(null);
+          statusRef.current?.reset();
           setMetadata(null);
           setEditingState(defaultEditingState);
           if (statsIntervalRef.current) {
@@ -494,11 +448,7 @@ export default function ConvertPage() {
               setInputFormat(extension);
             }
             // Reset conversion state when new file is selected
-            setConversionStatus("idle");
-            setProgress(0);
-            setConvertedBlob(null);
-            setErrorMessage("");
-            setStats(null);
+            statusRef.current?.reset();
             setMetadata(null);
             setEditingState(defaultEditingState);
             if (statsIntervalRef.current) {
@@ -533,14 +483,6 @@ export default function ConvertPage() {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const formatBytes = (bytes: number): string => {
-    if (bytes === 0) return "0 B";
-    const k = 1024;
-    const sizes = ["B", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${(bytes / k ** i).toFixed(2)} ${sizes[i]}`;
-  };
-
   const handleConvert = useCallback(async () => {
     console.log("handleConvert called", { selectedFile, outputFormat });
 
@@ -552,15 +494,11 @@ export default function ConvertPage() {
     // Validate output format
     if (!outputContainers.includes(outputFormat as OutputContainer)) {
       console.log("Unsupported output format:", outputFormat);
-      setErrorMessage(`Unsupported output format: ${outputFormat}`);
-      setConversionStatus("error");
+      statusRef.current?.setError(`Unsupported output format: ${outputFormat}`);
       return;
     }
 
-    setConversionStatus("converting");
-    setProgress(0);
-    setErrorMessage("");
-    setConvertedBlob(null);
+    statusRef.current?.start();
 
     try {
       console.log("Starting conversion to", outputFormat);
@@ -759,7 +697,7 @@ export default function ConvertPage() {
 
       // Initialize stats
       const startTime = Date.now();
-      const initialStats: ConversionStats = {
+      let currentStats: ConversionStats = {
         startTime,
         lastUpdateTime: startTime,
         elapsedSeconds: 0,
@@ -767,29 +705,31 @@ export default function ConvertPage() {
         estimatedRemainingSeconds: null,
         currentFileSize: 0,
       };
-      setStats(initialStats);
+      statusRef.current?.updateStats(currentStats);
 
       // Track output file size
       target.onwrite = (_start: number, end: number) => {
-        setStats((prev) => (prev ? { ...prev, currentFileSize: end } : null));
+        currentStats = { ...currentStats, currentFileSize: end };
+        statusRef.current?.updateStats(currentStats);
       };
 
       // Update elapsed time every 100ms
       statsIntervalRef.current = setInterval(() => {
         const now = Date.now();
         const elapsed = (now - startTime) / 1000;
-        setStats((prev) =>
-          prev
-            ? { ...prev, elapsedSeconds: elapsed, lastUpdateTime: now }
-            : null,
-        );
+        currentStats = {
+          ...currentStats,
+          elapsedSeconds: elapsed,
+          lastUpdateTime: now,
+        };
+        statusRef.current?.updateStats(currentStats);
       }, 100);
 
       // Set up progress tracking
       conversion.onProgress = (p: number) => {
         console.log("Progress:", p);
         const progressPercent = Math.round(p * 100);
-        setProgress(progressPercent);
+        statusRef.current?.updateProgress(progressPercent);
 
         // Calculate time estimates
         const now = Date.now();
@@ -804,17 +744,14 @@ export default function ConvertPage() {
           estimatedRemaining = estimatedTotal - elapsed;
         }
 
-        setStats((prev) =>
-          prev
-            ? {
-                ...prev,
-                lastUpdateTime: now,
-                elapsedSeconds: elapsed,
-                estimatedTotalSeconds: estimatedTotal,
-                estimatedRemainingSeconds: estimatedRemaining,
-              }
-            : null,
-        );
+        currentStats = {
+          ...currentStats,
+          lastUpdateTime: now,
+          elapsedSeconds: elapsed,
+          estimatedTotalSeconds: estimatedTotal,
+          estimatedRemainingSeconds: estimatedRemaining,
+        };
+        statusRef.current?.updateStats(currentStats);
       };
 
       // Execute conversion
@@ -823,7 +760,7 @@ export default function ConvertPage() {
 
       // Show finalizing state
       console.log("Conversion encoding complete, finalizing file...");
-      setConversionStatus("finalizing");
+      statusRef.current?.setFinalizing();
 
       console.log("Conversion complete!");
 
@@ -841,9 +778,7 @@ export default function ConvertPage() {
       const mimeType = getMimeType(outputFormat as OutputContainer);
       const blob = new Blob([buffer], { type: mimeType });
 
-      setConvertedBlob(blob);
-      setConversionStatus("completed");
-      setProgress(100);
+      statusRef.current?.setCompleted(blob);
 
       // Clear the stats interval
       if (statsIntervalRef.current) {
@@ -864,10 +799,9 @@ export default function ConvertPage() {
       }
     } catch (error) {
       console.error("Conversion error:", error);
-      setErrorMessage(
+      statusRef.current?.setError(
         error instanceof Error ? error.message : "An unknown error occurred",
       );
-      setConversionStatus("error");
 
       // Clear the stats interval on error
       if (statsIntervalRef.current) {
@@ -895,29 +829,10 @@ export default function ConvertPage() {
     metadata?.duration,
   ]);
 
-  const handleDownload = useCallback(() => {
-    if (!convertedBlob || !selectedFile) return;
-
-    const extension = getFileExtension(outputFormat as OutputContainer);
-    const originalName = selectedFile.name.replace(/\.[^/.]+$/, "");
-    const fileName = `${originalName}_converted.${extension}`;
-
-    const url = URL.createObjectURL(convertedBlob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, [convertedBlob, selectedFile, outputFormat]);
-
   const handleCancel = useCallback(async () => {
     if (conversionRef.current) {
       await conversionRef.current.cancel();
-      setConversionStatus("idle");
-      setProgress(0);
-      setStats(null);
+      statusRef.current?.reset();
 
       if (statsIntervalRef.current) {
         clearInterval(statsIntervalRef.current);
@@ -927,11 +842,7 @@ export default function ConvertPage() {
   }, []);
 
   const resetConversion = useCallback(() => {
-    setConversionStatus("idle");
-    setProgress(0);
-    setConvertedBlob(null);
-    setErrorMessage("");
-    setStats(null);
+    statusRef.current?.reset();
     setNotifyMe(false);
     setEditingState(defaultEditingState);
 
@@ -1439,167 +1350,17 @@ export default function ConvertPage() {
                   </div>
                 )}
 
-              {/* Conversion Progress */}
-              {conversionStatus === "converting" && (
-                <div className="space-y-3 rounded-base border-2 border-border bg-white p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="size-5 animate-spin text-main" />
-                      <span className="font-semibold">Converting...</span>
-                    </div>
-                    <span className="font-mono text-sm">{progress}%</span>
-                  </div>
-                  <Progress value={progress} className="h-3" />
-
-                  {/* Stats Display */}
-                  {stats && (
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
-                        <div className="text-xs text-foreground/60">
-                          Elapsed
-                        </div>
-                        <div className="font-mono font-semibold">
-                          {formatTime(stats.elapsedSeconds)}
-                        </div>
-                      </div>
-                      <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
-                        <div className="text-xs text-foreground/60">
-                          Remaining
-                        </div>
-                        <div className="font-mono font-semibold">
-                          {stats.estimatedRemainingSeconds
-                            ? formatTime(stats.estimatedRemainingSeconds)
-                            : "Calculating..."}
-                        </div>
-                      </div>
-                      <div className="col-span-2 rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
-                        <div className="text-xs text-foreground/60">
-                          Output Size
-                        </div>
-                        <div className="font-mono font-semibold">
-                          {formatBytes(stats.currentFileSize)}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <Button
-                    variant="neutral"
-                    size="sm"
-                    onClick={handleCancel}
-                    className="w-full shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              )}
-
-              {/* Finalizing State */}
-              {conversionStatus === "finalizing" && (
-                <div className="space-y-3 rounded-base border-2 border-border bg-white dark:bg-gray-950 p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="size-5 animate-spin text-main" />
-                      <span className="font-semibold">Finalizing file...</span>
-                    </div>
-                    <span className="font-mono text-sm">99%</span>
-                  </div>
-                  <Progress value={99} className="h-3" />
-                  <p className="text-xs text-foreground/60">
-                    Writing file metadata and optimizing structure...
-                  </p>
-                </div>
-              )}
-
-              {/* Conversion Complete */}
-              {conversionStatus === "completed" && convertedBlob && (
-                <div className="space-y-3 rounded-base border-2 border-green-500 bg-green-50 dark:bg-green-950 p-4">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="size-5 text-green-600" />
-                    <span className="font-semibold text-green-700 dark:text-green-300">
-                      Conversion Complete!
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-green-700 dark:text-green-300">
-                    <div className="rounded-base border border-green-600 bg-green-100 px-3 py-2">
-                      <div className="text-xs text-green-600">Output size</div>
-                      <div className="font-mono font-semibold">
-                        {(convertedBlob.size / 1024 / 1024).toFixed(2)} MB
-                      </div>
-                    </div>
-                    {stats && (
-                      <div className="rounded-base border border-green-600 bg-green-100 dark:bg-green-900 px-3 py-2">
-                        <div className="text-xs text-green-600 dark:text-green-400">
-                          Time taken
-                        </div>
-                        <div className="font-mono font-semibold">
-                          {formatTime(stats.elapsedSeconds)}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <Button
-                      size="lg"
-                      onClick={handleDownload}
-                      className="w-full sm:flex-1 bg-green-600 text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)] hover:bg-green-700"
-                    >
-                      <Download className="size-5" />
-                      Download File
-                    </Button>
-                    <Button
-                      variant="neutral"
-                      size="lg"
-                      onClick={resetConversion}
-                      className="w-full sm:w-auto shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]"
-                    >
-                      Convert Another
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Conversion Error */}
-              {conversionStatus === "error" && (
-                <div className="space-y-3 rounded-base border-2 border-red-500 bg-red-50 dark:bg-red-950 p-4">
-                  <div className="flex items-center gap-2">
-                    <XCircle className="size-5 text-red-600" />
-                    <span className="font-semibold text-red-700 dark:text-red-300">
-                      Conversion Failed
-                    </span>
-                  </div>
-                  <p className="text-sm text-red-700 dark:text-red-300">
-                    {errorMessage}
-                  </p>
-                  <Button
-                    variant="neutral"
-                    size="sm"
-                    onClick={resetConversion}
-                    className="w-full shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]"
-                  >
-                    Try Again
-                  </Button>
-                </div>
-              )}
-
-              {/* Convert Button */}
-              {conversionStatus === "idle" && (
-                <Button
-                  size="lg"
-                  className="w-full text-base font-bold shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,0.1)]"
-                  disabled={!selectedFile || !inputFormat || !outputFormat}
-                  onClick={handleConvert}
-                >
-                  <Video className="size-5" />
-                  {outputFormat &&
-                  outputContainers.includes(outputFormat as OutputContainer) &&
-                  isAudioOnlyFormat(outputFormat as OutputContainer)
-                    ? "Convert to Audio"
-                    : metadata?.isAudioOnly
-                      ? "Convert Audio"
-                      : "Convert Media"}
-                </Button>
-              )}
+              {/* Conversion Status Display */}
+              <ConversionStatusDisplay
+                ref={statusRef}
+                selectedFile={selectedFile}
+                inputFormat={inputFormat}
+                outputFormat={outputFormat}
+                metadata={metadata}
+                onConvert={handleConvert}
+                onCancel={handleCancel}
+                onReset={resetConversion}
+              />
             </div>
             {/* End Right Column */}
           </div>
