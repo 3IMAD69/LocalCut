@@ -615,24 +615,31 @@ export default function ConvertPage() {
         }
 
         // Add crop if enabled (MediaBunny crop format)
+        // Note: Rotation is applied BEFORE crop in MediaBunny's pipeline,
+        // so crop coordinates must be in the rotated coordinate space.
         if (
           editingState.crop.enabled &&
           editingState.crop.rect &&
           metadata?.dimensions
         ) {
+          // Determine dimensions after rotation is applied
+          const rotationDegrees = editingState.rotate.enabled
+            ? editingState.rotate.degrees
+            : 0;
+          const isQuarterTurn =
+            rotationDegrees === 90 || rotationDegrees === 270;
+          const rotatedWidth = isQuarterTurn
+            ? metadata.dimensions.height
+            : metadata.dimensions.width;
+          const rotatedHeight = isQuarterTurn
+            ? metadata.dimensions.width
+            : metadata.dimensions.height;
+
           videoOptions.crop = {
-            left: Math.round(
-              editingState.crop.rect.left * metadata.dimensions.width,
-            ),
-            top: Math.round(
-              editingState.crop.rect.top * metadata.dimensions.height,
-            ),
-            width: Math.round(
-              editingState.crop.rect.width * metadata.dimensions.width,
-            ),
-            height: Math.round(
-              editingState.crop.rect.height * metadata.dimensions.height,
-            ),
+            left: Math.round(editingState.crop.rect.left * rotatedWidth),
+            top: Math.round(editingState.crop.rect.top * rotatedHeight),
+            width: Math.round(editingState.crop.rect.width * rotatedWidth),
+            height: Math.round(editingState.crop.rect.height * rotatedHeight),
           };
           console.log("Crop settings:", videoOptions.crop);
         }
