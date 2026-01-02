@@ -1,9 +1,9 @@
 import { SiGithub, SiX } from "@icons-pack/react-simple-icons";
-import { Film } from "lucide-react";
 import type { Metadata } from "next";
 import { Archivo } from "next/font/google";
 import Link from "next/link";
 import { ThemeProvider } from "@/components/theme-provider";
+import { ClapIcon } from "@/components/ui/clap";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
 
@@ -47,7 +47,7 @@ export default function RootLayout({
                 className="flex items-center gap-2 hover:translate-x-boxShadowX hover:translate-y-boxShadowY transition-transform"
               >
                 <div className="p-2 bg-main border-2 border-border">
-                  <Film className="size-5 text-main-foreground" />
+                  <ClapIcon size={20} className="text-main-foreground" />
                 </div>
                 <span className="text-xl font-heading">LocalCut</span>
               </Link>

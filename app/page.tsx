@@ -8,6 +8,7 @@ import {
   Zap,
 } from "lucide-react";
 import Link from "next/link";
+import { HeroIcon } from "@/components/hero-icon";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -18,9 +19,12 @@ export default function Home() {
       <section className="border-b-4 border-border bg-main">
         <div className="container mx-auto px-6 py-24 md:py-32">
           <div className="flex flex-col items-center text-center">
-            <h1 className="text-6xl md:text-8xl font-heading text-main-foreground mb-6 tracking-tight">
-              LocalCut
-            </h1>
+            <div className="flex flex-col md:flex-row items-center gap-6 mb-6">
+              <HeroIcon />
+              <h1 className="text-6xl md:text-8xl font-heading text-main-foreground tracking-tight">
+                LocalCut
+              </h1>
+            </div>
             <p className="text-xl md:text-2xl text-main-foreground max-w-2xl mb-4 font-base">
               A video & audio converter / editor that runs{" "}
               <span className="font-heading underline decoration-4 underline-offset-4">
