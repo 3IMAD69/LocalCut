@@ -12,6 +12,7 @@ import {
   useState,
 } from "react";
 import { CropOverlay, type CropRect } from "@/components/editing/crop-overlay";
+import { createFilterPlugin } from "@/components/player/plugins/filter-plugin";
 import {
   createRotatePlugin,
   type RotationDegrees,
@@ -54,6 +55,8 @@ interface EditableMediaPlayerProps {
   onCropDisable?: () => void;
   /** Clockwise rotation applied in the MediaFox render pipeline (no CSS rotation). */
   rotateDegrees?: RotationDegrees;
+  /** CSS filter string applied in the MediaFox render pipeline (e.g. "saturate(0)"). */
+  videoFilter?: string;
 }
 
 export const EditableMediaPlayer = forwardRef<
@@ -71,6 +74,7 @@ export const EditableMediaPlayer = forwardRef<
     onTrimChange,
     onCropDisable,
     rotateDegrees,
+    videoFilter,
   },
   ref,
 ) {
@@ -83,6 +87,9 @@ export const EditableMediaPlayer = forwardRef<
 
   const rotatePluginRef = useRef(createRotatePlugin(0));
   const rotatePluginInstalledRef = useRef(false);
+
+  const filterPluginRef = useRef(createFilterPlugin("none"));
+  const filterPluginInstalledRef = useRef(false);
 
   const source = src;
 
@@ -100,6 +107,11 @@ export const EditableMediaPlayer = forwardRef<
     const requested = rotateDegrees ?? 0;
     return isAudioOnly ? 0 : requested;
   }, [rotateDegrees, isAudioOnly]);
+
+  const effectiveVideoFilter = useMemo(() => {
+    const requested = videoFilter ?? "none";
+    return isAudioOnly ? "none" : requested;
+  }, [videoFilter, isAudioOnly]);
 
   const displayDimensions = useMemo(() => {
     if (!videoDimensions) return null;
@@ -136,7 +148,6 @@ export const EditableMediaPlayer = forwardRef<
     const timeoutId = setTimeout(() => {
       setMediaFox(player);
     }, 0);
-
     return () => {
       clearTimeout(timeoutId);
       player.dispose();
@@ -149,12 +160,18 @@ export const EditableMediaPlayer = forwardRef<
 
     mediaFox.setRenderTarget(canvasRef.current);
 
-    const plugin = rotatePluginRef.current;
+    const rotatePlugin = rotatePluginRef.current;
+    const filterPlugin = filterPluginRef.current;
     const ensurePluginsAndLoad = async () => {
       try {
         if (!rotatePluginInstalledRef.current) {
-          await mediaFox.use(plugin);
+          await mediaFox.use(rotatePlugin);
           rotatePluginInstalledRef.current = true;
+        }
+
+        if (!filterPluginInstalledRef.current) {
+          await mediaFox.use(filterPlugin);
+          filterPluginInstalledRef.current = true;
         }
 
         setIsLoaded(false);
@@ -195,6 +212,35 @@ export const EditableMediaPlayer = forwardRef<
       mediaFox.seek(currentTime);
     }
   }, [effectiveRotateDegrees, displayDimensions, mediaFox, isLoaded]);
+
+  // Apply filter to the player render pipeline (no CSS filter)
+  // Debounce the seek to avoid lag during rapid filter changes (e.g., dragging slider)
+  const filterSeekTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    filterPluginRef.current.setFilter(effectiveVideoFilter);
+
+    // Clear any pending seek
+    if (filterSeekTimeoutRef.current) {
+      clearTimeout(filterSeekTimeoutRef.current);
+    }
+
+    // Force re-render of current frame when filter changes while paused.
+    // Debounce to 100ms to avoid frame decoding on every slider tick.
+    if (mediaFox && isLoaded) {
+      filterSeekTimeoutRef.current = setTimeout(() => {
+        const currentTime = mediaFox.currentTime;
+        mediaFox.seek(currentTime);
+        filterSeekTimeoutRef.current = null;
+      }, 100);
+    }
+
+    return () => {
+      if (filterSeekTimeoutRef.current) {
+        clearTimeout(filterSeekTimeoutRef.current);
+      }
+    };
+  }, [effectiveVideoFilter, mediaFox, isLoaded]);
 
   const toggleFullscreen = useCallback(() => {
     if (!containerRef.current) {

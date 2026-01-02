@@ -31,6 +31,7 @@ import {
   defaultEditingState,
   EditingPanel,
   type EditingState,
+  fineTuneToCSS,
 } from "@/components/editing";
 import {
   EditableMediaPlayer,
@@ -644,12 +645,40 @@ export default function ConvertPage() {
           console.log("Crop settings:", videoOptions.crop);
         }
 
+        // Add fine-tune filters if enabled
+        if (editingState.fineTune.enabled) {
+          const cssFilter = fineTuneToCSS(editingState.fineTune.filters);
+          if (cssFilter !== "none") {
+            if (!videoOptions) videoOptions = {};
+
+            let ctx: OffscreenCanvasRenderingContext2D | null = null;
+
+            videoOptions.process = (sample) => {
+              if (!ctx) {
+                const canvas = new OffscreenCanvas(
+                  sample.displayWidth,
+                  sample.displayHeight,
+                );
+                const context = canvas.getContext("2d");
+                if (!context) throw new Error("Failed to get 2d context");
+                ctx = context;
+
+                // Apply the CSS filter from fine-tune settings
+                ctx.filter = cssFilter;
+              }
+
+              sample.draw(ctx, 0, 0);
+
+              return ctx.canvas;
+            };
+          }
+        }
+
         // Only set videoOptions if we have something to configure
-        if (Object.keys(videoOptions).length === 0) {
+        if (videoOptions && Object.keys(videoOptions).length === 0) {
           videoOptions = undefined;
         }
       }
-
       // Build audio options
       // If mute is enabled, discard the audio track entirely
       let audioOptions: ConversionAudioOptions | undefined;
@@ -860,6 +889,8 @@ export default function ConvertPage() {
     editingState.trim.enabled,
     editingState.trim.start,
     editingState.trim.end,
+    editingState.fineTune.enabled,
+    editingState.fineTune.filters,
     metadata?.dimensions,
     metadata?.duration,
   ]);
@@ -979,6 +1010,11 @@ export default function ConvertPage() {
                     <EditableMediaPlayer
                       ref={mediaPlayerRef}
                       src={selectedFile}
+                      videoFilter={
+                        editingState.fineTune.enabled
+                          ? fineTuneToCSS(editingState.fineTune.filters)
+                          : undefined
+                      }
                       cropEnabled={editingState.crop.enabled}
                       onCropChange={handleCropChange}
                       onCropDisable={handleCropDisable}
