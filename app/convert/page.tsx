@@ -17,7 +17,7 @@ import {
   Output,
   type VideoCodec,
 } from "mediabunny";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type CropRect,
   defaultEditingState,
@@ -156,6 +156,12 @@ export default function ConvertPage() {
   const mediaPlayerRef = useRef<MediaPlayerHandle>(null);
   const notifyMeRef = useRef<boolean>(false);
   const statusRef = useRef<ConversionStatusHandle>(null);
+
+  // Ref to track editing state without triggering re-renders in callbacks
+  const editingStateRef = useRef(editingState);
+  useEffect(() => {
+    editingStateRef.current = editingState;
+  }, [editingState]);
 
   // Keep notifyMeRef in sync with notifyMe state
   useEffect(() => {
@@ -476,12 +482,12 @@ export default function ConvertPage() {
     };
   }, [handlePaste]);
 
-  const formatTime = (seconds: number): string => {
+  const formatTime = useCallback((seconds: number): string => {
     if (!Number.isFinite(seconds) || seconds < 0) return "--:--";
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, "0")}`;
-  };
+  }, []);
 
   const handleConvert = useCallback(async () => {
     console.log("handleConvert called", { selectedFile, outputFormat });
@@ -501,6 +507,9 @@ export default function ConvertPage() {
     statusRef.current?.start();
 
     try {
+      // Use the ref for current editing state to avoid dependency on the state variable
+      const currentEditingState = editingStateRef.current;
+
       console.log("Starting conversion to", outputFormat);
 
       // Register MP3 encoder if needed
@@ -544,8 +553,11 @@ export default function ConvertPage() {
         }
 
         // Add rotation if enabled (MediaBunny rotate format: 0 | 90 | 180 | 270)
-        if (editingState.rotate.enabled && editingState.rotate.degrees !== 0) {
-          videoOptions.rotate = editingState.rotate.degrees;
+        if (
+          currentEditingState.rotate.enabled &&
+          currentEditingState.rotate.degrees !== 0
+        ) {
+          videoOptions.rotate = currentEditingState.rotate.degrees;
           console.log(
             "Rotation settings:",
             videoOptions.rotate,
@@ -557,13 +569,13 @@ export default function ConvertPage() {
         // Note: Rotation is applied BEFORE crop in MediaBunny's pipeline,
         // so crop coordinates must be in the rotated coordinate space.
         if (
-          editingState.crop.enabled &&
-          editingState.crop.rect &&
+          currentEditingState.crop.enabled &&
+          currentEditingState.crop.rect &&
           metadata?.dimensions
         ) {
           // Determine dimensions after rotation is applied
-          const rotationDegrees = editingState.rotate.enabled
-            ? editingState.rotate.degrees
+          const rotationDegrees = currentEditingState.rotate.enabled
+            ? currentEditingState.rotate.degrees
             : 0;
           const isQuarterTurn =
             rotationDegrees === 90 || rotationDegrees === 270;
@@ -575,17 +587,21 @@ export default function ConvertPage() {
             : metadata.dimensions.height;
 
           videoOptions.crop = {
-            left: Math.round(editingState.crop.rect.left * rotatedWidth),
-            top: Math.round(editingState.crop.rect.top * rotatedHeight),
-            width: Math.round(editingState.crop.rect.width * rotatedWidth),
-            height: Math.round(editingState.crop.rect.height * rotatedHeight),
+            left: Math.round(currentEditingState.crop.rect.left * rotatedWidth),
+            top: Math.round(currentEditingState.crop.rect.top * rotatedHeight),
+            width: Math.round(
+              currentEditingState.crop.rect.width * rotatedWidth,
+            ),
+            height: Math.round(
+              currentEditingState.crop.rect.height * rotatedHeight,
+            ),
           };
           console.log("Crop settings:", videoOptions.crop);
         }
 
         // Add fine-tune filters if enabled
-        if (editingState.fineTune.enabled) {
-          const cssFilter = fineTuneToCSS(editingState.fineTune.filters);
+        if (currentEditingState.fineTune.enabled) {
+          const cssFilter = fineTuneToCSS(currentEditingState.fineTune.filters);
           if (cssFilter !== "none") {
             if (!videoOptions) videoOptions = {};
 
@@ -621,7 +637,7 @@ export default function ConvertPage() {
       // If mute is enabled, discard the audio track entirely
       let audioOptions: ConversionAudioOptions | undefined;
 
-      if (editingState.mute.enabled) {
+      if (currentEditingState.mute.enabled) {
         audioOptions = { discard: true };
         console.log("Audio will be stripped from output");
       } else if (audioCodec !== "copy") {
@@ -631,16 +647,20 @@ export default function ConvertPage() {
       // Build trim options
       let trimOptions: { start?: number; end?: number } | undefined;
       if (
-        editingState.trim.enabled &&
-        (editingState.trim.start > 0 ||
-          (metadata?.duration && editingState.trim.end < metadata.duration))
+        currentEditingState.trim.enabled &&
+        (currentEditingState.trim.start > 0 ||
+          (metadata?.duration &&
+            currentEditingState.trim.end < metadata.duration))
       ) {
         trimOptions = {};
-        if (editingState.trim.start > 0) {
-          trimOptions.start = editingState.trim.start;
+        if (currentEditingState.trim.start > 0) {
+          trimOptions.start = currentEditingState.trim.start;
         }
-        if (metadata?.duration && editingState.trim.end < metadata.duration) {
-          trimOptions.end = editingState.trim.end;
+        if (
+          metadata?.duration &&
+          currentEditingState.trim.end < metadata.duration
+        ) {
+          trimOptions.end = currentEditingState.trim.end;
         }
         console.log("Trim settings:", trimOptions);
       }
@@ -816,15 +836,7 @@ export default function ConvertPage() {
     outputFormat,
     videoCodec,
     audioCodec,
-    editingState.crop,
-    editingState.mute.enabled,
-    editingState.rotate.enabled,
-    editingState.rotate.degrees,
-    editingState.trim.enabled,
-    editingState.trim.start,
-    editingState.trim.end,
-    editingState.fineTune.enabled,
-    editingState.fineTune.filters,
+    // Removed editingState dependencies to prevent recreation on every scrub
     metadata?.dimensions,
     metadata?.duration,
   ]);
@@ -851,6 +863,270 @@ export default function ConvertPage() {
       statsIntervalRef.current = null;
     }
   }, []);
+
+  // Memoize the metadata display to prevent re-renders during scrubbing
+  const metadataDisplay = useMemo(() => {
+    if (!selectedFile) return null;
+
+    if (loadingMetadata) {
+      return (
+        <div className="flex items-center justify-center gap-2 rounded-base border-2 border-border bg-white dark:bg-gray-950 p-4">
+          <Loader2 className="size-4 animate-spin" />
+          <span className="text-sm text-foreground/60">
+            Loading metadata...
+          </span>
+        </div>
+      );
+    }
+
+    if (!metadata) return null;
+
+    return (
+      <div className="rounded-base border-2 border-border bg-white dark:bg-gray-950 p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <h4 className="font-semibold text-sm">File Information</h4>
+          {metadata.isAudioOnly && (
+            <span className="rounded-full bg-main/20 px-2 py-0.5 text-xs font-medium">
+              Audio Only
+            </span>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+            <div className="text-xs text-foreground/60">Container</div>
+            <div className="font-semibold">{metadata.container}</div>
+          </div>
+          {metadata.duration !== null && (
+            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+              <div className="text-xs text-foreground/60">Duration</div>
+              <div className="font-semibold">
+                {formatTime(metadata.duration)}
+              </div>
+            </div>
+          )}
+          {metadata.dimensions && (
+            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+              <div className="text-xs text-foreground/60">Dimensions</div>
+              <div className="font-semibold">
+                {metadata.dimensions.width}x{metadata.dimensions.height}
+              </div>
+            </div>
+          )}
+          {metadata.frameRate !== null && (
+            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+              <div className="text-xs text-foreground/60">Frame Rate</div>
+              <div className="font-semibold">
+                {metadata.frameRate.toFixed(2)} FPS
+              </div>
+            </div>
+          )}
+          {metadata.videoCodec && (
+            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+              <div className="text-xs text-foreground/60">Video Codec</div>
+              <div className="font-semibold">
+                {VIDEO_CODEC_LABELS[
+                  metadata.videoCodec as keyof typeof VIDEO_CODEC_LABELS
+                ] || metadata.videoCodec}
+              </div>
+            </div>
+          )}
+          {metadata.audioCodec && (
+            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+              <div className="text-xs text-foreground/60">Audio Codec</div>
+              <div className="font-semibold">
+                {AUDIO_CODEC_LABELS[
+                  metadata.audioCodec as keyof typeof AUDIO_CODEC_LABELS
+                ] || metadata.audioCodec}
+              </div>
+            </div>
+          )}
+          {metadata.sampleRate !== null && (
+            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+              <div className="text-xs text-foreground/60">Sample Rate</div>
+              <div className="font-semibold">{metadata.sampleRate} Hz</div>
+            </div>
+          )}
+          {metadata.numberOfChannels !== null && (
+            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+              <div className="text-xs text-foreground/60">Channels</div>
+              <div className="font-semibold">
+                {metadata.numberOfChannels === 1
+                  ? "Mono"
+                  : metadata.numberOfChannels === 2
+                    ? "Stereo"
+                    : `${metadata.numberOfChannels} channels`}
+              </div>
+            </div>
+          )}
+          {metadata.isHdr && (
+            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+              <div className="text-xs text-foreground/60">Color</div>
+              <div className="font-semibold">HDR</div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }, [selectedFile, loadingMetadata, metadata, formatTime]);
+
+  // Memoize format selection
+  const formatSelection = useMemo(
+    () => (
+      <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr]">
+        {/* Input Format */}
+        <div className="space-y-2">
+          <span className="text-sm font-semibold block">Input Format</span>
+          <Select value={inputFormat} onValueChange={setInputFormat}>
+            <SelectTrigger className="h-12 bg-white dark:bg-gray-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
+              <SelectValue placeholder="Select input format" />
+            </SelectTrigger>
+            <SelectContent>
+              {INPUT_FORMATS.map((format) => (
+                <SelectItem key={format.value} value={format.value}>
+                  <span className="flex items-center gap-2">
+                    <span>{format.icon}</span>
+                    <span>{format.label}</span>
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Arrow Icon */}
+        <div className="flex items-end justify-center pb-2 md:pb-0 md:items-center">
+          <div className="rounded-full border-2 border-border bg-main p-3 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
+            <ArrowRight className="size-6" />
+          </div>
+        </div>
+
+        {/* Output Format */}
+        <div className="space-y-2">
+          <span className="text-sm font-semibold block">Output Format</span>
+          <Select value={outputFormat} onValueChange={setOutputFormat}>
+            <SelectTrigger className="h-12 bg-white dark:bg-gray-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
+              <SelectValue placeholder="Select output format" />
+            </SelectTrigger>
+            <SelectContent>
+              {OUTPUT_FORMATS.map((format) => (
+                <SelectItem key={format.value} value={format.value}>
+                  <span className="flex items-center gap-2">
+                    <span>{format.icon}</span>
+                    <span>{format.label}</span>
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    ),
+    [inputFormat, outputFormat],
+  );
+
+  // Memoize codec selection
+  const codecSelection = useMemo(() => {
+    if (
+      !outputFormat ||
+      !outputContainers.includes(outputFormat as OutputContainer)
+    ) {
+      return null;
+    }
+
+    return (
+      <div className="rounded-base border-2 border-border bg-white dark:bg-gray-950 p-4">
+        <div className="flex items-center gap-2 mb-4">
+          <h4 className="font-semibold text-sm">Encoding Options</h4>
+          <span className="text-xs text-foreground/70">
+            (Confused? Leave the default)
+          </span>
+        </div>
+        {loadingCodecs ? (
+          <div className="flex items-center justify-center gap-2 py-4">
+            <Loader2 className="size-4 animate-spin" />
+            <span className="text-sm text-foreground/60">
+              Loading available codecs...
+            </span>
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Video Codec Selection - only show for non-audio formats and non-audio-only input */}
+            {!isAudioOnlyFormat(outputFormat as OutputContainer) &&
+              !metadata?.isAudioOnly && (
+                <div className="space-y-2">
+                  <span className="text-sm font-medium block">Video Codec</span>
+                  <Select value={videoCodec} onValueChange={setVideoCodec}>
+                    <SelectTrigger className="bg-white dark:bg-gray-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
+                      <SelectValue placeholder="Select video codec" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="copy">
+                        <span className="flex items-center gap-2">
+                          <span>📋</span>
+                          <span>Copy (No re-encoding)</span>
+                        </span>
+                      </SelectItem>
+                      {availableVideoCodecs.map((codec) => (
+                        <SelectItem key={codec} value={codec}>
+                          <span className="flex items-center gap-2">
+                            <span>🎬</span>
+                            <span>{VIDEO_CODEC_LABELS[codec] || codec}</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-foreground/60">
+                    {videoCodec === "copy"
+                      ? "Copies video stream without re-encoding (fastest)"
+                      : `Re-encodes video using ${VIDEO_CODEC_LABELS[videoCodec as VideoCodec] || videoCodec}`}
+                  </p>
+                </div>
+              )}
+
+            {/* Audio Codec Selection */}
+            <div className="space-y-2">
+              <span className="text-sm font-medium block">Audio Codec</span>
+              <Select value={audioCodec} onValueChange={setAudioCodec}>
+                <SelectTrigger className="bg-white dark:bg-gray-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
+                  <SelectValue placeholder="Select audio codec" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="copy">
+                    <span className="flex items-center gap-2">
+                      <span>📋</span>
+                      <span>Copy (No re-encoding)</span>
+                    </span>
+                  </SelectItem>
+                  {availableAudioCodecs.map((codec) => (
+                    <SelectItem key={codec} value={codec}>
+                      <span className="flex items-center gap-2">
+                        <span>🎵</span>
+                        <span>{AUDIO_CODEC_LABELS[codec] || codec}</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-foreground/60">
+                {audioCodec === "copy"
+                  ? "Copies audio stream without re-encoding (fastest)"
+                  : `Re-encodes audio using ${AUDIO_CODEC_LABELS[audioCodec as AudioCodec] || audioCodec}`}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }, [
+    outputFormat,
+    loadingCodecs,
+    videoCodec,
+    audioCodec,
+    availableVideoCodecs,
+    availableAudioCodecs,
+    metadata?.isAudioOnly,
+  ]);
 
   return (
     <div className="min-h-screen bg-background dark:bg-black p-4 md:p-8">
@@ -980,179 +1256,10 @@ export default function ConvertPage() {
             {/* Right Column: Editor & Actions (Black Zone) */}
             <div className="space-y-6 mt-6 lg:mt-7">
               {/* File Information - Metadata Display */}
-              {selectedFile &&
-                (loadingMetadata ? (
-                  <div className="flex items-center justify-center gap-2 rounded-base border-2 border-border bg-white dark:bg-gray-950 p-4">
-                    <Loader2 className="size-4 animate-spin" />
-                    <span className="text-sm text-foreground/60">
-                      Loading metadata...
-                    </span>
-                  </div>
-                ) : metadata ? (
-                  <div className="rounded-base border-2 border-border bg-white dark:bg-gray-950 p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <h4 className="font-semibold text-sm">
-                        File Information
-                      </h4>
-                      {metadata.isAudioOnly && (
-                        <span className="rounded-full bg-main/20 px-2 py-0.5 text-xs font-medium">
-                          Audio Only
-                        </span>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
-                        <div className="text-xs text-foreground/60">
-                          Container
-                        </div>
-                        <div className="font-semibold">
-                          {metadata.container}
-                        </div>
-                      </div>
-                      {metadata.duration !== null && (
-                        <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
-                          <div className="text-xs text-foreground/60">
-                            Duration
-                          </div>
-                          <div className="font-semibold">
-                            {formatTime(metadata.duration)}
-                          </div>
-                        </div>
-                      )}
-                      {metadata.dimensions && (
-                        <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
-                          <div className="text-xs text-foreground/60">
-                            Dimensions
-                          </div>
-                          <div className="font-semibold">
-                            {metadata.dimensions.width}x
-                            {metadata.dimensions.height}
-                          </div>
-                        </div>
-                      )}
-                      {metadata.frameRate !== null && (
-                        <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
-                          <div className="text-xs text-foreground/60">
-                            Frame Rate
-                          </div>
-                          <div className="font-semibold">
-                            {metadata.frameRate.toFixed(2)} FPS
-                          </div>
-                        </div>
-                      )}
-                      {metadata.videoCodec && (
-                        <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
-                          <div className="text-xs text-foreground/60">
-                            Video Codec
-                          </div>
-                          <div className="font-semibold">
-                            {VIDEO_CODEC_LABELS[
-                              metadata.videoCodec as keyof typeof VIDEO_CODEC_LABELS
-                            ] || metadata.videoCodec}
-                          </div>
-                        </div>
-                      )}
-                      {metadata.audioCodec && (
-                        <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
-                          <div className="text-xs text-foreground/60">
-                            Audio Codec
-                          </div>
-                          <div className="font-semibold">
-                            {AUDIO_CODEC_LABELS[
-                              metadata.audioCodec as keyof typeof AUDIO_CODEC_LABELS
-                            ] || metadata.audioCodec}
-                          </div>
-                        </div>
-                      )}
-                      {metadata.sampleRate !== null && (
-                        <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
-                          <div className="text-xs text-foreground/60">
-                            Sample Rate
-                          </div>
-                          <div className="font-semibold">
-                            {metadata.sampleRate} Hz
-                          </div>
-                        </div>
-                      )}
-                      {metadata.numberOfChannels !== null && (
-                        <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
-                          <div className="text-xs text-foreground/60">
-                            Channels
-                          </div>
-                          <div className="font-semibold">
-                            {metadata.numberOfChannels === 1
-                              ? "Mono"
-                              : metadata.numberOfChannels === 2
-                                ? "Stereo"
-                                : `${metadata.numberOfChannels} channels`}
-                          </div>
-                        </div>
-                      )}
-                      {metadata.isHdr && (
-                        <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
-                          <div className="text-xs text-foreground/60">
-                            Color
-                          </div>
-                          <div className="font-semibold">HDR</div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : null)}
+              {metadataDisplay}
 
               {/* Format Selection Row */}
-              <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr]">
-                {/* Input Format */}
-                <div className="space-y-2">
-                  <span className="text-sm font-semibold block">
-                    Input Format
-                  </span>
-                  <Select value={inputFormat} onValueChange={setInputFormat}>
-                    <SelectTrigger className="h-12 bg-white dark:bg-gray-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
-                      <SelectValue placeholder="Select input format" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {INPUT_FORMATS.map((format) => (
-                        <SelectItem key={format.value} value={format.value}>
-                          <span className="flex items-center gap-2">
-                            <span>{format.icon}</span>
-                            <span>{format.label}</span>
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Arrow Icon */}
-                <div className="flex items-end justify-center pb-2 md:pb-0 md:items-center">
-                  <div className="rounded-full border-2 border-border bg-main p-3 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
-                    <ArrowRight className="size-6" />
-                  </div>
-                </div>
-
-                {/* Output Format */}
-                <div className="space-y-2">
-                  <span className="text-sm font-semibold block">
-                    Output Format
-                  </span>
-                  <Select value={outputFormat} onValueChange={setOutputFormat}>
-                    <SelectTrigger className="h-12 bg-white dark:bg-gray-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
-                      <SelectValue placeholder="Select output format" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {OUTPUT_FORMATS.map((format) => (
-                        <SelectItem key={format.value} value={format.value}>
-                          <span className="flex items-center gap-2">
-                            <span>{format.icon}</span>
-                            <span>{format.label}</span>
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+              {formatSelection}
 
               {/* Audio to Video Format Notice */}
               {metadata?.isAudioOnly &&
@@ -1177,108 +1284,7 @@ export default function ConvertPage() {
                 )}
 
               {/* Codec Selection */}
-              {outputFormat &&
-                outputContainers.includes(outputFormat as OutputContainer) && (
-                  <div className="rounded-base border-2 border-border bg-white dark:bg-gray-950 p-4">
-                    <div className="flex items-center gap-2 mb-4">
-                      <h4 className="font-semibold text-sm">
-                        Encoding Options
-                      </h4>
-                      <span className="text-xs text-foreground/70">
-                        (Confused? Leave the default)
-                      </span>
-                    </div>
-                    {loadingCodecs ? (
-                      <div className="flex items-center justify-center gap-2 py-4">
-                        <Loader2 className="size-4 animate-spin" />
-                        <span className="text-sm text-foreground/60">
-                          Loading available codecs...
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="grid gap-4 md:grid-cols-2">
-                        {/* Video Codec Selection - only show for non-audio formats and non-audio-only input */}
-                        {!isAudioOnlyFormat(outputFormat as OutputContainer) &&
-                          !metadata?.isAudioOnly && (
-                            <div className="space-y-2">
-                              <span className="text-sm font-medium block">
-                                Video Codec
-                              </span>
-                              <Select
-                                value={videoCodec}
-                                onValueChange={setVideoCodec}
-                              >
-                                <SelectTrigger className="bg-white dark:bg-gray-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
-                                  <SelectValue placeholder="Select video codec" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="copy">
-                                    <span className="flex items-center gap-2">
-                                      <span>📋</span>
-                                      <span>Copy (No re-encoding)</span>
-                                    </span>
-                                  </SelectItem>
-                                  {availableVideoCodecs.map((codec) => (
-                                    <SelectItem key={codec} value={codec}>
-                                      <span className="flex items-center gap-2">
-                                        <span>🎬</span>
-                                        <span>
-                                          {VIDEO_CODEC_LABELS[codec] || codec}
-                                        </span>
-                                      </span>
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <p className="text-xs text-foreground/60">
-                                {videoCodec === "copy"
-                                  ? "Copies video stream without re-encoding (fastest)"
-                                  : `Re-encodes video using ${VIDEO_CODEC_LABELS[videoCodec as VideoCodec] || videoCodec}`}
-                              </p>
-                            </div>
-                          )}
-
-                        {/* Audio Codec Selection */}
-                        <div className="space-y-2">
-                          <span className="text-sm font-medium block">
-                            Audio Codec
-                          </span>
-                          <Select
-                            value={audioCodec}
-                            onValueChange={setAudioCodec}
-                          >
-                            <SelectTrigger className="bg-white dark:bg-gray-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
-                              <SelectValue placeholder="Select audio codec" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="copy">
-                                <span className="flex items-center gap-2">
-                                  <span>📋</span>
-                                  <span>Copy (No re-encoding)</span>
-                                </span>
-                              </SelectItem>
-                              {availableAudioCodecs.map((codec) => (
-                                <SelectItem key={codec} value={codec}>
-                                  <span className="flex items-center gap-2">
-                                    <span>🎵</span>
-                                    <span>
-                                      {AUDIO_CODEC_LABELS[codec] || codec}
-                                    </span>
-                                  </span>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <p className="text-xs text-foreground/60">
-                            {audioCodec === "copy"
-                              ? "Copies audio stream without re-encoding (fastest)"
-                              : `Re-encodes audio using ${AUDIO_CODEC_LABELS[audioCodec as AudioCodec] || audioCodec}`}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
+              {codecSelection}
 
               {/* Editing Panel - hidden for audio-only output formats */}
               {selectedFile &&
