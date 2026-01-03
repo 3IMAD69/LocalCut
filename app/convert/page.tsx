@@ -30,6 +30,7 @@ import {
   type MediaPlayerHandle,
 } from "@/components/player/editable-media-player";
 import { Button } from "@/components/ui/button";
+import { FolderInputIcon } from "@/components/ui/folder-input";
 import {
   Select,
   SelectContent,
@@ -1178,9 +1179,10 @@ export default function ConvertPage() {
                     onDragOver={handleDragOver}
                     onDrop={handleDrop}
                   >
-                    <Upload
+                    {/* <Upload
                       className={`size-8 transition-transform ${isDragging ? "scale-110" : ""}`}
-                    />
+                    /> */}
+                    <FolderInputIcon />
                     <div className="text-center">
                       <p className="font-semibold">
                         {isDragging

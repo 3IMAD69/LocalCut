@@ -1,7 +1,14 @@
 {
   "servers": {
+    "motion": {
+      "command": "bunx",
+      "args": [
+        "-y",
+        "https://api.motion.dev/registry.tgz?package=motion-studio-mcp&version=latest"
+      ]
+    },
     "shadcn": {
-      "command": "npx",
+      "command": "bunx",
       "args": ["shadcn@latest", "mcp"]
     }
   }

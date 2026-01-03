@@ -7,7 +7,7 @@ import {
   SlidersHorizontal,
   Volume2,
 } from "lucide-react";
-import { useCallback, useId, useState } from "react";
+import { useCallback, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -21,6 +21,10 @@ import { ScrubbableInput } from "@/components/ui/scrubbable-input";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import {
+  SlidersHorizontalIcon,
+  type SlidersHorizontalIconHandle,
+} from "../ui/sliders-horizontal";
 import type { CropRect } from "./crop-overlay";
 
 /** Fine-tune filter values (-100 to +100) */
@@ -232,6 +236,7 @@ export function EditingPanel({
   const idPrefix = useId();
   const [selectedFilter, setSelectedFilter] =
     useState<FilterType>("brightness");
+  const slidersIconRef = useRef<SlidersHorizontalIconHandle>(null);
 
   const handleCropToggle = useCallback(
     (enabled: boolean) => {
@@ -355,8 +360,13 @@ export function EditingPanel({
               <Scissors className="size-4" />
               Transform
             </TabsTrigger>
-            <TabsTrigger value="fine-tunes" disabled={isAudioOnly}>
-              <SlidersHorizontal className="size-4" />
+            <TabsTrigger
+              value="fine-tunes"
+              disabled={isAudioOnly}
+              onMouseEnter={() => slidersIconRef.current?.startAnimation()}
+              onMouseLeave={() => slidersIconRef.current?.stopAnimation()}
+            >
+              <SlidersHorizontalIcon ref={slidersIconRef} size={20} />
               Fine-Tunes
             </TabsTrigger>
           </TabsList>

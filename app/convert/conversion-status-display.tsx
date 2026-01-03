@@ -1,8 +1,18 @@
 "use client";
 
-import { CheckCircle2, Download, Loader2, Video, XCircle } from "lucide-react";
-import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
+import { CheckCircle2, Loader2, Video, XCircle } from "lucide-react";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import { Button } from "@/components/ui/button";
+import {
+  DownloadIcon,
+  type DownloadIconHandle,
+} from "@/components/ui/download";
 import { Progress } from "@/components/ui/progress";
 import {
   getFileExtension,
@@ -68,6 +78,7 @@ export const ConversionStatusDisplay = forwardRef<
     const [stats, setStats] = useState<ConversionStats | null>(null);
     const [convertedBlob, setConvertedBlob] = useState<Blob | null>(null);
     const [errorMessage, setErrorMessage] = useState<string>("");
+    const downloadIconRef = useRef<DownloadIconHandle>(null);
 
     useImperativeHandle(ref, () => ({
       start: () => {
@@ -245,9 +256,11 @@ export const ConversionStatusDisplay = forwardRef<
               <Button
                 size="lg"
                 onClick={handleDownload}
+                onMouseEnter={() => downloadIconRef.current?.startAnimation()}
+                onMouseLeave={() => downloadIconRef.current?.stopAnimation()}
                 className="w-full sm:flex-1 bg-green-600 text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)] hover:bg-green-700"
               >
-                <Download className="size-5" />
+                <DownloadIcon ref={downloadIconRef} />
                 Download File
               </Button>
               <Button
