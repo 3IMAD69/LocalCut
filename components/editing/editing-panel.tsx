@@ -1,7 +1,13 @@
 "use client";
 
-import { Crop, RotateCcw, SlidersHorizontal } from "lucide-react";
-import { useCallback, useId, useRef, useState } from "react";
+import { Crop, RotateCcw } from "lucide-react";
+import { useCallback, useId, useState } from "react";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/animate-ui/components/radix/tabs";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -13,16 +19,12 @@ import {
 import { Label } from "@/components/ui/label";
 import { ScrubbableInput } from "@/components/ui/scrubbable-input";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { CropIcon } from "../animate-ui/icons/crop";
 import { RotateCcwIcon } from "../animate-ui/icons/rotate-ccw";
 import { ScissorsIcon } from "../animate-ui/icons/scissors";
+import { SlidersHorizontalIcon } from "../animate-ui/icons/sliders-horizontal";
 import { VolumeOffIcon } from "../animate-ui/icons/volume-off";
-import {
-  SlidersHorizontalIcon,
-  type SlidersHorizontalIconHandle,
-} from "../ui/sliders-horizontal";
 import type { CropRect } from "./crop-overlay";
 
 /** Fine-tune filter values (-100 to +100) */
@@ -234,7 +236,6 @@ export function EditingPanel({
   const idPrefix = useId();
   const [selectedFilter, setSelectedFilter] =
     useState<FilterType>("brightness");
-  const slidersIconRef = useRef<SlidersHorizontalIconHandle>(null);
 
   const handleCropToggle = useCallback(
     (enabled: boolean) => {
@@ -359,13 +360,8 @@ export function EditingPanel({
               <ScissorsIcon animateOnHover size={20} />
               Transform
             </TabsTrigger>
-            <TabsTrigger
-              value="fine-tunes"
-              disabled={isAudioOnly}
-              onMouseEnter={() => slidersIconRef.current?.startAnimation()}
-              onMouseLeave={() => slidersIconRef.current?.stopAnimation()}
-            >
-              <SlidersHorizontalIcon ref={slidersIconRef} size={20} />
+            <TabsTrigger value="fine-tunes" disabled={isAudioOnly}>
+              <SlidersHorizontalIcon size={20} animateOnHover animateOnView />
               Fine-Tunes
             </TabsTrigger>
           </TabsList>
@@ -496,7 +492,9 @@ export function EditingPanel({
             {/* Enable/Disable Toggle */}
             <ToggleItem
               id={`${idPrefix}-fine-tune`}
-              icon={<SlidersHorizontal className="size-5" />}
+              icon={
+                <SlidersHorizontalIcon size={20} animateOnHover animateOnView />
+              }
               label="Color Adjustments"
               description="Fine-tune brightness, contrast, and more"
               checked={state.fineTune.enabled}
@@ -558,7 +556,11 @@ export function EditingPanel({
             {state.fineTune.enabled && hasActiveFilters && (
               <div className="p-3 rounded-base border-2 border-main bg-main/10 text-sm">
                 <div className="font-semibold mb-2 flex items-center gap-2">
-                  <SlidersHorizontal className="size-4" />
+                  <SlidersHorizontalIcon
+                    size={20}
+                    animateOnHover
+                    animateOnView
+                  />
                   Active Adjustments
                 </div>
                 <div className="grid grid-cols-2 gap-1 text-xs font-mono">

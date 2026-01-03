@@ -122,7 +122,6 @@ function composeEventHandlers<E extends React.SyntheticEvent<unknown>>(
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyProps = Record<string, unknown>;
 
 function AnimateIcon({
@@ -373,11 +372,11 @@ function AnimateIcon({
     localAnimate,
     completeOnStop,
     loop,
-    loopDelay,
-    persistOnAnimateEnd,
-    initialOnAnimateEnd,
     status,
     startAnim,
+    persistOnAnimateEnd,
+    initialOnAnimateEnd,
+    loopDelay,
   ]);
 
   const childProps = (
@@ -385,18 +384,14 @@ function AnimateIcon({
   ) as AnyProps;
 
   const handleMouseEnter = composeEventHandlers<React.MouseEvent<HTMLElement>>(
-    childProps.onMouseEnter as
-      | ((event: React.MouseEvent<HTMLElement>) => void)
-      | undefined,
+    childProps.onMouseEnter,
     () => {
       if (animateOnHover) startAnimation(animateOnHover);
     },
   );
 
   const handleMouseLeave = composeEventHandlers<React.MouseEvent<HTMLElement>>(
-    childProps.onMouseLeave as
-      | ((event: React.MouseEvent<HTMLElement>) => void)
-      | undefined,
+    childProps.onMouseLeave,
     () => {
       if (animateOnHover || animateOnTap) stopAnimation();
     },
@@ -404,19 +399,12 @@ function AnimateIcon({
 
   const handlePointerDown = composeEventHandlers<
     React.PointerEvent<HTMLElement>
-  >(
-    childProps.onPointerDown as
-      | ((event: React.PointerEvent<HTMLElement>) => void)
-      | undefined,
-    () => {
-      if (animateOnTap) startAnimation(animateOnTap);
-    },
-  );
+  >(childProps.onPointerDown, () => {
+    if (animateOnTap) startAnimation(animateOnTap);
+  });
 
   const handlePointerUp = composeEventHandlers<React.PointerEvent<HTMLElement>>(
-    childProps.onPointerUp as
-      | ((event: React.PointerEvent<HTMLElement>) => void)
-      | undefined,
+    childProps.onPointerUp,
     () => {
       if (animateOnTap) stopAnimation();
     },
