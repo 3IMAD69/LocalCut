@@ -6,9 +6,9 @@ import {
   Maximize2,
   RefreshCw,
   RotateCw,
-  Scissors,
 } from "lucide-react";
 import { useState } from "react";
+import { ScissorsIcon } from "@/components/animate-ui/icons/scissors";
 import { Button } from "@/components/ui/button";
 import {
   Collapsible,
@@ -356,7 +356,7 @@ export function PropertiesPanel({
         )}
 
         {/* Trim Section */}
-        <PropertySection title="Trim" icon={<Scissors className="h-3 w-3" />}>
+        <PropertySection title="Trim" icon={<ScissorsIcon animateOnHover />}>
           <PropertyRow label="Start">
             <NumberInput
               value={clip.trimStart}

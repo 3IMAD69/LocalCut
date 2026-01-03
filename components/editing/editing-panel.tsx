@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  Crop,
-  RotateCcw,
-  Scissors,
-  SlidersHorizontal,
-  Volume2,
-} from "lucide-react";
+import { Crop, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { useCallback, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +15,10 @@ import { ScrubbableInput } from "@/components/ui/scrubbable-input";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { CropIcon } from "../animate-ui/icons/crop";
+import { RotateCcwIcon } from "../animate-ui/icons/rotate-ccw";
+import { ScissorsIcon } from "../animate-ui/icons/scissors";
+import { VolumeOffIcon } from "../animate-ui/icons/volume-off";
 import {
   SlidersHorizontalIcon,
   type SlidersHorizontalIconHandle,
@@ -346,7 +344,8 @@ export function EditingPanel({
     >
       <CardHeader>
         <CardTitle className="text-xl flex items-center gap-2">
-          <Scissors className="size-5" />
+          {/* <Scissors className="size-5" /> */}
+          <ScissorsIcon animateOnHover />
           Editing
         </CardTitle>
         <CardDescription>
@@ -357,7 +356,7 @@ export function EditingPanel({
         <Tabs defaultValue="transform" className="w-full">
           <TabsList className="w-full grid grid-cols-2">
             <TabsTrigger value="transform">
-              <Scissors className="size-4" />
+              <ScissorsIcon animateOnHover size={20} />
               Transform
             </TabsTrigger>
             <TabsTrigger
@@ -377,7 +376,7 @@ export function EditingPanel({
             {!isAudioOnly && (
               <ToggleItem
                 id={`${idPrefix}-crop`}
-                icon={<Crop className="size-5" />}
+                icon={<CropIcon size={20} animateOnHover animateOnView />}
                 label="Crop"
                 description="Select a region to crop from the video"
                 checked={state.crop.enabled}
@@ -388,7 +387,7 @@ export function EditingPanel({
             {/* Trim Toggle */}
             <ToggleItem
               id={`${idPrefix}-trim`}
-              icon={<Scissors className="size-5" />}
+              icon={<ScissorsIcon animateOnView animateOnHover size={20} />}
               label="Trim"
               description="Set start and end points"
               checked={state.trim.enabled}
@@ -399,7 +398,7 @@ export function EditingPanel({
             {state.trim.enabled && (
               <div className="p-3 rounded-base border-2 border-main bg-main/10 text-sm">
                 <div className="font-semibold mb-1 flex items-center gap-2">
-                  <Scissors className="size-4" />
+                  <ScissorsIcon animateOnHover />
                   Trim Range
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs font-mono">
@@ -420,7 +419,9 @@ export function EditingPanel({
               <>
                 <ToggleItem
                   id={`${idPrefix}-rotate`}
-                  icon={<RotateCcw className="size-5" />}
+                  icon={
+                    <RotateCcwIcon size={20} animateOnHover animateOnView />
+                  }
                   label="Rotate"
                   description="Rotate the video 90°, 180°, or 270°"
                   checked={state.rotate.enabled}
@@ -466,7 +467,7 @@ export function EditingPanel({
             {/* Mute Toggle */}
             <ToggleItem
               id={`${idPrefix}-mute`}
-              icon={<Volume2 className="size-5" />}
+              icon={<VolumeOffIcon size={20} animateOnHover animateOnView />}
               label="Remove Audio"
               description="Strip the audio track from output"
               checked={state.mute.enabled}

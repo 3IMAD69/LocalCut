@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 interface ScrubbableInputProps {
@@ -42,12 +43,42 @@ export function ScrubbableInput({
   const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const [isDraggingState, setIsDraggingState] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const lastX = useRef(0);
+
+  // Motion values for smooth animations
+  const rulerOffsetMotion = useMotionValue(-value * 4);
+  const scale = useMotionValue(1);
+
+  // iOS-like spring physics - only for ruler, not for scale during drag
+  const smoothRulerOffset = useSpring(rulerOffsetMotion, {
+    stiffness: isDraggingState ? 500 : 350,
+    damping: isDraggingState ? 40 : 30,
+    mass: 0.3,
+  });
+
+  const smoothScale = useSpring(scale, {
+    stiffness: 500,
+    damping: 30,
+  });
+
+  // Transform must be called at top level, not inside useMemo
+  const rulerTransform = useTransform(
+    smoothRulerOffset,
+    (v) => `calc(-50% + ${v}px)`,
+  );
 
   const clamp = useCallback(
     (v: number) => Math.max(min, Math.min(max, v)),
     [min, max],
   );
+
+  // Update ruler offset when value changes
+  useEffect(() => {
+    const pixelsPerUnit = 4;
+    const rulerOffset = -value * pixelsPerUnit;
+    rulerOffsetMotion.set(rulerOffset);
+  }, [value, rulerOffsetMotion]);
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -57,10 +88,13 @@ export function ScrubbableInput({
       setIsDraggingState(true);
       lastX.current = e.clientX;
 
+      // Scale down for press feedback
+      scale.set(0.98);
+
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
       e.preventDefault();
     },
-    [disabled],
+    [disabled, scale],
   );
 
   const handlePointerMove = useCallback(
@@ -88,13 +122,20 @@ export function ScrubbableInput({
     [disabled, clamp, onChange, value],
   );
 
-  const handlePointerUp = useCallback((e: React.PointerEvent) => {
-    if (isDragging.current) {
-      isDragging.current = false;
-      setIsDraggingState(false);
-      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-    }
-  }, []);
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      if (isDragging.current) {
+        isDragging.current = false;
+        setIsDraggingState(false);
+
+        // Return to normal scale
+        scale.set(1);
+
+        (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+      }
+    },
+    [scale],
+  );
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -133,18 +174,13 @@ export function ScrubbableInput({
     onChange(0);
   }, [disabled, onChange]);
 
-  // Calculate the offset for the ruler based on current value
-  // Each unit = some pixels of offset
-  // Negative because dragging right (increasing value) should move ruler left
-  const pixelsPerUnit = 4;
-  const rulerOffset = -value * pixelsPerUnit;
-
   // Generate tick marks for the infinite ruler (memoized)
   // We generate more than visible to create the infinite effect
   const tickSpacing = 20; // pixels between ticks
   const containerWidth = 400; // approximate width
   const extraTicks = 20; // extra ticks on each side
   const tickCount = Math.ceil(containerWidth / tickSpacing) + extraTicks * 2;
+  const pixelsPerUnit = 4;
 
   const ticks = useMemo(() => {
     return Array.from({ length: tickCount }, (_, i) => {
@@ -159,15 +195,22 @@ export function ScrubbableInput({
   return (
     <div className={cn("flex flex-col gap-2", className)}>
       {label && (
-        <span className="text-xs font-medium text-foreground/70">{label}</span>
+        <motion.span
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
+          className="text-xs font-medium text-foreground/70"
+        >
+          {label}
+        </motion.span>
       )}
 
-      <div
+      <motion.div
         ref={containerRef}
+        style={{ scale: smoothScale }}
         className={cn(
           "relative h-14 rounded-base border-2 border-border bg-secondary-background overflow-hidden",
           "cursor-ew-resize select-none touch-none",
-          "transition-colors duration-150",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-main focus-visible:ring-offset-2",
           isDraggingState && "border-main bg-main/5",
           disabled && "opacity-50 cursor-not-allowed",
@@ -177,6 +220,8 @@ export function ScrubbableInput({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
+        onPointerEnter={() => setIsHovered(true)}
+        onPointerLeave={() => setIsHovered(false)}
         onKeyDown={handleKeyDown}
         onDoubleClick={handleDoubleClick}
         role="slider"
@@ -185,80 +230,129 @@ export function ScrubbableInput({
         aria-valuenow={value}
         aria-label={label}
         aria-disabled={disabled}
+        whileHover={!disabled ? { borderColor: "var(--main)" } : undefined}
+        transition={{
+          borderColor: { duration: 0.2, ease: [0.25, 0.1, 0.25, 1] },
+        }}
       >
         {/* Moving ruler track */}
-        <div
-          className="absolute inset-y-0 flex items-center"
+        <motion.div
+          className="absolute inset-y-0 flex items-center will-change-transform"
           style={{
             left: "50%",
-            transform: `translateX(calc(-50% + ${rulerOffset}px))`,
+            x: rulerTransform,
             width: `${tickCount * tickSpacing}px`,
-            transition: isDraggingState ? "none" : "transform 0.1s ease-out",
           }}
         >
-          {ticks.map((tick) => (
-            <div
-              key={tick.tickIndex}
-              className="absolute flex flex-col items-center"
-              style={{
-                left: `${tick.left}px`,
-                transform: "translateX(-50%)",
-              }}
-            >
-              {/* Tick mark */}
+          {ticks.map((tick) => {
+            // Only animate zero tick and major ticks for performance
+            const shouldAnimate = tick.isZero || tick.isMajor;
+
+            if (!shouldAnimate) {
+              return (
+                <div
+                  key={tick.tickIndex}
+                  className="absolute flex flex-col items-center"
+                  style={{
+                    left: `${tick.left}px`,
+                    transform: "translateX(-50%)",
+                  }}
+                >
+                  <div className="w-0.5 h-3 bg-foreground/25 rounded-full" />
+                </div>
+              );
+            }
+
+            return (
               <div
-                className={cn(
-                  "rounded-full",
-                  tick.isZero
-                    ? "w-1 h-5 bg-main"
-                    : tick.isMajor
-                      ? "w-1 h-4 bg-foreground/50"
-                      : "w-0.5 h-3 bg-foreground/25",
+                key={tick.tickIndex}
+                className="absolute flex flex-col items-center"
+                style={{
+                  left: `${tick.left}px`,
+                  transform: "translateX(-50%)",
+                }}
+              >
+                {/* Tick mark */}
+                <div
+                  className={cn(
+                    "rounded-full transition-all duration-150",
+                    tick.isZero
+                      ? "w-1 h-5 bg-main"
+                      : "w-1 h-4 bg-foreground/50",
+                  )}
+                  style={{
+                    transform:
+                      tick.isZero && isDraggingState
+                        ? "scaleY(1.1)"
+                        : "scaleY(1)",
+                  }}
+                />
+                {/* Label for zero tick */}
+                {tick.isZero && (
+                  <span
+                    className="absolute top-7 text-[9px] font-mono text-main font-bold transition-transform duration-150"
+                    style={{
+                      transform: isDraggingState ? "scale(1.1)" : "scale(1)",
+                    }}
+                  >
+                    0
+                  </span>
                 )}
-              />
-              {/* Label for zero tick */}
-              {tick.isZero && (
-                <span className="absolute top-7 text-[9px] font-mono text-main font-bold">
-                  0
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
+              </div>
+            );
+          })}
+        </motion.div>
 
         {/* Fixed center indicator (cursor) */}
-        <div className="absolute left-1/2 top-0 bottom-0 -translate-x-1/2 flex flex-col items-center justify-center pointer-events-none z-10">
+        <div
+          className="absolute left-1/2 top-0 bottom-0 -translate-x-1/2 flex flex-col items-center justify-center pointer-events-none z-10 transition-all duration-150"
+          style={{
+            transform: isDraggingState
+              ? "translateX(-50%) scale(1.05)"
+              : "translateX(-50%) scale(1)",
+          }}
+        >
           {/* Top triangle */}
           <div
             className={cn(
               "w-0 h-0 border-l-[6px] border-r-[6px] border-t-[8px]",
-              "border-l-transparent border-r-transparent",
+              "border-l-transparent border-r-transparent transition-all duration-150",
               isDraggingState ? "border-t-main" : "border-t-foreground",
             )}
+            style={{
+              opacity: isDraggingState || isHovered ? 1 : 0.7,
+            }}
           />
           {/* Center line */}
           <div
             className={cn(
-              "w-0.5 flex-1",
+              "w-0.5 flex-1 transition-all duration-150",
               isDraggingState ? "bg-main" : "bg-foreground",
             )}
+            style={{
+              opacity: isDraggingState || isHovered ? 1 : 0.7,
+              transform: isDraggingState ? "scaleX(1.5)" : "scaleX(1)",
+            }}
           />
           {/* Bottom triangle */}
           <div
             className={cn(
               "w-0 h-0 border-l-[6px] border-r-[6px] border-b-[8px]",
-              "border-l-transparent border-r-transparent",
+              "border-l-transparent border-r-transparent transition-all duration-150",
               isDraggingState ? "border-b-main" : "border-b-foreground",
             )}
+            style={{
+              opacity: isDraggingState || isHovered ? 1 : 0.7,
+            }}
           />
         </div>
-      </div>
+      </motion.div>
 
       {/* Value display */}
       <div className="flex items-center justify-center">
         <span
           className={cn(
-            "font-mono text-sm font-bold tabular-nums",
+            "font-mono text-sm font-bold tabular-nums transition-all duration-150",
             value === 0
               ? "text-foreground/50"
               : value > 0

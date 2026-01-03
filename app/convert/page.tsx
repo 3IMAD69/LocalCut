@@ -1,7 +1,7 @@
 "use client";
 
 import { registerMp3Encoder } from "@mediabunny/mp3-encoder";
-import { ArrowRight, Loader2, Upload } from "lucide-react";
+import { Loader2, Upload } from "lucide-react";
 import {
   ALL_FORMATS,
   type AudioCodec,
@@ -18,6 +18,7 @@ import {
   type VideoCodec,
 } from "mediabunny";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowRightIcon } from "@/components/animate-ui/icons/arrow-right";
 import {
   type CropRect,
   defaultEditingState,
@@ -997,7 +998,7 @@ export default function ConvertPage() {
         {/* Arrow Icon */}
         <div className="flex items-end justify-center pb-2 md:pb-0 md:items-center">
           <div className="rounded-full border-2 border-border bg-main p-3 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
-            <ArrowRight className="size-6" />
+            <ArrowRightIcon animateOnHover />
           </div>
         </div>
 

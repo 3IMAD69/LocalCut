@@ -1,7 +1,9 @@
 "use client";
 
-import { Maximize, Minimize } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { MaximizeIcon } from "../animate-ui/icons/maximize";
+import { MinimizeIcon } from "../animate-ui/icons/minimize";
 
 interface FullscreenButtonProps {
   isFullscreen: boolean;
@@ -14,6 +16,8 @@ export function FullscreenButton({
   onClick,
   disabled = false,
 }: FullscreenButtonProps) {
+  const [isHovered, setIsHovered] = useState(false);
+
   return (
     <Button
       onClick={onClick}
@@ -22,11 +26,13 @@ export function FullscreenButton({
       className="h-12 w-12 hover:bg-gray-100"
       aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
       disabled={disabled}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       {isFullscreen ? (
-        <Minimize className="h-6 w-6" />
+        <MinimizeIcon animate={isHovered} size={30} />
       ) : (
-        <Maximize className="h-6 w-6" />
+        <MaximizeIcon animate={isHovered} size={30} />
       )}
     </Button>
   );

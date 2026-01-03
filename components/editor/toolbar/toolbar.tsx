@@ -5,13 +5,13 @@ import {
   Copy,
   Magnet,
   Redo2,
-  Scissors,
   SplitSquareHorizontal,
   Trash2,
   Undo2,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
+import { ScissorsIcon } from "@/components/animate-ui/icons/scissors";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -132,7 +132,7 @@ export function Toolbar({
         {/* Clipboard */}
         <div className="flex items-center gap-1">
           <ToolButton
-            icon={<Scissors className="h-4 w-4" />}
+            icon={<ScissorsIcon animateOnHover />}
             label="Cut (Ctrl+X)"
             onClick={onCut}
             disabled={!hasSelection}
