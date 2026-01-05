@@ -19,6 +19,7 @@ import {
 } from "mediabunny";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRightIcon } from "@/components/animate-ui/icons/arrow-right";
+import { AutoHeight } from "@/components/animate-ui/primitives/effects/auto-height";
 import {
   type CropRect,
   defaultEditingState,
@@ -1259,105 +1260,134 @@ export default function ConvertPage() {
             {/* Right Column: Editor & Actions (Black Zone) */}
             <div className="space-y-6 mt-6 lg:mt-7">
               {/* File Information - Metadata Display */}
-              {metadataDisplay}
+              <AutoHeight deps={[metadataDisplay]}>
+                {metadataDisplay}
+              </AutoHeight>
 
               {/* Format Selection Row */}
               {formatSelection}
 
               {/* Audio to Video Format Notice */}
-              {metadata?.isAudioOnly &&
-                outputFormat &&
-                outputContainers.includes(outputFormat as OutputContainer) &&
-                !isAudioOnlyFormat(outputFormat as OutputContainer) && (
-                  <div className="rounded-base border-2 border-amber-500 bg-amber-50 dark:bg-amber-950 p-4">
-                    <div className="flex items-start gap-2">
-                      <span className="text-lg">ℹ️</span>
-                      <div>
-                        <p className="font-semibold text-amber-700 dark:text-amber-300">
-                          Audio-only input file
-                        </p>
-                        <p className="text-sm text-amber-700 dark:text-amber-300">
-                          Your input file only contains audio. The output will
-                          be a {outputFormat.toUpperCase()} container with audio
-                          only (no video track).
-                        </p>
+              <AutoHeight
+                deps={[
+                  metadata?.isAudioOnly,
+                  outputFormat,
+                  outputContainers.includes(outputFormat as OutputContainer),
+                  isAudioOnlyFormat(outputFormat as OutputContainer),
+                ]}
+              >
+                {metadata?.isAudioOnly &&
+                  outputFormat &&
+                  outputContainers.includes(outputFormat as OutputContainer) &&
+                  !isAudioOnlyFormat(outputFormat as OutputContainer) && (
+                    <div className="rounded-base border-2 border-amber-500 bg-amber-50 dark:bg-amber-950 p-4">
+                      <div className="flex items-start gap-2">
+                        <span className="text-lg">ℹ️</span>
+                        <div>
+                          <p className="font-semibold text-amber-700 dark:text-amber-300">
+                            Audio-only input file
+                          </p>
+                          <p className="text-sm text-amber-700 dark:text-amber-300">
+                            Your input file only contains audio. The output will
+                            be a {outputFormat.toUpperCase()} container with
+                            audio only (no video track).
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
+              </AutoHeight>
 
               {/* Codec Selection */}
-              {codecSelection}
+              <AutoHeight deps={[codecSelection]}>{codecSelection}</AutoHeight>
 
               {/* Editing Panel - hidden for audio-only output formats */}
-              {selectedFile &&
-                outputFormat &&
-                outputContainers.includes(outputFormat as OutputContainer) &&
-                !isAudioOnlyFormat(outputFormat as OutputContainer) && (
-                  <EditingPanel
-                    state={editingState}
-                    onStateChange={setEditingState}
-                    onCropToggle={handleCropToggle}
-                    onTrimToggle={handleTrimToggle}
-                    mediaDuration={metadata?.duration ?? undefined}
-                    isAudioOnly={metadata?.isAudioOnly}
-                  />
-                )}
+              <AutoHeight
+                deps={[
+                  selectedFile,
+                  outputFormat,
+                  outputContainers.includes(outputFormat as OutputContainer),
+                  isAudioOnlyFormat(outputFormat as OutputContainer),
+                ]}
+              >
+                {selectedFile &&
+                  outputFormat &&
+                  outputContainers.includes(outputFormat as OutputContainer) &&
+                  !isAudioOnlyFormat(outputFormat as OutputContainer) && (
+                    <EditingPanel
+                      state={editingState}
+                      onStateChange={setEditingState}
+                      onCropToggle={handleCropToggle}
+                      onTrimToggle={handleTrimToggle}
+                      mediaDuration={metadata?.duration ?? undefined}
+                      isAudioOnly={metadata?.isAudioOnly}
+                    />
+                  )}
+              </AutoHeight>
 
               {/* Notify Me Option */}
-              {outputFormat &&
-                outputContainers.includes(outputFormat as OutputContainer) && (
-                  <div className="rounded-base border-2 border-border bg-white dark:bg-gray-950 p-4">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        id="notifyMe"
-                        checked={notifyMe}
-                        onChange={async (e) => {
-                          console.log(
-                            "Notify me checkbox changed:",
-                            e.target.checked,
-                          );
-                          if (e.target.checked) {
-                            // Request notification permission if not granted
-                            if ("Notification" in window) {
-                              if (Notification.permission === "default") {
-                                const permission =
-                                  await Notification.requestPermission();
-                                setNotifyMe(permission === "granted");
-                              } else if (
-                                Notification.permission === "granted"
-                              ) {
-                                setNotifyMe(true);
+              <AutoHeight
+                deps={[
+                  outputFormat,
+                  outputContainers.includes(outputFormat as OutputContainer),
+                ]}
+              >
+                {outputFormat &&
+                  outputContainers.includes(
+                    outputFormat as OutputContainer,
+                  ) && (
+                    <div className="rounded-base border-2 border-border bg-white dark:bg-gray-950 p-4">
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          id="notifyMe"
+                          checked={notifyMe}
+                          onChange={async (e) => {
+                            console.log(
+                              "Notify me checkbox changed:",
+                              e.target.checked,
+                            );
+                            if (e.target.checked) {
+                              // Request notification permission if not granted
+                              if ("Notification" in window) {
+                                if (Notification.permission === "default") {
+                                  const permission =
+                                    await Notification.requestPermission();
+                                  setNotifyMe(permission === "granted");
+                                } else if (
+                                  Notification.permission === "granted"
+                                ) {
+                                  setNotifyMe(true);
+                                } else {
+                                  // Permission denied
+                                  setNotifyMe(false);
+                                  alert(
+                                    "Notification permission is denied. Please enable it in your browser settings.",
+                                  );
+                                }
                               } else {
-                                // Permission denied
-                                setNotifyMe(false);
                                 alert(
-                                  "Notification permission is denied. Please enable it in your browser settings.",
+                                  "Notifications are not supported in your browser.",
                                 );
+                                setNotifyMe(false);
                               }
                             } else {
-                              alert(
-                                "Notifications are not supported in your browser.",
-                              );
+                              console.log("Notifications unchecked");
                               setNotifyMe(false);
                             }
-                          } else {
-                            console.log("Notifications unchecked");
-                            setNotifyMe(false);
-                          }
-                        }}
-                        className="size-4 cursor-pointer accent-main"
-                      />
-                      <label
-                        htmlFor="notifyMe"
-                        className="text-sm font-medium cursor-pointer"
-                      >
-                        Notify me when conversion is complete
-                      </label>
+                          }}
+                          className="size-4 cursor-pointer accent-main"
+                        />
+                        <label
+                          htmlFor="notifyMe"
+                          className="text-sm font-medium cursor-pointer"
+                        >
+                          Notify me when conversion is complete
+                        </label>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+              </AutoHeight>
 
               {/* Conversion Status Display */}
               <ConversionStatusDisplay
