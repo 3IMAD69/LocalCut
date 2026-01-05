@@ -384,14 +384,18 @@ function AnimateIcon({
   ) as AnyProps;
 
   const handleMouseEnter = composeEventHandlers<React.MouseEvent<HTMLElement>>(
-    childProps.onMouseEnter,
+    childProps.onMouseEnter as
+      | ((event: React.MouseEvent<HTMLElement>) => void)
+      | undefined,
     () => {
       if (animateOnHover) startAnimation(animateOnHover);
     },
   );
 
   const handleMouseLeave = composeEventHandlers<React.MouseEvent<HTMLElement>>(
-    childProps.onMouseLeave,
+    childProps.onMouseLeave as
+      | ((event: React.MouseEvent<HTMLElement>) => void)
+      | undefined,
     () => {
       if (animateOnHover || animateOnTap) stopAnimation();
     },
@@ -399,12 +403,19 @@ function AnimateIcon({
 
   const handlePointerDown = composeEventHandlers<
     React.PointerEvent<HTMLElement>
-  >(childProps.onPointerDown, () => {
-    if (animateOnTap) startAnimation(animateOnTap);
-  });
+  >(
+    childProps.onPointerDown as
+      | ((event: React.PointerEvent<HTMLElement>) => void)
+      | undefined,
+    () => {
+      if (animateOnTap) startAnimation(animateOnTap);
+    },
+  );
 
   const handlePointerUp = composeEventHandlers<React.PointerEvent<HTMLElement>>(
-    childProps.onPointerUp,
+    childProps.onPointerUp as
+      | ((event: React.PointerEvent<HTMLElement>) => void)
+      | undefined,
     () => {
       if (animateOnTap) stopAnimation();
     },
