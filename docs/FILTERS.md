@@ -9,6 +9,7 @@ LocalCut now includes a comprehensive filter system with **22 Instagram-style pr
 - **22 Professional Filters**: None, 1977, Aden, Brannan, Brooklyn, Clarendon, Earlybird, Gingham, Hudson, Inkwell, Lark, Lofi, Moon, Nashville, Perpetua, Reyes, Rise, Toaster, Valencia, Walden, Willow, X-Pro II
 - **One-Click Application**: Select any filter to instantly apply it
 - **Live Preview**: See the effect on your video in real-time
+- **Filter Thumbnails**: Each filter button shows a preview of the current frame with the filter applied ⭐ NEW
 
 ### 2. Enhanced Fine-Tune Controls
 Added 3 new filter parameters:
@@ -35,6 +36,8 @@ Existing parameters:
 #### Filters Tab ⭐ NEW
 - Quick preset selection
 - 3-column grid layout for easy browsing
+- **Live filter preview thumbnails** showing the current frame with each filter applied ⭐ NEW
+- Refresh button to update preview thumbnails
 - Shows active filter values
 - Hint to switch to Fine-Tune for adjustments
 

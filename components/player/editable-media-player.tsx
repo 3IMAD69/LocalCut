@@ -33,6 +33,8 @@ export interface MediaPlayerHandle {
   scrollIntoView: () => void;
   /** Get the video container ref for overlay positioning */
   getContainerRef: () => React.RefObject<HTMLDivElement | null>;
+  /** Get the canvas ref for frame capture (used for filter previews) */
+  getCanvasRef: () => React.RefObject<HTMLCanvasElement | null>;
 }
 
 interface EditableMediaPlayerProps {
@@ -136,6 +138,7 @@ export const EditableMediaPlayer = forwardRef<
         });
       },
       getContainerRef: () => videoContainerRef,
+      getCanvasRef: () => canvasRef,
     }),
     [],
   );

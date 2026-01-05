@@ -1,7 +1,8 @@
 "use client";
 
 import { Crop, RotateCcw } from "lucide-react";
-import { useCallback, useId, useState } from "react";
+import Image from "next/image";
+import { useCallback, useEffect, useId, useState } from "react";
 import {
   Tabs,
   TabsContent,
@@ -402,6 +403,8 @@ interface EditingPanelProps {
   isAudioOnly?: boolean;
   /** Optional class name */
   className?: string;
+  /** Optional canvas ref for capturing filter previews */
+  playerCanvasRef?: React.RefObject<HTMLCanvasElement | null>;
 }
 
 interface ToggleItemProps {
@@ -420,6 +423,62 @@ function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
   return `${mins}:${secs.toString().padStart(2, "0")}`;
+}
+
+/**
+ * Filter preset button with thumbnail preview
+ */
+interface FilterPresetButtonProps {
+  preset: FilterPreset;
+  isSelected: boolean;
+  isNone: boolean;
+  thumbnailDataUrl: string | null;
+  onClick: () => void;
+}
+
+function FilterPresetButton({
+  preset,
+  isSelected,
+  isNone,
+  thumbnailDataUrl,
+  onClick,
+}: FilterPresetButtonProps) {
+  const filterCSS = fineTuneToCSS(preset.filters);
+
+  return (
+    <Button
+      size="sm"
+      variant={isSelected ? "default" : "neutral"}
+      onClick={onClick}
+      className={cn(
+        "text-xs px-2 py-2 h-auto flex flex-col items-center gap-2 font-semibold overflow-hidden",
+        isSelected && "ring-2 ring-offset-2 ring-main",
+        isNone && "col-span-2 sm:col-span-3",
+      )}
+    >
+      {/* Thumbnail preview */}
+      {thumbnailDataUrl && !isNone && (
+        <div
+          className="w-full h-20 rounded border-2 border-black bg-black overflow-hidden relative"
+          style={{
+            filter: filterCSS !== "none" ? filterCSS : undefined,
+          }}
+        >
+          <Image
+            src={thumbnailDataUrl}
+            alt={`${preset.name} filter preview`}
+            className="object-contain"
+            fill
+            sizes="160px"
+            unoptimized
+          />
+        </div>
+      )}
+
+      {/* Filter name */}
+      <span className="text-center leading-tight">{preset.name}</span>
+    </Button>
+  );
 }
 
 function ToggleItem({
@@ -477,11 +536,56 @@ export function EditingPanel({
   mediaDuration,
   isAudioOnly,
   className,
+  playerCanvasRef,
 }: EditingPanelProps) {
   const idPrefix = useId();
   const [selectedFilter, setSelectedFilter] =
     useState<FilterType>("brightness");
   const [selectedPreset, setSelectedPreset] = useState<string>("None");
+  const [thumbnailDataUrl, setThumbnailDataUrl] = useState<string | null>(null);
+
+  // Capture thumbnail from player canvas when available
+  const captureThumb = useCallback(() => {
+    if (!playerCanvasRef?.current) {
+      return;
+    }
+
+    const canvas = playerCanvasRef.current;
+    try {
+      // Create a temporary canvas for the thumbnail
+      const thumbCanvas = document.createElement("canvas");
+      const thumbWidth = 160;
+      const thumbHeight = 90;
+      thumbCanvas.width = thumbWidth;
+      thumbCanvas.height = thumbHeight;
+      const ctx = thumbCanvas.getContext("2d");
+
+      if (!ctx) {
+        return;
+      }
+
+      // Draw the current frame scaled down with better quality
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(canvas, 0, 0, thumbWidth, thumbHeight);
+
+      // Convert to data URL with high quality
+      const dataUrl = thumbCanvas.toDataURL("image/jpeg", 0.95);
+      setThumbnailDataUrl(dataUrl);
+    } catch (error) {
+      console.error("Failed to capture thumbnail:", error);
+    }
+  }, [playerCanvasRef]);
+
+  // Capture thumbnail when canvas becomes available or changes
+  useEffect(() => {
+    // Delay capture to ensure video frame is loaded
+    const timeoutId = setTimeout(() => {
+      captureThumb();
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [captureThumb]);
 
   const handleCropToggle = useCallback(
     (enabled: boolean) => {
@@ -619,18 +723,39 @@ export function EditingPanel({
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="transform" className="w-full">
-          <TabsList className="w-full grid grid-cols-3">
-            <TabsTrigger value="transform">
-              <ScissorsIcon animateOnHover size={20} />
-              Transform
+          <TabsList className="w-full grid grid-cols-3 gap-1 sm:gap-2">
+            <TabsTrigger
+              value="transform"
+              className="flex-col gap-1 sm:flex-row sm:gap-2 px-2 sm:px-4"
+            >
+              <ScissorsIcon animateOnHover size={18} className="sm:size-5" />
+              <span className="text-[10px] sm:text-sm">Transform</span>
             </TabsTrigger>
-            <TabsTrigger value="filters" disabled={isAudioOnly}>
-              <SlidersHorizontalIcon size={20} animateOnHover animateOnView />
-              Filters
+            <TabsTrigger
+              value="filters"
+              disabled={isAudioOnly}
+              className="flex-col gap-1 sm:flex-row sm:gap-2 px-2 sm:px-4"
+            >
+              <SlidersHorizontalIcon
+                size={18}
+                animateOnHover
+                animateOnView
+                className="sm:size-5"
+              />
+              <span className="text-[10px] sm:text-sm">Filters</span>
             </TabsTrigger>
-            <TabsTrigger value="fine-tunes" disabled={isAudioOnly}>
-              <SlidersHorizontalIcon size={20} animateOnHover animateOnView />
-              Fine-Tune
+            <TabsTrigger
+              value="fine-tunes"
+              disabled={isAudioOnly}
+              className="flex-col gap-1 sm:flex-row sm:gap-2 px-2 sm:px-4"
+            >
+              <SlidersHorizontalIcon
+                size={18}
+                animateOnHover
+                animateOnView
+                className="sm:size-5"
+              />
+              <span className="text-[10px] sm:text-sm">Fine-Tune</span>
             </TabsTrigger>
           </TabsList>
 
@@ -770,41 +895,49 @@ export function EditingPanel({
             />
 
             {/* Filter Preset Grid */}
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {FILTER_PRESETS.map((preset) => {
                 const isSelected = selectedPreset === preset.name;
                 const isNone = preset.name === "None";
 
                 return (
-                  <Button
+                  <FilterPresetButton
                     key={preset.name}
-                    size="sm"
-                    variant={isSelected ? "default" : "neutral"}
+                    preset={preset}
+                    isSelected={isSelected}
+                    isNone={isNone}
+                    thumbnailDataUrl={thumbnailDataUrl}
                     onClick={() => handlePresetChange(preset.name)}
-                    className={cn(
-                      "text-xs px-2 py-3 h-auto flex flex-col items-center gap-1 font-semibold",
-                      isSelected && "ring-2 ring-offset-2 ring-main",
-                      isNone && "col-span-3",
-                    )}
-                  >
-                    {preset.name}
-                  </Button>
+                  />
                 );
               })}
             </div>
 
+            {/* Refresh thumbnails button */}
+            {playerCanvasRef && (
+              <Button
+                variant="neutral"
+                size="sm"
+                onClick={captureThumb}
+                className="w-full text-xs"
+              >
+                Refresh Previews
+              </Button>
+            )}
+
             {/* Active filter preview */}
             {state.fineTune.enabled && selectedPreset !== "None" && (
-              <div className="p-3 rounded-base border-2 border-main bg-main/10 text-sm">
-                <div className="font-semibold mb-2 flex items-center gap-2">
+              <div className="p-3 sm:p-4 rounded-base border-2 border-main bg-main/10 text-sm">
+                <div className="font-semibold mb-2 flex items-center gap-2 text-sm sm:text-base">
                   <SlidersHorizontalIcon
-                    size={20}
+                    size={18}
                     animateOnHover
                     animateOnView
+                    className="sm:size-5"
                   />
                   {selectedPreset} Filter
                 </div>
-                <div className="grid grid-cols-2 gap-1 text-xs font-mono">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-1 text-xs font-mono">
                   {Object.entries(state.fineTune.filters).map(
                     ([key, value]) => {
                       if (value === 0) return null;
@@ -812,7 +945,7 @@ export function EditingPanel({
                         (f) => f.key === key,
                       )?.label;
                       return (
-                        <div key={key} className="flex justify-between">
+                        <div key={key} className="flex justify-between py-0.5">
                           <span>{label}:</span>
                           <span className={value > 0 ? "text-main" : ""}>
                             {value > 0 ? `+${value}` : value}
@@ -822,7 +955,7 @@ export function EditingPanel({
                     },
                   )}
                 </div>
-                <p className="text-xs text-foreground/60 mt-2">
+                <p className="text-[10px] sm:text-xs text-foreground/60 mt-2">
                   Switch to Fine-Tune tab to adjust individual values
                 </p>
               </div>

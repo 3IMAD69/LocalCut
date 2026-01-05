@@ -1321,6 +1321,7 @@ export default function ConvertPage() {
                       onTrimToggle={handleTrimToggle}
                       mediaDuration={metadata?.duration ?? undefined}
                       isAudioOnly={metadata?.isAudioOnly}
+                      playerCanvasRef={mediaPlayerRef.current?.getCanvasRef()}
                     />
                   )}
               </AutoHeight>
