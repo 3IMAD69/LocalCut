@@ -35,6 +35,9 @@ export interface FineTuneFilters {
   exposure: number;
   temperature: number;
   gamma: number;
+  hueRotate: number;
+  sepia: number;
+  grayscale: number;
 }
 
 export const defaultFineTuneFilters: FineTuneFilters = {
@@ -44,7 +47,228 @@ export const defaultFineTuneFilters: FineTuneFilters = {
   exposure: 0,
   temperature: 0,
   gamma: 0,
+  hueRotate: 0,
+  sepia: 0,
+  grayscale: 0,
 };
+
+/** Premade filter presets */
+export interface FilterPreset {
+  name: string;
+  filters: FineTuneFilters;
+}
+
+export const FILTER_PRESETS: FilterPreset[] = [
+  {
+    name: "None",
+    filters: defaultFineTuneFilters,
+  },
+  {
+    name: "1977",
+    filters: {
+      ...defaultFineTuneFilters,
+      sepia: 50,
+      hueRotate: -30,
+      saturation: 40,
+    },
+  },
+  {
+    name: "Aden",
+    filters: {
+      ...defaultFineTuneFilters,
+      sepia: 20,
+      brightness: 15,
+      saturation: 40,
+    },
+  },
+  {
+    name: "Brannan",
+    filters: {
+      ...defaultFineTuneFilters,
+      sepia: 40,
+      contrast: 25,
+      brightness: 10,
+      saturation: -10,
+      hueRotate: -2,
+    },
+  },
+  {
+    name: "Brooklyn",
+    filters: {
+      ...defaultFineTuneFilters,
+      sepia: 25,
+      contrast: 25,
+      brightness: 25,
+      hueRotate: 5,
+    },
+  },
+  {
+    name: "Clarendon",
+    filters: {
+      ...defaultFineTuneFilters,
+      sepia: 15,
+      contrast: 25,
+      brightness: 25,
+      hueRotate: 5,
+    },
+  },
+  {
+    name: "Earlybird",
+    filters: {
+      ...defaultFineTuneFilters,
+      sepia: 25,
+      contrast: 25,
+      brightness: 15,
+      saturation: -10,
+      hueRotate: -5,
+    },
+  },
+  {
+    name: "Gingham",
+    filters: {
+      ...defaultFineTuneFilters,
+      contrast: 10,
+      brightness: 10,
+    },
+  },
+  {
+    name: "Hudson",
+    filters: {
+      ...defaultFineTuneFilters,
+      sepia: 25,
+      contrast: 20,
+      brightness: 20,
+      saturation: 5,
+      hueRotate: -15,
+    },
+  },
+  {
+    name: "Inkwell",
+    filters: {
+      ...defaultFineTuneFilters,
+      brightness: 25,
+      contrast: -15,
+      grayscale: 100,
+    },
+  },
+  {
+    name: "Lark",
+    filters: {
+      ...defaultFineTuneFilters,
+      sepia: 25,
+      contrast: 20,
+      brightness: 30,
+      saturation: 25,
+    },
+  },
+  {
+    name: "Lofi",
+    filters: {
+      ...defaultFineTuneFilters,
+      saturation: 10,
+      contrast: 50,
+    },
+  },
+  {
+    name: "Moon",
+    filters: {
+      ...defaultFineTuneFilters,
+      brightness: 40,
+      contrast: -5,
+      saturation: -100,
+      sepia: 35,
+    },
+  },
+  {
+    name: "Nashville",
+    filters: {
+      ...defaultFineTuneFilters,
+      sepia: 25,
+      contrast: 50,
+      brightness: -10,
+      hueRotate: -15,
+    },
+  },
+  {
+    name: "Perpetua",
+    filters: {
+      ...defaultFineTuneFilters,
+      contrast: 10,
+      brightness: 25,
+      saturation: 10,
+    },
+  },
+  {
+    name: "Reyes",
+    filters: {
+      ...defaultFineTuneFilters,
+      sepia: 75,
+      contrast: -25,
+      brightness: 25,
+      saturation: 40,
+    },
+  },
+  {
+    name: "Rise",
+    filters: {
+      ...defaultFineTuneFilters,
+      sepia: 25,
+      contrast: 25,
+      brightness: 20,
+      saturation: -10,
+    },
+  },
+  {
+    name: "Toaster",
+    filters: {
+      ...defaultFineTuneFilters,
+      sepia: 25,
+      contrast: 50,
+      brightness: -5,
+      hueRotate: -15,
+    },
+  },
+  {
+    name: "Valencia",
+    filters: {
+      ...defaultFineTuneFilters,
+      sepia: 25,
+      contrast: 10,
+      brightness: 10,
+    },
+  },
+  {
+    name: "Walden",
+    filters: {
+      ...defaultFineTuneFilters,
+      sepia: 35,
+      contrast: -20,
+      brightness: 25,
+      saturation: 40,
+    },
+  },
+  {
+    name: "Willow",
+    filters: {
+      ...defaultFineTuneFilters,
+      brightness: 20,
+      contrast: -15,
+      saturation: -95,
+      sepia: 20,
+    },
+  },
+  {
+    name: "X-Pro II",
+    filters: {
+      ...defaultFineTuneFilters,
+      sepia: 45,
+      contrast: 25,
+      brightness: 75,
+      saturation: 30,
+      hueRotate: -5,
+    },
+  },
+];
 
 export interface EditingState {
   crop: {
@@ -87,6 +311,9 @@ const FILTER_OPTIONS: { key: FilterType; label: string }[] = [
   { key: "exposure", label: "Exposure" },
   { key: "temperature", label: "Temperature" },
   { key: "gamma", label: "Gamma" },
+  { key: "hueRotate", label: "Hue" },
+  { key: "sepia", label: "Sepia" },
+  { key: "grayscale", label: "Grayscale" },
 ];
 
 /**
@@ -139,6 +366,24 @@ export function fineTuneToCSS(filters: FineTuneFilters): string {
   if (filters.gamma !== 0) {
     const gamma = 1 + filters.gamma / 200;
     parts.push(`contrast(${gamma.toFixed(2)})`);
+  }
+
+  // Hue Rotate: -100 → -180deg, 0 → 0deg, +100 → 180deg
+  if (filters.hueRotate !== 0) {
+    const hue = (filters.hueRotate / 100) * 180;
+    parts.push(`hue-rotate(${hue.toFixed(0)}deg)`);
+  }
+
+  // Sepia: 0 → 0, +100 → 1
+  if (filters.sepia !== 0) {
+    const sepia = filters.sepia / 100;
+    parts.push(`sepia(${sepia.toFixed(2)})`);
+  }
+
+  // Grayscale: 0 → 0, +100 → 1
+  if (filters.grayscale !== 0) {
+    const grayscale = filters.grayscale / 100;
+    parts.push(`grayscale(${grayscale.toFixed(2)})`);
   }
 
   return parts.length > 0 ? parts.join(" ") : "none";
@@ -236,6 +481,7 @@ export function EditingPanel({
   const idPrefix = useId();
   const [selectedFilter, setSelectedFilter] =
     useState<FilterType>("brightness");
+  const [selectedPreset, setSelectedPreset] = useState<string>("None");
 
   const handleCropToggle = useCallback(
     (enabled: boolean) => {
@@ -329,7 +575,25 @@ export function EditingPanel({
         filters: defaultFineTuneFilters,
       },
     });
+    setSelectedPreset("None");
   }, [state, onStateChange]);
+
+  const handlePresetChange = useCallback(
+    (presetName: string) => {
+      const preset = FILTER_PRESETS.find((p) => p.name === presetName);
+      if (preset) {
+        setSelectedPreset(presetName);
+        onStateChange({
+          ...state,
+          fineTune: {
+            enabled: true,
+            filters: preset.filters,
+          },
+        });
+      }
+    },
+    [state, onStateChange],
+  );
 
   // Check if any filter has a non-zero value
   const hasActiveFilters = Object.values(state.fineTune.filters).some(
@@ -355,14 +619,18 @@ export function EditingPanel({
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="transform" className="w-full">
-          <TabsList className="w-full grid grid-cols-2">
+          <TabsList className="w-full grid grid-cols-3">
             <TabsTrigger value="transform">
               <ScissorsIcon animateOnHover size={20} />
               Transform
             </TabsTrigger>
+            <TabsTrigger value="filters" disabled={isAudioOnly}>
+              <SlidersHorizontalIcon size={20} animateOnHover animateOnView />
+              Filters
+            </TabsTrigger>
             <TabsTrigger value="fine-tunes" disabled={isAudioOnly}>
               <SlidersHorizontalIcon size={20} animateOnHover animateOnView />
-              Fine-Tunes
+              Fine-Tune
             </TabsTrigger>
           </TabsList>
 
@@ -483,6 +751,80 @@ export function EditingPanel({
                   <div>Width: {Math.round(state.crop.rect.width * 100)}%</div>
                   <div>Height: {Math.round(state.crop.rect.height * 100)}%</div>
                 </div>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Filters Tab */}
+          <TabsContent value="filters" className="space-y-4 mt-4">
+            {/* Enable/Disable Toggle */}
+            <ToggleItem
+              id={`${idPrefix}-filter-preset`}
+              icon={
+                <SlidersHorizontalIcon size={20} animateOnHover animateOnView />
+              }
+              label="Apply Filter"
+              description="Choose from Instagram-style filters"
+              checked={state.fineTune.enabled}
+              onCheckedChange={handleFineTuneToggle}
+            />
+
+            {/* Filter Preset Grid */}
+            <div className="grid grid-cols-3 gap-2">
+              {FILTER_PRESETS.map((preset) => {
+                const isSelected = selectedPreset === preset.name;
+                const isNone = preset.name === "None";
+
+                return (
+                  <Button
+                    key={preset.name}
+                    size="sm"
+                    variant={isSelected ? "default" : "neutral"}
+                    onClick={() => handlePresetChange(preset.name)}
+                    className={cn(
+                      "text-xs px-2 py-3 h-auto flex flex-col items-center gap-1 font-semibold",
+                      isSelected && "ring-2 ring-offset-2 ring-main",
+                      isNone && "col-span-3",
+                    )}
+                  >
+                    {preset.name}
+                  </Button>
+                );
+              })}
+            </div>
+
+            {/* Active filter preview */}
+            {state.fineTune.enabled && selectedPreset !== "None" && (
+              <div className="p-3 rounded-base border-2 border-main bg-main/10 text-sm">
+                <div className="font-semibold mb-2 flex items-center gap-2">
+                  <SlidersHorizontalIcon
+                    size={20}
+                    animateOnHover
+                    animateOnView
+                  />
+                  {selectedPreset} Filter
+                </div>
+                <div className="grid grid-cols-2 gap-1 text-xs font-mono">
+                  {Object.entries(state.fineTune.filters).map(
+                    ([key, value]) => {
+                      if (value === 0) return null;
+                      const label = FILTER_OPTIONS.find(
+                        (f) => f.key === key,
+                      )?.label;
+                      return (
+                        <div key={key} className="flex justify-between">
+                          <span>{label}:</span>
+                          <span className={value > 0 ? "text-main" : ""}>
+                            {value > 0 ? `+${value}` : value}
+                          </span>
+                        </div>
+                      );
+                    },
+                  )}
+                </div>
+                <p className="text-xs text-foreground/60 mt-2">
+                  Switch to Fine-Tune tab to adjust individual values
+                </p>
               </div>
             )}
           </TabsContent>
