@@ -405,6 +405,10 @@ interface EditingPanelProps {
   className?: string;
   /** Optional canvas ref for capturing filter previews */
   playerCanvasRef?: React.RefObject<HTMLCanvasElement | null>;
+  /** Optional player ref for capturing unfiltered frames */
+  playerRef?: React.RefObject<{
+    captureUnfilteredFrame: () => Promise<string | null>;
+  } | null>;
 }
 
 interface ToggleItemProps {
@@ -537,6 +541,7 @@ export function EditingPanel({
   isAudioOnly,
   className,
   playerCanvasRef,
+  playerRef,
 }: EditingPanelProps) {
   const idPrefix = useId();
   const [selectedFilter, setSelectedFilter] =
@@ -544,8 +549,22 @@ export function EditingPanel({
   const [selectedPreset, setSelectedPreset] = useState<string>("None");
   const [thumbnailDataUrl, setThumbnailDataUrl] = useState<string | null>(null);
 
-  // Capture thumbnail from player canvas when available
-  const captureThumb = useCallback(() => {
+  // Capture thumbnail from player - use unfiltered frame if player ref is available
+  const captureThumb = useCallback(async () => {
+    // Prefer using the player ref for unfiltered capture
+    if (playerRef?.current?.captureUnfilteredFrame) {
+      try {
+        const dataUrl = await playerRef.current.captureUnfilteredFrame();
+        if (dataUrl) {
+          setThumbnailDataUrl(dataUrl);
+          return;
+        }
+      } catch (error) {
+        console.error("Failed to capture unfiltered frame:", error);
+      }
+    }
+
+    // Fallback to canvas capture (legacy)
     if (!playerCanvasRef?.current) {
       return;
     }
@@ -575,7 +594,7 @@ export function EditingPanel({
     } catch (error) {
       console.error("Failed to capture thumbnail:", error);
     }
-  }, [playerCanvasRef]);
+  }, [playerCanvasRef, playerRef]);
 
   // Capture thumbnail when canvas becomes available or changes
   useEffect(() => {
@@ -914,7 +933,7 @@ export function EditingPanel({
             </div>
 
             {/* Refresh thumbnails button */}
-            {playerCanvasRef && (
+            {(playerCanvasRef || playerRef) && (
               <Button
                 variant="neutral"
                 size="sm"

@@ -1322,6 +1322,7 @@ export default function ConvertPage() {
                       mediaDuration={metadata?.duration ?? undefined}
                       isAudioOnly={metadata?.isAudioOnly}
                       playerCanvasRef={mediaPlayerRef.current?.getCanvasRef()}
+                      playerRef={mediaPlayerRef}
                     />
                   )}
               </AutoHeight>

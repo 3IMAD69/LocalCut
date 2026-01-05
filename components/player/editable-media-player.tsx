@@ -35,6 +35,8 @@ export interface MediaPlayerHandle {
   getContainerRef: () => React.RefObject<HTMLDivElement | null>;
   /** Get the canvas ref for frame capture (used for filter previews) */
   getCanvasRef: () => React.RefObject<HTMLCanvasElement | null>;
+  /** Capture current frame without filters applied (returns data URL) */
+  captureUnfilteredFrame: () => Promise<string | null>;
 }
 
 interface EditableMediaPlayerProps {
@@ -139,8 +141,59 @@ export const EditableMediaPlayer = forwardRef<
       },
       getContainerRef: () => videoContainerRef,
       getCanvasRef: () => canvasRef,
+      captureUnfilteredFrame: async (): Promise<string | null> => {
+        if (!mediaFox || !isLoaded || !canvasRef.current) {
+          return null;
+        }
+
+        try {
+          // Save current filter
+          const currentFilter = filterPluginRef.current.getFilter();
+
+          // Temporarily disable filter
+          filterPluginRef.current.setFilter("none");
+
+          // Force re-render with no filter
+          const currentTime = mediaFox.currentTime;
+          await mediaFox.seek(currentTime);
+
+          // Wait a brief moment for the seek to complete and render
+          await new Promise((resolve) => setTimeout(resolve, 50));
+
+          // Capture the unfiltered frame
+          const canvas = canvasRef.current;
+          const thumbCanvas = document.createElement("canvas");
+          const thumbWidth = 160;
+          const thumbHeight = 90;
+          thumbCanvas.width = thumbWidth;
+          thumbCanvas.height = thumbHeight;
+          const ctx = thumbCanvas.getContext("2d");
+
+          if (!ctx) {
+            // Restore filter before returning
+            filterPluginRef.current.setFilter(currentFilter);
+            await mediaFox.seek(currentTime);
+            return null;
+          }
+
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = "high";
+          ctx.drawImage(canvas, 0, 0, thumbWidth, thumbHeight);
+
+          const dataUrl = thumbCanvas.toDataURL("image/jpeg", 0.95);
+
+          // Restore original filter
+          filterPluginRef.current.setFilter(currentFilter);
+          await mediaFox.seek(currentTime);
+
+          return dataUrl;
+        } catch (error) {
+          console.error("Failed to capture unfiltered frame:", error);
+          return null;
+        }
+      },
     }),
-    [],
+    [mediaFox, isLoaded],
   );
 
   // Initialize MediaFox player
