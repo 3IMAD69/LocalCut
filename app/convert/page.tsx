@@ -1258,7 +1258,7 @@ export default function ConvertPage() {
             {/* End Left Column */}
 
             {/* Right Column: Editor & Actions (Black Zone) */}
-            <div className="space-y-6 mt-6 lg:mt-7">
+            <div className="space-y-1 mt-6 lg:mt-7">
               {/* File Information - Metadata Display */}
               <AutoHeight deps={[metadataDisplay]}>
                 {metadataDisplay}
