@@ -7,7 +7,11 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { Playhead } from "./playhead";
 import { TimelineRuler } from "./timeline-ruler";
-import { type TimelineClip, TimelineTrack } from "./timeline-track";
+import {
+  type DragData,
+  type TimelineClip,
+  TimelineTrack,
+} from "./timeline-track";
 
 interface Track {
   id: string;
@@ -22,6 +26,12 @@ interface TimelineProps {
   duration: number;
   onTimeChange?: (time: number) => void;
   onClipSelect?: (clipId: string) => void;
+  onClipMove?: (
+    clipId: string,
+    newStartTime: number,
+    sourceTrackId: string,
+    targetTrackId: string,
+  ) => void;
   className?: string;
 }
 
@@ -56,10 +66,12 @@ export function Timeline({
   duration,
   onTimeChange,
   onClipSelect,
+  onClipMove,
   className,
 }: TimelineProps) {
   const [pixelsPerSecond, setPixelsPerSecond] = useState(50);
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
+  const [draggedClip, setDraggedClip] = useState<DragData | null>(null);
 
   const handleZoomIn = () => {
     setPixelsPerSecond((prev) => Math.min(prev * 1.5, 200));
@@ -162,6 +174,27 @@ export function Timeline({
                   setSelectedTrackId(track.id);
                   onClipSelect?.(clipId);
                 }}
+                onClipMove={(clipId, newStartTime) => {
+                  onClipMove?.(clipId, newStartTime, track.id, track.id);
+                }}
+                onClipDragStart={(dragData) => {
+                  setDraggedClip(dragData);
+                }}
+                onClipDragEnd={() => {
+                  setDraggedClip(null);
+                }}
+                onClipDrop={(clipId, newStartTime, targetTrackId) => {
+                  if (draggedClip) {
+                    onClipMove?.(
+                      clipId,
+                      newStartTime,
+                      draggedClip.sourceTrackId,
+                      targetTrackId,
+                    );
+                  }
+                  setDraggedClip(null);
+                }}
+                draggedClip={draggedClip}
                 pixelsPerSecond={pixelsPerSecond}
               />
             ))}

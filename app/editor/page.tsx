@@ -219,6 +219,61 @@ function EditorContent() {
     }
   };
 
+  const handleClipMove = useCallback(
+    (
+      clipId: string,
+      newStartTime: number,
+      sourceTrackId: string,
+      targetTrackId: string,
+    ) => {
+      setTracks((prev) => {
+        // If moving within the same track
+        if (sourceTrackId === targetTrackId) {
+          return prev.map((track) => {
+            if (track.id !== sourceTrackId) return track;
+            return {
+              ...track,
+              clips: track.clips.map((clip) =>
+                clip.id === clipId
+                  ? { ...clip, startTime: Math.max(0, newStartTime) }
+                  : clip,
+              ),
+            };
+          });
+        }
+
+        // Moving between tracks
+        let movedClip: TimelineClipWithAsset | null = null;
+
+        // Find and remove from source track
+        const tracksWithoutClip = prev.map((track) => {
+          if (track.id !== sourceTrackId) return track;
+          const clipToMove = track.clips.find((c) => c.id === clipId);
+          if (clipToMove) {
+            movedClip = { ...clipToMove, startTime: Math.max(0, newStartTime) };
+          }
+          return {
+            ...track,
+            clips: track.clips.filter((c) => c.id !== clipId),
+          };
+        });
+
+        // Add to target track
+        if (!movedClip) return prev;
+
+        return tracksWithoutClip.map((track) => {
+          if (track.id !== targetTrackId) return track;
+          return {
+            ...track,
+            clips: [...track.clips, movedClip as TimelineClipWithAsset],
+          };
+        });
+      });
+      setHasUnsavedChanges(true);
+    },
+    [],
+  );
+
   const handlePropertiesChange = (props: Partial<ClipProperties>) => {
     if (selectedClip) {
       setSelectedClip({ ...selectedClip, ...props });
@@ -329,6 +384,7 @@ function EditorContent() {
               duration={duration}
               onTimeChange={handleSeek}
               onClipSelect={handleClipSelect}
+              onClipMove={handleClipMove}
               className="h-full"
             />
           </div>

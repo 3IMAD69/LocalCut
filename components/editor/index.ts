@@ -29,6 +29,7 @@ export { Timeline } from "./timeline/timeline";
 export { TimelineRuler } from "./timeline/timeline-ruler";
 export {
   type ClipType,
+  type DragData,
   type TimelineClip,
   TimelineTrack,
 } from "./timeline/timeline-track";
