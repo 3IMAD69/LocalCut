@@ -1,6 +1,5 @@
 "use client";
 
-import { AlertTriangle } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   type ClipProperties,
@@ -16,16 +15,6 @@ import {
   useTimelinePlayer,
 } from "@/components/editor";
 import type { MediaAsset } from "@/components/editor/panels/media-library";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   type ImportedMediaAsset,
   MediaImportProvider,
@@ -94,7 +83,7 @@ function EditorContent() {
   const [tracks, setTracks] = useState<TimelineTrackData[]>(emptyTracks);
   const [selectedClip, setSelectedClip] = useState<ClipProperties | null>(null);
   const [snapEnabled, setSnapEnabled] = useState(true);
-  const [showWipModal, setShowWipModal] = useState(true);
+  // const [showWipModal, setShowWipModal] = useState(true);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // Sync tracks to player context whenever they change
@@ -245,7 +234,7 @@ function EditorContent() {
     <div className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Header */}
       {/* Persistent WIP Alert Banner */}
-      <Alert
+      {/* <Alert
         variant="destructive"
         className="rounded-none border-x-0 border-t-0"
       >
@@ -255,7 +244,7 @@ function EditorContent() {
           This editor is under active development. Features may be incomplete or
           not working.
         </AlertDescription>
-      </Alert>
+      </Alert> */}
 
       <EditorHeader
         projectName="Untitled Project"
@@ -388,7 +377,7 @@ function EditorContent() {
       </footer>
 
       {/* Work in Progress Modal */}
-      <Dialog open={showWipModal} onOpenChange={setShowWipModal}>
+      {/* <Dialog open={showWipModal} onOpenChange={setShowWipModal}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-2xl">🚧 Work in Progress</DialogTitle>
@@ -413,7 +402,7 @@ function EditorContent() {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+      </Dialog> */}
     </div>
   );
 }

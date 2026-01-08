@@ -1,9 +1,6 @@
 "use client";
 
-import MediaFox from "@mediafox/core";
 import {
-  Film,
-  Loader2,
   Maximize,
   Pause,
   Play,
@@ -24,389 +21,102 @@ import {
 import { cn } from "@/lib/utils";
 import { useTimelinePlayer } from "./timeline-player-context";
 
-interface TimelinePlayerProps {
-  className?: string;
-  onFullscreen?: () => void;
-}
+// ============================================================================
+// Utilities
+// ============================================================================
 
 function formatTime(seconds: number): string {
-  if (Number.isNaN(seconds) || !Number.isFinite(seconds)) return "00:00.00";
-
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
   const ms = Math.floor((seconds % 1) * 100);
   return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}.${ms.toString().padStart(2, "0")}`;
 }
 
-// Empty state when no clips are on timeline
-function EmptyPreview() {
-  return (
-    <div
-      className={cn(
-        "absolute inset-0 flex flex-col items-center justify-center",
-        "bg-gradient-to-br from-zinc-900 to-zinc-800",
-      )}
-    >
-      <div
-        className={cn(
-          "w-20 h-20 border-4 border-border bg-main/20",
-          "flex items-center justify-center mb-4",
-        )}
-      >
-        <Film className="h-10 w-10 text-foreground/30" />
-      </div>
-      <p className="text-sm font-heading text-foreground/40">Video Preview</p>
-      <p className="text-xs text-foreground/30 mt-1">
-        Add clips to timeline to preview
-      </p>
-    </div>
-  );
+// ============================================================================
+// Component Props
+// ============================================================================
+
+interface TimelinePlayerProps {
+  className?: string;
+  onFullscreen?: () => void;
 }
 
-// Loading state
-function LoadingOverlay() {
-  return (
-    <div
-      className={cn(
-        "absolute inset-0 flex flex-col items-center justify-center",
-        "bg-black/60 backdrop-blur-sm z-20",
-      )}
-    >
-      <Loader2 className="h-8 w-8 animate-spin text-main mb-2" />
-      <p className="text-sm font-heading text-foreground/60">
-        Loading media...
-      </p>
-    </div>
-  );
-}
+// ============================================================================
+// Main Component
+// ============================================================================
 
 export function TimelinePlayer({
   className,
   onFullscreen,
 }: TimelinePlayerProps) {
   const {
+    canvasRef,
     state,
     tracks,
-    activeVideoClip,
-    activeAudioClips,
-    togglePlayPause,
+    play,
+    pause,
     seek,
-    skipForward,
-    skipBackward,
     setVolume,
-    toggleMute,
-    canvasRef,
-    syncTimeFromMedia,
-    setLoading,
-    setError,
+    setMuted,
+    exportFrame,
   } = useTimelinePlayer();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Single video player instance
-  const videoPlayerRef = useRef<MediaFox | null>(null);
-  const videoLoadedAssetRef = useRef<string | null>(null);
-
-  // Single audio player instance (for primary audio)
-  const audioPlayerRef = useRef<MediaFox | null>(null);
-  const audioLoadedAssetRef = useRef<string | null>(null);
-
-  // Sync loop ref
-  const syncLoopRef = useRef<number | null>(null);
-  const lastSyncTimeRef = useRef(0);
-
-  // Check if timeline has any clips
-  const hasClips = tracks.some((track) => track.clips.length > 0);
-
-  // Get current video and audio info
-  const videoAsset = activeVideoClip?.clip.asset;
-  const videoMediaTime = activeVideoClip?.mediaTime ?? 0;
-  const videoClipStartTime = activeVideoClip?.clip.startTime ?? 0;
-  const videoTrimStart = activeVideoClip?.clip.trimStart ?? 0;
-
-  // First active audio clip
-  const firstAudioClip = activeAudioClips[0];
-  const audioAsset = firstAudioClip?.clip.asset;
-  const audioMediaTime = firstAudioClip?.mediaTime ?? 0;
-
-  // Compute effective volume
-  const effectiveVolume = state.isMuted ? 0 : state.volume;
-
-  // Track if players are initialized
-  const videoInitRef = useRef(false);
-  const audioInitRef = useRef(false);
-
-  // Initialize video player once
-  useEffect(() => {
-    if (videoInitRef.current) return;
-    videoInitRef.current = true;
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const player = new MediaFox({
-      // volume: 1, // Default volume, will be updated by volume sync effect
-      renderer: "webgl", // Use WebGL for better performance
-    });
-
-    videoPlayerRef.current = player;
-
-    // Set render target
-    player
-      .setRenderTarget(canvas)
-      .catch((err: Error) =>
-        console.error("Failed to set video render target:", err),
-      );
-
-    return () => {
-      player.dispose();
-      videoPlayerRef.current = null;
-      videoInitRef.current = false;
-    };
-  }, [canvasRef]);
-
-  // Initialize audio player once
-  useEffect(() => {
-    if (audioInitRef.current) return;
-    audioInitRef.current = true;
-
-    const player = new MediaFox({
-      volume: 1, // Default volume, will be updated by volume sync effect
-      renderer: "webgl",
-    });
-
-    audioPlayerRef.current = player;
-
-    return () => {
-      player.dispose();
-      audioPlayerRef.current = null;
-      audioInitRef.current = false;
-    };
-  }, []);
-
-  // Set render target when canvas is available
-  useEffect(() => {
-    const player = videoPlayerRef.current;
-    const canvas = canvasRef.current;
-
-    if (player && canvas) {
-      player
-        .setRenderTarget(canvas)
-        .catch((err: Error) =>
-          console.error("Failed to set render target:", err),
-        );
-    }
-  }, [canvasRef]);
-
-  // Load video when asset changes
-  useEffect(() => {
-    const player = videoPlayerRef.current;
-    if (!player) return;
-
-    if (!videoAsset?.file) {
-      // Stop current video when no active video clip
-      if (videoLoadedAssetRef.current) {
-        player.pause();
-        videoLoadedAssetRef.current = null;
-      }
-      // Clear canvas when no video
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.fillStyle = "#000";
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-        }
-      }
-      return;
-    }
-
-    // Only load if asset changed
-    if (videoAsset.id === videoLoadedAssetRef.current) {
-      return;
-    }
-
-    videoLoadedAssetRef.current = videoAsset.id;
-    setLoading(true);
-
-    player
-      .load(videoAsset.file)
-      .then(() => {
-        setLoading(false);
-        setError(null);
-        // Seek to correct position after loading
-        player.seek(videoMediaTime).catch(() => {});
-      })
-      .catch((err: Error) => {
-        setLoading(false);
-        setError(err.message || "Failed to load video");
-        videoLoadedAssetRef.current = null;
-      });
-  }, [videoAsset, videoMediaTime, canvasRef, setLoading, setError]);
-
-  // Load audio when asset changes
-  useEffect(() => {
-    const player = audioPlayerRef.current;
-    if (!player) return;
-
-    if (!audioAsset?.file) {
-      // Stop current audio when no active audio clip
-      if (audioLoadedAssetRef.current) {
-        player.pause();
-        audioLoadedAssetRef.current = null;
-      }
-      return;
-    }
-
-    // Only load if asset changed
-    if (audioAsset.id === audioLoadedAssetRef.current) {
-      return;
-    }
-
-    audioLoadedAssetRef.current = audioAsset.id;
-
-    player
-      .load(audioAsset.file)
-      .then(() => {
-        // Seek to correct position after loading
-        player.seek(audioMediaTime).catch(() => {});
-      })
-      .catch((err: Error) => {
-        console.error("Failed to load audio:", err);
-        audioLoadedAssetRef.current = null;
-      });
-  }, [audioAsset, audioMediaTime]);
-
-  // Sync playback state (play/pause)
-  useEffect(() => {
-    const videoPlayer = videoPlayerRef.current;
-    const audioPlayer = audioPlayerRef.current;
-
-    if (state.isPlaying) {
-      if (videoPlayer?.paused && videoLoadedAssetRef.current) {
-        videoPlayer.play().catch(() => {});
-      }
-      if (audioPlayer?.paused && audioLoadedAssetRef.current) {
-        audioPlayer.play().catch(() => {});
-      }
+  // Handle play/pause
+  const handlePlayPause = useCallback(() => {
+    if (state.playing) {
+      pause();
     } else {
-      if (videoPlayer && !videoPlayer.paused) {
-        videoPlayer.pause();
-      }
-      if (audioPlayer && !audioPlayer.paused) {
-        audioPlayer.pause();
-      }
+      play();
     }
-  }, [state.isPlaying]);
+  }, [state.playing, play, pause]);
 
-  // Sync volume
-  useEffect(() => {
-    const videoPlayer = videoPlayerRef.current;
-    const audioPlayer = audioPlayerRef.current;
+  // Skip frames (5 seconds)
+  const handleSkipBack = useCallback(() => {
+    seek(Math.max(0, state.currentTime - 5));
+  }, [seek, state.currentTime]);
 
-    if (videoPlayer) {
-      videoPlayer.volume = effectiveVolume;
-    }
-    if (audioPlayer) {
-      audioPlayer.volume = effectiveVolume;
-    }
-  }, [effectiveVolume]);
+  const handleSkipForward = useCallback(() => {
+    seek(Math.min(state.duration, state.currentTime + 5));
+  }, [seek, state.currentTime, state.duration]);
 
-  // Sync position when timeline time changes significantly (seeking/scrubbing)
-  useEffect(() => {
-    const videoPlayer = videoPlayerRef.current;
-    const audioPlayer = audioPlayerRef.current;
+  // Frame-by-frame navigation (1/30 second per frame, assuming 30fps)
+  const handleFrameBack = useCallback(() => {
+    seek(Math.max(0, state.currentTime - 1 / 30));
+  }, [seek, state.currentTime]);
 
-    const timeDiff = Math.abs(state.currentTime - lastSyncTimeRef.current);
+  const handleFrameForward = useCallback(() => {
+    seek(Math.min(state.duration, state.currentTime + 1 / 30));
+  }, [seek, state.currentTime, state.duration]);
 
-    // Only sync if significant time jump (scrubbing/seeking) or paused
-    if (timeDiff > 0.15 || !state.isPlaying) {
-      if (videoPlayer && videoLoadedAssetRef.current) {
-        const currentDiff = Math.abs(videoPlayer.currentTime - videoMediaTime);
-        if (currentDiff > 0.1) {
-          videoPlayer.seek(videoMediaTime).catch(() => {});
-        }
-      }
-
-      if (audioPlayer && audioLoadedAssetRef.current) {
-        const currentDiff = Math.abs(audioPlayer.currentTime - audioMediaTime);
-        if (currentDiff > 0.1) {
-          audioPlayer.seek(audioMediaTime).catch(() => {});
-        }
-      }
-    }
-
-    lastSyncTimeRef.current = state.currentTime;
-  }, [state.currentTime, state.isPlaying, videoMediaTime, audioMediaTime]);
-
-  // Get first audio clip info for sync
-  const audioClipStartTime = firstAudioClip?.clip.startTime ?? 0;
-  const audioTrimStart = firstAudioClip?.clip.trimStart ?? 0;
-
-  // Sync timeline from media player during playback
-  useEffect(() => {
-    if (!state.isPlaying) {
-      if (syncLoopRef.current !== null) {
-        cancelAnimationFrame(syncLoopRef.current);
-        syncLoopRef.current = null;
-      }
-      return;
-    }
-
-    const syncLoop = () => {
-      const videoPlayer = videoPlayerRef.current;
-      const audioPlayer = audioPlayerRef.current;
-
-      // Prefer video for sync if available, otherwise use audio
-      if (videoPlayer && videoLoadedAssetRef.current && activeVideoClip) {
-        const clipTime = videoPlayer.currentTime - videoTrimStart;
-        const timelineTime = videoClipStartTime + clipTime;
-        syncTimeFromMedia(timelineTime);
-      } else if (audioPlayer && audioLoadedAssetRef.current && firstAudioClip) {
-        // Sync from audio when no video is playing
-        const clipTime = audioPlayer.currentTime - audioTrimStart;
-        const timelineTime = audioClipStartTime + clipTime;
-        syncTimeFromMedia(timelineTime);
-      }
-
-      syncLoopRef.current = requestAnimationFrame(syncLoop);
-    };
-
-    syncLoopRef.current = requestAnimationFrame(syncLoop);
-
-    return () => {
-      if (syncLoopRef.current !== null) {
-        cancelAnimationFrame(syncLoopRef.current);
-        syncLoopRef.current = null;
-      }
-    };
-  }, [
-    state.isPlaying,
-    activeVideoClip,
-    firstAudioClip,
-    videoClipStartTime,
-    videoTrimStart,
-    audioClipStartTime,
-    audioTrimStart,
-    syncTimeFromMedia,
-  ]);
-
-  // Handle fullscreen
+  // Fullscreen toggle
   const handleFullscreen = useCallback(() => {
-    if (!containerRef.current) return;
-
-    if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen();
-    } else {
-      document.exitFullscreen();
+    if (containerRef.current) {
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      } else {
+        containerRef.current.requestFullscreen();
+      }
     }
-
     onFullscreen?.();
   }, [onFullscreen]);
 
-  // Handle keyboard shortcuts
+  // Screenshot
+  const handleScreenshot = useCallback(async () => {
+    const blob = await exportFrame();
+    if (blob) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `frame-${state.currentTime.toFixed(2)}s.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  }, [exportFrame, state.currentTime]);
+
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore if focused on an input
@@ -420,25 +130,58 @@ export function TimelinePlayer({
       switch (e.key) {
         case " ":
           e.preventDefault();
-          togglePlayPause();
+          handlePlayPause();
           break;
         case "ArrowLeft":
           e.preventDefault();
-          skipBackward(e.shiftKey ? 10 : 1);
+          if (e.shiftKey) {
+            handleSkipBack();
+          } else {
+            handleFrameBack();
+          }
           break;
         case "ArrowRight":
           e.preventDefault();
-          skipForward(e.shiftKey ? 10 : 1);
+          if (e.shiftKey) {
+            handleSkipForward();
+          } else {
+            handleFrameForward();
+          }
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          setVolume(Math.min(1, state.volume + 0.1));
+          break;
+        case "ArrowDown":
+          e.preventDefault();
+          setVolume(Math.max(0, state.volume - 0.1));
+          break;
+        case "m":
+        case "M":
+          e.preventDefault();
+          setMuted(!state.muted);
           break;
         case "f":
         case "F":
           e.preventDefault();
           handleFullscreen();
           break;
-        case "m":
-        case "M":
+        case "s":
+        case "S":
+          if (e.ctrlKey || e.metaKey) {
+            // Avoid conflict with save
+            return;
+          }
           e.preventDefault();
-          toggleMute();
+          handleScreenshot();
+          break;
+        case "Home":
+          e.preventDefault();
+          seek(0);
+          break;
+        case "End":
+          e.preventDefault();
+          seek(state.duration);
           break;
       }
     };
@@ -446,31 +189,23 @@ export function TimelinePlayer({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
-    togglePlayPause,
-    skipBackward,
-    skipForward,
-    toggleMute,
+    handlePlayPause,
+    handleSkipBack,
+    handleSkipForward,
+    handleFrameBack,
+    handleFrameForward,
     handleFullscreen,
+    handleScreenshot,
+    seek,
+    setVolume,
+    setMuted,
+    state.volume,
+    state.muted,
+    state.duration,
   ]);
 
-  // Track fullscreen state
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(document.fullscreenElement === containerRef.current);
-    };
-
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () =>
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-  }, []);
-
-  // Handle seek from slider
-  const handleSeek = useCallback(
-    (values: number[]) => {
-      seek(values[0]);
-    },
-    [seek],
-  );
+  // Check if timeline is empty
+  const isEmpty = tracks.every((track) => track.clips.length === 0);
 
   return (
     <TooltipProvider>
@@ -478,18 +213,11 @@ export function TimelinePlayer({
         ref={containerRef}
         className={cn(
           "flex flex-col border-2 border-border bg-background",
-          isFullscreen && "fixed inset-0 z-50 border-0",
           className,
         )}
       >
         {/* Header */}
-        <div
-          className={cn(
-            "flex items-center justify-between px-3 py-2",
-            "border-b-2 border-border bg-secondary-background",
-            isFullscreen && "hidden",
-          )}
-        >
+        <div className="flex items-center justify-between px-3 py-2 border-b-2 border-border bg-secondary-background">
           <span className="text-xs font-heading uppercase tracking-wide">
             Preview
           </span>
@@ -505,40 +233,54 @@ export function TimelinePlayer({
         </div>
 
         {/* Video Canvas Area */}
-        <div
-          className={cn(
-            "relative flex-1 bg-black min-h-[300px] flex items-center justify-center",
-            isFullscreen && "min-h-0",
-          )}
-        >
-          {/* Canvas for video rendering */}
+        <div className="relative flex-1 bg-black min-h-[300px] flex items-center justify-center">
+          {/* Canvas for compositor rendering */}
           <canvas
             ref={canvasRef}
             className={cn(
               "aspect-video w-full max-w-full max-h-full",
               "border-2 border-border",
-              isFullscreen && "border-0",
-              !hasClips && "hidden",
             )}
-            width={1920}
-            height={1080}
+            style={{
+              maxHeight: "100%",
+              objectFit: "contain",
+            }}
           />
 
-          {/* Empty state */}
-          {!hasClips && <EmptyPreview />}
-
-          {/* Loading overlay */}
-          {state.isLoading && hasClips && <LoadingOverlay />}
-
-          {/* Error display */}
-          {state.error && (
-            <div className="absolute bottom-4 left-4 right-4 bg-red-500/90 text-white px-3 py-2 text-sm font-heading border-2 border-black">
-              {state.error}
+          {/* Empty State Overlay */}
+          {isEmpty && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="text-center text-foreground/30">
+                <div className="text-4xl mb-2">🎬</div>
+                <p className="text-sm font-heading">Video Preview</p>
+                <p className="text-xs">Add media to see preview</p>
+              </div>
             </div>
           )}
 
-          {/* Center Play Button Overlay */}
-          {hasClips && !state.isLoading && (
+          {/* Loading Overlay */}
+          {state.loading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+              <div className="text-center text-white">
+                <div className="animate-spin text-4xl mb-2">⏳</div>
+                <p className="text-sm font-heading">Loading...</p>
+              </div>
+            </div>
+          )}
+
+          {/* Error Overlay */}
+          {state.error && (
+            <div className="absolute inset-0 flex items-center justify-center bg-red-900/50">
+              <div className="text-center text-white max-w-md px-4">
+                <div className="text-4xl mb-2">⚠️</div>
+                <p className="text-sm font-heading">Error</p>
+                <p className="text-xs mt-1 opacity-80">{state.error.message}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Center Play Button Overlay (only when paused and has content) */}
+          {!isEmpty && !state.playing && (
             <button
               type="button"
               className={cn(
@@ -546,62 +288,35 @@ export function TimelinePlayer({
                 "bg-black/20 opacity-0 hover:opacity-100 transition-opacity",
                 "cursor-pointer",
               )}
-              onClick={togglePlayPause}
+              onClick={handlePlayPause}
             >
               <div
                 className={cn(
-                  "w-16 h-16 border-4 border-white bg-black/50",
+                  "w-16 h-16 rounded-full",
+                  "border-4 border-white bg-black/50",
                   "flex items-center justify-center",
                 )}
               >
-                {state.isPlaying ? (
-                  <Pause className="h-8 w-8 text-white" />
-                ) : (
-                  <Play className="h-8 w-8 text-white ml-1" />
-                )}
+                <Play className="h-8 w-8 text-white ml-1" />
               </div>
             </button>
-          )}
-
-          {/* Active clip info */}
-          {activeVideoClip && (
-            <div
-              className={cn(
-                "absolute top-2 left-2 px-2 py-1",
-                "bg-black/70 text-white text-xs font-heading",
-                "border border-white/20",
-              )}
-            >
-              {activeVideoClip.clip.name}
-            </div>
           )}
         </div>
 
         {/* Seek Bar */}
-        <div
-          className={cn(
-            "px-3 py-2 border-t-2 border-border bg-secondary-background",
-            isFullscreen && "border-t-0",
-          )}
-        >
+        <div className="px-3 py-2 border-t-2 border-border bg-secondary-background">
           <Slider
             value={[state.currentTime]}
-            onValueChange={handleSeek}
+            onValueChange={([value]) => seek(value)}
             min={0}
-            max={state.duration || 1}
+            max={state.duration || 100}
             step={0.01}
             className="w-full"
           />
         </div>
 
         {/* Controls */}
-        <div
-          className={cn(
-            "flex items-center justify-between px-3 py-2",
-            "border-t-2 border-border bg-secondary-background",
-            isFullscreen && "border-t-0",
-          )}
-        >
+        <div className="flex items-center justify-between px-3 py-2 border-t-2 border-border bg-secondary-background">
           {/* Left: Transport Controls */}
           <div className="flex items-center gap-1">
             <Tooltip>
@@ -610,12 +325,12 @@ export function TimelinePlayer({
                   variant="noShadow"
                   size="icon"
                   className="h-9 w-9"
-                  onClick={() => skipBackward(1)}
+                  onClick={handleSkipBack}
                 >
                   <SkipBack className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Previous Frame (←)</TooltipContent>
+              <TooltipContent>Skip Back 5s (Shift+←)</TooltipContent>
             </Tooltip>
 
             <Tooltip>
@@ -624,9 +339,9 @@ export function TimelinePlayer({
                   variant="default"
                   size="icon"
                   className="h-10 w-10"
-                  onClick={togglePlayPause}
+                  onClick={handlePlayPause}
                 >
-                  {state.isPlaying ? (
+                  {state.playing ? (
                     <Pause className="h-5 w-5" />
                   ) : (
                     <Play className="h-5 w-5 ml-0.5" />
@@ -642,63 +357,58 @@ export function TimelinePlayer({
                   variant="noShadow"
                   size="icon"
                   className="h-9 w-9"
-                  onClick={() => skipForward(1)}
+                  onClick={handleSkipForward}
                 >
                   <SkipForward className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Next Frame (→)</TooltipContent>
+              <TooltipContent>Skip Forward 5s (Shift+→)</TooltipContent>
             </Tooltip>
           </div>
-
-          {/* Center: Time Display (fullscreen only) */}
-          {isFullscreen && (
-            <div className="text-sm font-heading text-white">
-              <span className="text-chart-1">
-                {formatTime(state.currentTime)}
-              </span>
-              <span className="text-white/40 mx-2">/</span>
-              <span className="text-white/60">
-                {formatTime(state.duration)}
-              </span>
-            </div>
-          )}
 
           {/* Right: Volume & Fullscreen */}
           <div className="flex items-center gap-2">
             {/* Volume Control */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="noShadow"
-                  size="icon"
-                  className="h-9 w-9"
-                  onClick={() => setShowVolumeSlider(!showVolumeSlider)}
-                >
-                  {state.isMuted ? (
-                    <VolumeX className="h-4 w-4" />
-                  ) : (
-                    <Volume2 className="h-4 w-4" />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Volume (M to mute)</TooltipContent>
-            </Tooltip>
+            <div className="flex items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="noShadow"
+                    size="icon"
+                    className="h-9 w-9"
+                    onClick={() => setMuted(!state.muted)}
+                    onDoubleClick={() => setShowVolumeSlider(!showVolumeSlider)}
+                  >
+                    {state.muted || state.volume === 0 ? (
+                      <VolumeX className="h-4 w-4" />
+                    ) : (
+                      <Volume2 className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Toggle Mute (M)</TooltipContent>
+              </Tooltip>
 
-            {showVolumeSlider && (
-              <div className="flex items-center gap-2 px-2">
-                <Slider
-                  value={[state.volume * 100]}
-                  onValueChange={([value]) => setVolume(value / 100)}
-                  min={0}
-                  max={100}
-                  className="w-20"
-                />
-                <span className="text-xs w-8">
-                  {Math.round(state.volume * 100)}%
-                </span>
-              </div>
-            )}
+              {showVolumeSlider && (
+                <div className="flex items-center gap-2 px-2">
+                  <Slider
+                    value={[state.muted ? 0 : state.volume * 100]}
+                    onValueChange={([value]) => {
+                      setVolume(value / 100);
+                      if (value > 0 && state.muted) {
+                        setMuted(false);
+                      }
+                    }}
+                    min={0}
+                    max={100}
+                    className="w-20"
+                  />
+                  <span className="text-xs w-8">
+                    {Math.round(state.volume * 100)}%
+                  </span>
+                </div>
+              )}
+            </div>
 
             <Tooltip>
               <TooltipTrigger asChild>

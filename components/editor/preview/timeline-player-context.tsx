@@ -1,19 +1,51 @@
 "use client";
 
+import type {
+  AudioLayer,
+  Compositor,
+  CompositorLayer,
+  CompositorSource,
+} from "@mediafox/core";
 import {
   createContext,
   type ReactNode,
   useCallback,
   useContext,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
 import type { ImportedMediaAsset } from "@/lib/media-import";
-import type { TimelineClip } from "../timeline/timeline-track";
 
-// Timeline track definition with clips and their associated assets
+// ============================================================================
+// Types
+// ============================================================================
+
+/** A loaded source in the compositor */
+export interface LoadedSource {
+  id: string;
+  source: CompositorSource;
+  assetId: string;
+  duration: number;
+  width: number;
+  height: number;
+}
+
+/** Timeline clip with associated asset reference */
+export interface TimelineClipWithAsset {
+  id: string;
+  name: string;
+  type: "video" | "audio";
+  startTime: number;
+  duration: number;
+  color: string;
+  thumbnail?: string;
+  asset?: ImportedMediaAsset;
+  trimStart: number;
+  trimEnd: number;
+}
+
+/** Track data structure */
 export interface TimelineTrackData {
   id: string;
   type: "video" | "audio";
@@ -21,306 +53,442 @@ export interface TimelineTrackData {
   clips: TimelineClipWithAsset[];
 }
 
-// Extended clip that includes the source asset reference
-export interface TimelineClipWithAsset extends TimelineClip {
-  asset?: ImportedMediaAsset;
-  trimStart?: number; // In-point within the source media
-  trimEnd?: number; // Out-point within the source media
+/** Currently active clip during playback */
+export interface ActiveClip {
+  clipId: string;
+  source: CompositorSource;
+  sourceTime: number;
+  transform: {
+    x?: number;
+    y?: number;
+    width?: number;
+    height?: number;
+    scaleX?: number;
+    scaleY?: number;
+    rotation?: number;
+    opacity?: number;
+    anchorX?: number;
+    anchorY?: number;
+  };
+  zIndex: number;
 }
 
-// Playback state shared across the editor
+/** Playback state for the timeline player */
 export interface TimelinePlaybackState {
   currentTime: number;
   duration: number;
-  isPlaying: boolean;
+  playing: boolean;
   volume: number;
-  isMuted: boolean;
-  isReady: boolean;
-  isLoading: boolean;
-  error: string | null;
+  muted: boolean;
+  loop: boolean;
+  loading: boolean;
+  error: Error | null;
 }
 
-// Active clips at current playhead position
-export interface ActiveClip {
-  clip: TimelineClipWithAsset;
-  trackId: string;
-  trackType: "video" | "audio";
-  clipTime: number;
-  mediaTime: number;
-}
-
-// Default frame rate for frame-stepping
-const DEFAULT_FRAME_RATE = 30;
-
-interface TimelinePlayerContextType {
-  // State
-  state: TimelinePlaybackState;
-  // Current tracks data
-  tracks: TimelineTrackData[];
-  // Currently active clips at playhead
-  activeClips: ActiveClip[];
-  // Active video clip (convenience)
-  activeVideoClip: ActiveClip | null;
-  // Active audio clips (convenience)
-  activeAudioClips: ActiveClip[];
-
-  // Playback controls
-  play: () => void;
-  pause: () => void;
-  togglePlayPause: () => void;
-  seek: (time: number) => void;
-  skipForward: (frames?: number) => void;
-  skipBackward: (frames?: number) => void;
-
-  // Volume controls
-  setVolume: (volume: number) => void;
-  toggleMute: () => void;
-
-  // Timeline data management
-  setTracks: (tracks: TimelineTrackData[]) => void;
-
+/** Context value for timeline player */
+interface TimelinePlayerContextValue {
   // Canvas ref for rendering
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
 
-  // Internal: sync time from media player (used by TimelinePlayer)
-  syncTimeFromMedia: (time: number) => void;
+  // Compositor instance
+  compositor: Compositor | null;
 
-  // Internal: set loading state
-  setLoading: (loading: boolean) => void;
+  // Loaded sources map (assetId -> LoadedSource)
+  loadedSources: Map<string, LoadedSource>;
 
-  // Internal: set error state
-  setError: (error: string | null) => void;
+  // Playback state
+  state: TimelinePlaybackState;
+
+  // Track data
+  tracks: TimelineTrackData[];
+
+  // Actions
+  setTracks: (tracks: TimelineTrackData[]) => void;
+  loadSource: (asset: ImportedMediaAsset) => Promise<LoadedSource | null>;
+  unloadSource: (assetId: string) => void;
+  play: () => Promise<void>;
+  pause: () => void;
+  seek: (time: number) => Promise<void>;
+  setVolume: (volume: number) => void;
+  setMuted: (muted: boolean) => void;
+  setLoop: (loop: boolean) => void;
+  exportFrame: (time?: number) => Promise<Blob | null>;
+  resize: (width: number, height: number) => void;
 }
 
-const TimelinePlayerContext = createContext<TimelinePlayerContextType | null>(
+// ============================================================================
+// Context
+// ============================================================================
+
+const TimelinePlayerContext = createContext<TimelinePlayerContextValue | null>(
   null,
 );
 
+// ============================================================================
+// Provider Component
+// ============================================================================
+
 interface TimelinePlayerProviderProps {
   children: ReactNode;
-  initialTracks?: TimelineTrackData[];
+  width?: number;
+  height?: number;
+  backgroundColor?: string;
 }
 
 export function TimelinePlayerProvider({
   children,
-  initialTracks = [],
+  width = 1920,
+  height = 1080,
+  backgroundColor = "#000000",
 }: TimelinePlayerProviderProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const compositorRef = useRef<Compositor | null>(null);
+  const loadedSourcesRef = useRef<Map<string, LoadedSource>>(new Map());
+  const volumeRef = useRef(1);
+  const mutedRef = useRef(false);
 
-  const [tracks, setTracksState] = useState<TimelineTrackData[]>(initialTracks);
+  const [loadedSources, setLoadedSources] = useState<Map<string, LoadedSource>>(
+    new Map(),
+  );
+  const [tracks, setTracksState] = useState<TimelineTrackData[]>([]);
   const [state, setState] = useState<TimelinePlaybackState>({
     currentTime: 0,
-    duration: 0,
-    isPlaying: false,
+    duration: 60,
+    playing: false,
     volume: 1,
-    isMuted: false,
-    isReady: true,
-    isLoading: false,
+    muted: false,
+    loop: true,
+    loading: false,
     error: null,
   });
 
+  // Initialize compositor when canvas is ready
+  useEffect(() => {
+    let compositor: Compositor | null = null;
+
+    const initCompositor = async () => {
+      if (!canvasRef.current) return;
+
+      try {
+        // Dynamic import for SSR safety
+        const { Compositor: CompositorClass } = await import("@mediafox/core");
+
+        compositor = new CompositorClass({
+          canvas: canvasRef.current,
+          width,
+          height,
+          backgroundColor,
+        });
+
+        compositorRef.current = compositor;
+
+        // Listen to compositor events
+        compositor.on("timeupdate", ({ currentTime }) => {
+          setState((prev) => ({ ...prev, currentTime }));
+        });
+
+        compositor.on("play", () => {
+          setState((prev) => ({ ...prev, playing: true }));
+        });
+
+        compositor.on("pause", () => {
+          setState((prev) => ({ ...prev, playing: false }));
+        });
+
+        compositor.on("ended", () => {
+          setState((prev) => ({ ...prev, playing: false }));
+        });
+
+        compositor.on("sourceloaded", ({ id, source }) => {
+          console.log(`[Compositor] Source loaded: ${id}`, source);
+        });
+      } catch (error) {
+        console.error(
+          "[TimelinePlayer] Failed to initialize compositor:",
+          error,
+        );
+        setState((prev) => ({
+          ...prev,
+          error: error instanceof Error ? error : new Error(String(error)),
+        }));
+      }
+    };
+
+    initCompositor();
+
+    return () => {
+      if (compositor) {
+        compositor.dispose();
+        compositorRef.current = null;
+      }
+    };
+  }, [width, height, backgroundColor]);
+
   // Calculate total duration from tracks
-  const calculatedDuration = useMemo(() => {
-    return Math.max(
-      ...tracks.flatMap((track) =>
-        track.clips.length > 0
-          ? track.clips.map((clip) => clip.startTime + clip.duration)
-          : [0],
+  useEffect(() => {
+    const maxTime = Math.max(
+      ...tracks.flatMap((t) =>
+        t.clips.length > 0 ? t.clips.map((c) => c.startTime + c.duration) : [0],
       ),
-      0.1, // Minimum duration
+      10, // Minimum 10 seconds
     );
+    setState((prev) => ({ ...prev, duration: maxTime }));
   }, [tracks]);
 
-  // Keep a ref to the current duration for callbacks
-  const durationRef = useRef(calculatedDuration);
+  // Update preview whenever tracks change
   useEffect(() => {
-    durationRef.current = calculatedDuration;
-  }, [calculatedDuration]);
+    const compositor = compositorRef.current;
+    if (!compositor) return;
 
-  // Merge calculated duration with state
-  const stateWithDuration: TimelinePlaybackState = useMemo(
-    () => ({
-      ...state,
-      duration: calculatedDuration,
-    }),
-    [state, calculatedDuration],
-  );
+    // Get composition function based on current tracks and sources
+    const getComposition = (time: number) => {
+      const layers: CompositorLayer[] = [];
+      const audio: AudioLayer[] = [];
+      const globalMuted = mutedRef.current;
+      const globalVolume = globalMuted ? 0 : volumeRef.current;
 
-  // Get active clips at a specific time
-  const getActiveClipsAt = useCallback(
-    (time: number): ActiveClip[] => {
-      const active: ActiveClip[] = [];
+      // Process each track to find visible clips at current time
+      for (let trackIndex = 0; trackIndex < tracks.length; trackIndex++) {
+        const track = tracks[trackIndex];
 
-      for (const track of tracks) {
         for (const clip of track.clips) {
+          // Check if clip is visible at this time
           const clipEnd = clip.startTime + clip.duration;
-
           if (time >= clip.startTime && time < clipEnd) {
-            const clipTime = time - clip.startTime;
-            const trimStart = clip.trimStart ?? 0;
-            const mediaTime = trimStart + clipTime;
+            // Find loaded source for this clip's asset
+            const assetId = clip.asset?.id;
+            if (!assetId) continue;
 
-            active.push({
-              clip,
-              trackId: track.id,
-              trackType: track.type,
-              clipTime,
-              mediaTime,
-            });
+            const loadedSource = loadedSourcesRef.current.get(assetId);
+            if (!loadedSource) continue;
+
+            // Calculate source time (accounting for trim)
+            const clipLocalTime = time - clip.startTime;
+            const sourceTime = clip.trimStart + clipLocalTime;
+
+            // Visual layers (video/image)
+            if (
+              track.type === "video" &&
+              loadedSource.source.type !== "audio"
+            ) {
+              // Center the video in the compositor canvas
+              const centerX = (width - loadedSource.width) / 2;
+              const centerY = (height - loadedSource.height) / 2;
+
+              layers.push({
+                source: loadedSource.source,
+                sourceTime,
+                transform: {
+                  opacity: 1,
+                  x: centerX,
+                  y: centerY,
+                },
+                zIndex: trackIndex,
+              });
+            }
+
+            // Audio layers (audio tracks and optional audio embedded in video)
+            const sourceHasAudio =
+              typeof loadedSource.source.getAudioAt === "function";
+            const shouldPlayAudio =
+              track.type === "audio" ||
+              (track.type === "video" && sourceHasAudio);
+            if (shouldPlayAudio) {
+              audio.push({
+                source: loadedSource.source,
+                sourceTime,
+                volume: globalVolume,
+                muted: globalMuted,
+              });
+            }
           }
         }
       }
 
-      return active;
+      return { time, layers, audio: audio.length > 0 ? audio : undefined };
+    };
+
+    // Set up preview
+    compositor.preview({
+      duration: state.duration,
+      loop: state.loop,
+      getComposition,
+    });
+  }, [tracks, state.duration, state.loop, width, height]);
+
+  // Load a media source into the compositor
+  const loadSource = useCallback(
+    async (asset: ImportedMediaAsset): Promise<LoadedSource | null> => {
+      const compositor = compositorRef.current;
+      if (!compositor) {
+        console.error("[TimelinePlayer] Compositor not initialized");
+        return null;
+      }
+
+      // Check if already loaded
+      const existing = loadedSourcesRef.current.get(asset.id);
+      if (existing) {
+        return existing;
+      }
+
+      try {
+        setState((prev) => ({ ...prev, loading: true }));
+
+        // Load source from file
+        const source =
+          asset.type === "audio"
+            ? await compositor.loadAudio(asset.file)
+            : await compositor.loadSource(asset.file);
+        console.log(`[TimelinePlayer] Loaded asset: ${asset.name}`, source);
+        const loadedSource: LoadedSource = {
+          id: `source-${asset.id}`,
+          source,
+          assetId: asset.id,
+          duration: source.duration,
+          width: source.width ?? 1920,
+          height: source.height ?? 1080,
+        };
+
+        // Update refs and state
+        loadedSourcesRef.current.set(asset.id, loadedSource);
+        setLoadedSources(new Map(loadedSourcesRef.current));
+
+        setState((prev) => ({ ...prev, loading: false }));
+
+        console.log(
+          `[TimelinePlayer] Loaded source: ${asset.name}`,
+          loadedSource,
+        );
+
+        return loadedSource;
+      } catch (error) {
+        console.error(
+          `[TimelinePlayer] Failed to load source: ${asset.name}`,
+          error,
+        );
+        setState((prev) => ({
+          ...prev,
+          loading: false,
+          error: error instanceof Error ? error : new Error(String(error)),
+        }));
+        return null;
+      }
     },
-    [tracks],
+    [],
   );
 
-  // Active clips at current playhead
-  const activeClips = useMemo(
-    () => getActiveClipsAt(state.currentTime),
-    [getActiveClipsAt, state.currentTime],
-  );
+  // Unload a source from the compositor
+  const unloadSource = useCallback((assetId: string) => {
+    const loaded = loadedSourcesRef.current.get(assetId);
+    if (loaded) {
+      loadedSourcesRef.current.delete(assetId);
+      setLoadedSources(new Map(loadedSourcesRef.current));
+      console.log(`[TimelinePlayer] Unloaded source: ${assetId}`);
+    }
+  }, []);
 
-  // Convenience: first active video clip
-  const activeVideoClip = useMemo(
-    () => activeClips.find((c) => c.trackType === "video") ?? null,
-    [activeClips],
-  );
+  // Set tracks and auto-load sources for clips
+  const setTracks = useCallback(
+    async (newTracks: TimelineTrackData[]) => {
+      setTracksState(newTracks);
 
-  // Convenience: all active audio clips
-  const activeAudioClips = useMemo(
-    () => activeClips.filter((c) => c.trackType === "audio"),
-    [activeClips],
+      // Auto-load sources for any clips with assets
+      for (const track of newTracks) {
+        for (const clip of track.clips) {
+          if (clip.asset && !loadedSourcesRef.current.has(clip.asset.id)) {
+            await loadSource(clip.asset);
+          }
+        }
+      }
+    },
+    [loadSource],
   );
 
   // Playback controls
-  const play = useCallback(() => {
-    const currentDuration = durationRef.current;
-    setState((prev) => {
-      // If at end, restart from beginning
-      if (prev.currentTime >= currentDuration - 0.01) {
-        return { ...prev, currentTime: 0, isPlaying: true };
-      }
-      return { ...prev, isPlaying: true };
-    });
+  const play = useCallback(async () => {
+    const compositor = compositorRef.current;
+    if (compositor) {
+      await compositor.play();
+    }
   }, []);
 
   const pause = useCallback(() => {
-    setState((prev) => ({ ...prev, isPlaying: false }));
+    const compositor = compositorRef.current;
+    if (compositor) {
+      compositor.pause();
+    }
   }, []);
 
-  const togglePlayPause = useCallback(() => {
-    const currentDuration = durationRef.current;
-    setState((prev) => {
-      if (prev.isPlaying) {
-        return { ...prev, isPlaying: false };
-      }
-      // If at end, restart from beginning
-      if (prev.currentTime >= currentDuration - 0.01) {
-        return { ...prev, currentTime: 0, isPlaying: true };
-      }
-      return { ...prev, isPlaying: true };
-    });
+  const seek = useCallback(async (time: number) => {
+    const compositor = compositorRef.current;
+    if (compositor) {
+      await compositor.seek(time);
+      setState((prev) => ({ ...prev, currentTime: time }));
+    }
   }, []);
 
-  const seek = useCallback((time: number) => {
-    const currentDuration = durationRef.current;
-    const clampedTime = Math.max(0, Math.min(time, currentDuration));
-    setState((prev) => ({
-      ...prev,
-      currentTime: clampedTime,
-    }));
-  }, []);
-
-  const skipForward = useCallback((frames = 1) => {
-    const frameTime = frames / DEFAULT_FRAME_RATE;
-    const currentDuration = durationRef.current;
-    setState((prev) => ({
-      ...prev,
-      currentTime: Math.min(prev.currentTime + frameTime, currentDuration),
-    }));
-  }, []);
-
-  const skipBackward = useCallback((frames = 1) => {
-    const frameTime = frames / DEFAULT_FRAME_RATE;
-    setState((prev) => ({
-      ...prev,
-      currentTime: Math.max(prev.currentTime - frameTime, 0),
-    }));
-  }, []);
-
-  // Volume controls
   const setVolume = useCallback((volume: number) => {
-    setState((prev) => ({
-      ...prev,
-      volume: Math.max(0, Math.min(1, volume)),
-      isMuted: volume === 0,
-    }));
+    const clamped = Math.max(0, Math.min(1, volume));
+    volumeRef.current = clamped;
+    setState((prev) => ({ ...prev, volume: clamped }));
+    // TODO: Apply volume to compositor audio when API supports it
   }, []);
 
-  const toggleMute = useCallback(() => {
-    setState((prev) => ({ ...prev, isMuted: !prev.isMuted }));
+  const setMuted = useCallback((muted: boolean) => {
+    mutedRef.current = muted;
+    setState((prev) => ({ ...prev, muted }));
+    // TODO: Apply mute to compositor audio when API supports it
   }, []);
 
-  // Track management
-  const setTracks = useCallback((newTracks: TimelineTrackData[]) => {
-    setTracksState(newTracks);
+  const setLoop = useCallback((loop: boolean) => {
+    setState((prev) => ({ ...prev, loop }));
   }, []);
 
-  // Sync time from media player - called during playback
-  const syncTimeFromMedia = useCallback((time: number) => {
-    const currentDuration = durationRef.current;
-    setState((prev) => {
-      if (!prev.isPlaying) return prev;
+  // Export current frame as image
+  const exportFrame = useCallback(
+    async (time?: number): Promise<Blob | null> => {
+      const compositor = compositorRef.current;
+      if (!compositor) return null;
 
-      const clampedTime = Math.max(0, Math.min(time, currentDuration));
-
-      // Stop at end
-      if (clampedTime >= currentDuration - 0.01) {
-        return {
-          ...prev,
-          currentTime: currentDuration,
-          isPlaying: false,
-        };
+      try {
+        const targetTime = time ?? state.currentTime;
+        const blob = await compositor.exportFrame(targetTime, {
+          format: "png",
+        });
+        return blob;
+      } catch (error) {
+        console.error("[TimelinePlayer] Failed to export frame:", error);
+        return null;
       }
+    },
+    [state.currentTime],
+  );
 
-      return {
-        ...prev,
-        currentTime: clampedTime,
-      };
-    });
+  // Resize compositor
+  const resize = useCallback((newWidth: number, newHeight: number) => {
+    const compositor = compositorRef.current;
+    if (compositor) {
+      compositor.resize(newWidth, newHeight);
+    }
   }, []);
 
-  // Loading state
-  const setLoading = useCallback((loading: boolean) => {
-    setState((prev) => ({ ...prev, isLoading: loading }));
-  }, []);
-
-  // Error state
-  const setError = useCallback((error: string | null) => {
-    setState((prev) => ({ ...prev, error }));
-  }, []);
-
-  const contextValue: TimelinePlayerContextType = {
-    state: stateWithDuration,
+  const contextValue: TimelinePlayerContextValue = {
+    canvasRef,
+    compositor: compositorRef.current,
+    loadedSources,
+    state,
     tracks,
-    activeClips,
-    activeVideoClip,
-    activeAudioClips,
+    setTracks,
+    loadSource,
+    unloadSource,
     play,
     pause,
-    togglePlayPause,
     seek,
-    skipForward,
-    skipBackward,
     setVolume,
-    toggleMute,
-    setTracks,
-    canvasRef,
-    syncTimeFromMedia,
-    setLoading,
-    setError,
+    setMuted,
+    setLoop,
+    exportFrame,
+    resize,
   };
 
   return (
@@ -330,12 +498,18 @@ export function TimelinePlayerProvider({
   );
 }
 
-export function useTimelinePlayer() {
+// ============================================================================
+// Hook
+// ============================================================================
+
+export function useTimelinePlayer(): TimelinePlayerContextValue {
   const context = useContext(TimelinePlayerContext);
+
   if (!context) {
     throw new Error(
       "useTimelinePlayer must be used within a TimelinePlayerProvider",
     );
   }
+
   return context;
 }
