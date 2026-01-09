@@ -244,8 +244,6 @@ export function TimelinePlayerProvider({
     const getComposition = (time: number) => {
       const layers: CompositorLayer[] = [];
       const audio: AudioLayer[] = [];
-      const globalMuted = mutedRef.current;
-      const globalVolume = globalMuted ? 0 : volumeRef.current;
 
       // Process each track to find visible clips at current time
       for (let trackIndex = 0; trackIndex < tracks.length; trackIndex++) {
@@ -287,18 +285,16 @@ export function TimelinePlayerProvider({
               });
             }
 
-            // Audio layers (audio tracks and optional audio embedded in video)
-            const sourceHasAudio =
-              typeof loadedSource.source.getAudioAt === "function";
-            const shouldPlayAudio =
-              track.type === "audio" ||
-              (track.type === "video" && sourceHasAudio);
-            if (shouldPlayAudio) {
+            // Audio layers - include audio from video clips and audio-only clips
+            // Always add audio for any source that may have audio
+            const isAudioTrack = track.type === "audio";
+            const isVideoWithPossibleAudio = track.type === "video";
+            if (isAudioTrack || isVideoWithPossibleAudio) {
               audio.push({
                 source: loadedSource.source,
                 sourceTime,
-                volume: globalVolume,
-                muted: globalMuted,
+                volume: 1, // Individual clip volume (compositor handles master volume)
+                muted: false, // Individual clip mute (compositor handles master mute)
               });
             }
           }
@@ -431,13 +427,21 @@ export function TimelinePlayerProvider({
     const clamped = Math.max(0, Math.min(1, volume));
     volumeRef.current = clamped;
     setState((prev) => ({ ...prev, volume: clamped }));
-    // TODO: Apply volume to compositor audio when API supports it
+    // Apply volume to compositor
+    const compositor = compositorRef.current;
+    if (compositor) {
+      compositor.setVolume(clamped);
+    }
   }, []);
 
   const setMuted = useCallback((muted: boolean) => {
     mutedRef.current = muted;
     setState((prev) => ({ ...prev, muted }));
-    // TODO: Apply mute to compositor audio when API supports it
+    // Apply mute to compositor
+    const compositor = compositorRef.current;
+    if (compositor) {
+      compositor.setMuted(muted);
+    }
   }, []);
 
   const setLoop = useCallback((loop: boolean) => {
