@@ -15,6 +15,13 @@ import {
   useRef,
   useState,
 } from "react";
+
+// Worker URL for Next.js - using dynamic URL construction
+const CompositorWorkerUrl = new URL(
+  "@mediafox/core/compositor-worker",
+  import.meta.url,
+).href;
+
 import type { ImportedMediaAsset } from "@/lib/media-import";
 
 // ============================================================================
@@ -178,6 +185,11 @@ export function TimelinePlayerProvider({
           width,
           height,
           backgroundColor,
+          worker: {
+            enabled: true,
+            url: CompositorWorkerUrl,
+            type: "module",
+          },
         });
 
         compositorRef.current = compositor;
