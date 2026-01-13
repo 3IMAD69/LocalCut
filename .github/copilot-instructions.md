@@ -68,3 +68,11 @@ This project uses **Neobrutalism** design style. See [ui-design-system.instructi
 1. **MUST READ** [.github/mediafox-react.instructions.md](.github/mediafox-react.instructions.md) for React integration patterns and mandatory usage rules.
 2. **MUST READ ALL** markdown files in the [.github/mediafox-docs/](.github/mediafox-docs/) folder to understand the core API, state management, and event system.
 3. **DO NOT** use native HTML5 `<video>` or `<audio>` elements. Use MediaFox components which render to `<canvas>`.
+
+
+## Editor Architecture
+
+When working with the video editor code:
+1. **MUST READ** [docs/EDITOR_ARCHITECTURE.md](../docs/EDITOR_ARCHITECTURE.md) for a high-level overview of the editor architecture, key state flows, and common tasks.
+2. **MUST UNDERSTAND** the directory structure and component map to effectively navigate the codebase.
+3. **MUST FOLLOW** established state management patterns as described in the architecture document.

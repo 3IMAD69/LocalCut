@@ -48,7 +48,6 @@ export function TimelineTrack({
   clips,
   isSelected,
   onClipSelect,
-  onClipMove,
   onClipDragStart,
   onClipDragEnd,
   onClipDrop,
@@ -57,103 +56,60 @@ export function TimelineTrack({
 }: TimelineTrackProps) {
   const [hoveredClip, setHoveredClip] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState<string | null>(null);
-  const [dragOffset, setDragOffset] = useState({ x: 0, startX: 0 });
   const [isDropTarget, setIsDropTarget] = useState(false);
+  const [dropPosition, setDropPosition] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Check if this track can accept the dragged clip (type must match)
+  const canAcceptDrop = draggedClip ? draggedClip.clip.type === type : false;
+
   const getClipStyle = (clip: TimelineClip) => {
-    // If this clip is being dragged, apply the offset
-    const offset = isDragging === clip.id ? dragOffset.x : 0;
     return {
-      left: `${clip.startTime * pixelsPerSecond + offset}px`,
+      left: `${clip.startTime * pixelsPerSecond}px`,
       width: `${clip.duration * pixelsPerSecond}px`,
     };
   };
-
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent, clip: TimelineClip) => {
-      // Don't start drag if clicking on trim handles
-      const target = e.target as HTMLElement;
-      if (
-        target.dataset.handle === "left" ||
-        target.dataset.handle === "right"
-      ) {
-        return;
-      }
-
-      e.preventDefault();
-      e.stopPropagation();
-
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-
-      const clipLeftPx = clip.startTime * pixelsPerSecond;
-      const mouseXInContainer = e.clientX - rect.left;
-      const offsetWithinClip = mouseXInContainer - clipLeftPx;
-
-      setIsDragging(clip.id);
-      setDragOffset({ x: 0, startX: e.clientX });
-
-      // Notify parent about drag start
-      onClipDragStart?.({
-        clipId: clip.id,
-        clip,
-        sourceTrackId: trackId,
-        offsetX: offsetWithinClip,
-      });
-
-      const handleMouseMove = (moveEvent: MouseEvent) => {
-        const deltaX = moveEvent.clientX - e.clientX;
-        setDragOffset({ x: deltaX, startX: e.clientX });
-      };
-
-      const handleMouseUp = (upEvent: MouseEvent) => {
-        document.removeEventListener("mousemove", handleMouseMove);
-        document.removeEventListener("mouseup", handleMouseUp);
-
-        const deltaX = upEvent.clientX - e.clientX;
-        const deltaTime = deltaX / pixelsPerSecond;
-        const newStartTime = Math.max(0, clip.startTime + deltaTime);
-
-        setIsDragging(null);
-        setDragOffset({ x: 0, startX: 0 });
-        onClipDragEnd?.();
-
-        // Only trigger move if position actually changed
-        if (Math.abs(deltaTime) > 0.01) {
-          onClipMove?.(clip.id, newStartTime);
-        }
-      };
-
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
-    },
-    [pixelsPerSecond, onClipMove, onClipDragStart, onClipDragEnd, trackId],
-  );
 
   // Handle drag over for cross-track drops
   const handleDragOver = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
-      // Only accept drops if the dragged clip matches this track type
-      if (draggedClip && draggedClip.clip.type === type) {
+
+      // Check if the dragged clip matches this track type
+      if (draggedClip && canAcceptDrop) {
         setIsDropTarget(true);
         e.dataTransfer.dropEffect = "move";
+
+        // Calculate and show drop position preview
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (rect) {
+          const mouseXInContainer = e.clientX - rect.left;
+          const previewPosition = Math.max(
+            0,
+            (mouseXInContainer - draggedClip.offsetX) / pixelsPerSecond,
+          );
+          setDropPosition(previewPosition);
+        }
+      } else if (draggedClip) {
+        // Show "not allowed" cursor for incompatible track types
+        e.dataTransfer.dropEffect = "none";
       }
     },
-    [draggedClip, type],
+    [draggedClip, canAcceptDrop, pixelsPerSecond],
   );
 
   const handleDragLeave = useCallback(() => {
     setIsDropTarget(false);
+    setDropPosition(null);
   }, []);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
       setIsDropTarget(false);
+      setDropPosition(null);
 
-      if (!draggedClip || draggedClip.clip.type !== type) return;
+      if (!draggedClip || !canAcceptDrop) return;
 
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
@@ -166,17 +122,66 @@ export function TimelineTrack({
 
       onClipDrop?.(draggedClip.clipId, newStartTime, trackId);
     },
-    [draggedClip, type, pixelsPerSecond, onClipDrop, trackId],
+    [draggedClip, canAcceptDrop, pixelsPerSecond, onClipDrop, trackId],
   );
+
+  // HTML5 Drag handlers for clips
+  const handleClipDragStart = useCallback(
+    (e: React.DragEvent, clip: TimelineClip) => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      const clipLeftPx = clip.startTime * pixelsPerSecond;
+      const mouseXInContainer = e.clientX - rect.left;
+      const offsetWithinClip = mouseXInContainer - clipLeftPx;
+
+      // Set drag data
+      e.dataTransfer.effectAllowed = "move";
+      // Some browsers require at least one data item to start a drag.
+      e.dataTransfer.setData(
+        "application/json",
+        JSON.stringify({ clipId: clip.id, type: clip.type }),
+      );
+      e.dataTransfer.setData("text/plain", clip.id);
+
+      // Hide the native browser drag preview (blue drag image) by using a
+      // transparent 1x1 image as the drag image.
+      const transparentImg = new Image();
+      transparentImg.src =
+        "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+      e.dataTransfer.setDragImage(transparentImg, 0, 0);
+
+      setIsDragging(clip.id);
+
+      // Notify parent about drag start
+      onClipDragStart?.({
+        clipId: clip.id,
+        clip,
+        sourceTrackId: trackId,
+        offsetX: offsetWithinClip,
+      });
+    },
+    [pixelsPerSecond, onClipDragStart, trackId],
+  );
+
+  const handleClipDragEnd = useCallback(() => {
+    setIsDragging(null);
+    onClipDragEnd?.();
+  }, [onClipDragEnd]);
 
   return (
     <section
       aria-label={`${label} track`}
       className={cn(
         "relative h-16 border-2 border-border bg-secondary-background",
-        "flex items-center",
+        "flex items-center transition-colors duration-150",
         isSelected && "ring-2 ring-main",
-        isDropTarget && "ring-2 ring-chart-1 bg-chart-1/10",
+        // Valid drop target - green highlight
+        isDropTarget &&
+          canAcceptDrop &&
+          "ring-2 ring-green-500 bg-green-500/10",
+        // Invalid drop target - red highlight (dragging incompatible clip type)
+        draggedClip && !canAcceptDrop && "bg-red-500/5 opacity-60",
       )}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -200,10 +205,26 @@ export function TimelineTrack({
         ref={containerRef}
         className="relative ml-24 h-full flex-1 overflow-hidden"
       >
+        {/* Drop position preview indicator */}
+        {isDropTarget && dropPosition !== null && draggedClip && (
+          <div
+            className={cn(
+              "absolute top-1 bottom-1 pointer-events-none",
+              "border-2 border-dashed border-green-500 bg-green-500/20",
+              "rounded-sm",
+            )}
+            style={{
+              left: `${dropPosition * pixelsPerSecond}px`,
+              width: `${draggedClip.clip.duration * pixelsPerSecond}px`,
+            }}
+          />
+        )}
+
         {clips.map((clip) => (
           <button
             type="button"
             key={clip.id}
+            draggable
             className={cn(
               "absolute top-1 bottom-1 text-left",
               "border-2 border-border",
@@ -212,12 +233,13 @@ export function TimelineTrack({
               "transition-shadow duration-75",
               hoveredClip === clip.id && "ring-2 ring-main ring-offset-1",
               isDragging === clip.id &&
-                "cursor-grabbing opacity-80 ring-2 ring-main shadow-lg z-50",
+                "cursor-grabbing opacity-50 ring-2 ring-main shadow-lg z-50",
               type === "video" ? "bg-chart-2" : "bg-chart-3",
             )}
             style={getClipStyle(clip)}
             onClick={() => onClipSelect?.(clip.id)}
-            onMouseDown={(e) => handleMouseDown(e, clip)}
+            onDragStart={(e) => handleClipDragStart(e, clip)}
+            onDragEnd={handleClipDragEnd}
             onMouseEnter={() => setHoveredClip(clip.id)}
             onMouseLeave={() => setHoveredClip(null)}
           >

@@ -254,66 +254,13 @@ export function TimelinePlayerProvider({
 
     // Get composition function based on current tracks and sources
     const getComposition = (time: number) => {
-      const layers: CompositorLayer[] = [];
-      const audio: AudioLayer[] = [];
-
-      // Process each track to find visible clips at current time
-      for (let trackIndex = 0; trackIndex < tracks.length; trackIndex++) {
-        const track = tracks[trackIndex];
-
-        for (const clip of track.clips) {
-          // Check if clip is visible at this time
-          const clipEnd = clip.startTime + clip.duration;
-          if (time >= clip.startTime && time < clipEnd) {
-            // Find loaded source for this clip's asset
-            const assetId = clip.asset?.id;
-            if (!assetId) continue;
-
-            const loadedSource = loadedSourcesRef.current.get(assetId);
-            if (!loadedSource) continue;
-
-            // Calculate source time (accounting for trim)
-            const clipLocalTime = time - clip.startTime;
-            const sourceTime = clip.trimStart + clipLocalTime;
-
-            // Visual layers (video/image)
-            if (
-              track.type === "video" &&
-              loadedSource.source.type !== "audio"
-            ) {
-              // Center the video in the compositor canvas
-              const centerX = (width - loadedSource.width) / 2;
-              const centerY = (height - loadedSource.height) / 2;
-
-              layers.push({
-                source: loadedSource.source,
-                sourceTime,
-                transform: {
-                  opacity: 1,
-                  x: centerX,
-                  y: centerY,
-                },
-                zIndex: trackIndex,
-              });
-            }
-
-            // Audio layers - include audio from video clips and audio-only clips
-            // Always add audio for any source that may have audio
-            const isAudioTrack = track.type === "audio";
-            const isVideoWithPossibleAudio = track.type === "video";
-            if (isAudioTrack || isVideoWithPossibleAudio) {
-              audio.push({
-                source: loadedSource.source,
-                sourceTime,
-                volume: 1, // Individual clip volume (compositor handles master volume)
-                muted: false, // Individual clip mute (compositor handles master mute)
-              });
-            }
-          }
-        }
-      }
-
-      return { time, layers, audio: audio.length > 0 ? audio : undefined };
+      return buildCompositorComposition({
+        time,
+        tracks,
+        loadedSources: loadedSourcesRef.current,
+        width,
+        height,
+      });
     };
 
     // Set up preview
@@ -528,4 +475,64 @@ export function useTimelinePlayer(): TimelinePlayerContextValue {
   }
 
   return context;
+}
+
+export function buildCompositorComposition(params: {
+  time: number;
+  tracks: TimelineTrackData[];
+  loadedSources: Map<string, LoadedSource>;
+  width: number;
+  height: number;
+}): { time: number; layers: CompositorLayer[]; audio?: AudioLayer[] } {
+  const { time, tracks, loadedSources, width, height } = params;
+
+  const layers: CompositorLayer[] = [];
+  const audio: AudioLayer[] = [];
+
+  for (let trackIndex = 0; trackIndex < tracks.length; trackIndex++) {
+    const track = tracks[trackIndex];
+
+    for (const clip of track.clips) {
+      const clipEnd = clip.startTime + clip.duration;
+      if (time < clip.startTime || time >= clipEnd) continue;
+
+      const assetId = clip.asset?.id;
+      if (!assetId) continue;
+
+      const loadedSource = loadedSources.get(assetId);
+      if (!loadedSource) continue;
+
+      const clipLocalTime = time - clip.startTime;
+      const sourceTime = clip.trimStart + clipLocalTime;
+
+      if (track.type === "video" && loadedSource.source.type !== "audio") {
+        const centerX = (width - loadedSource.width) / 2;
+        const centerY = (height - loadedSource.height) / 2;
+
+        layers.push({
+          source: loadedSource.source,
+          sourceTime,
+          transform: {
+            opacity: 1,
+            x: centerX,
+            y: centerY,
+          },
+          zIndex: trackIndex,
+        });
+      }
+
+      const isAudioTrack = track.type === "audio";
+      const isVideoWithPossibleAudio = track.type === "video";
+      if (isAudioTrack || isVideoWithPossibleAudio) {
+        audio.push({
+          source: loadedSource.source,
+          sourceTime,
+          volume: 1,
+          muted: false,
+        });
+      }
+    }
+  }
+
+  return { time, layers, audio: audio.length > 0 ? audio : undefined };
 }

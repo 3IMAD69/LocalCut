@@ -14,6 +14,7 @@ import {
   Toolbar,
   useTimelinePlayer,
 } from "@/components/editor";
+import { ExportModal } from "@/components/editor/export";
 import type { MediaAsset } from "@/components/editor/panels/media-library";
 import {
   type ImportedMediaAsset,
@@ -85,6 +86,7 @@ function EditorContent() {
   const [snapEnabled, setSnapEnabled] = useState(true);
   // const [showWipModal, setShowWipModal] = useState(true);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
 
   // Sync tracks to player context whenever they change
   useEffect(() => {
@@ -139,6 +141,28 @@ function EditorContent() {
     },
     [playerSeek],
   );
+
+  // Add new track handler
+  const handleAddTrack = useCallback((type: "video" | "audio") => {
+    setTracks((prev) => {
+      // Count existing tracks of this type to generate label
+      const existingCount = prev.filter((t) => t.type === type).length;
+      const newTrack: TimelineTrackData = {
+        id: `${type}-${Date.now()}`,
+        type,
+        label: `${type === "video" ? "Video" : "Audio"} ${existingCount + 1}`,
+        clips: [],
+      };
+      return [...prev, newTrack];
+    });
+    setHasUnsavedChanges(true);
+  }, []);
+
+  // Remove track handler
+  const handleRemoveTrack = useCallback((trackId: string) => {
+    setTracks((prev) => prev.filter((t) => t.id !== trackId));
+    setHasUnsavedChanges(true);
+  }, []);
 
   const handleAssetSelect = (asset: MediaAsset) => {
     console.log("Selected asset:", asset.name);
@@ -285,8 +309,19 @@ function EditorContent() {
     importFiles(Array.from(files));
   };
 
+  const handleExport = useCallback(() => {
+    setShowExportModal(true);
+  }, []);
+
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
+      {/* Export Modal */}
+      <ExportModal
+        open={showExportModal}
+        onOpenChange={setShowExportModal}
+        tracks={tracks}
+      />
+
       {/* Header */}
       {/* Persistent WIP Alert Banner */}
       {/* <Alert
@@ -315,7 +350,7 @@ function EditorContent() {
           console.log("Save project");
           setHasUnsavedChanges(false);
         }}
-        onExport={() => console.log("Export")}
+        onExport={handleExport}
         onSettings={() => console.log("Settings")}
         onHelp={() => console.log("Help")}
       />
@@ -385,6 +420,8 @@ function EditorContent() {
               onTimeChange={handleSeek}
               onClipSelect={handleClipSelect}
               onClipMove={handleClipMove}
+              onAddTrack={handleAddTrack}
+              onRemoveTrack={handleRemoveTrack}
               className="h-full"
             />
           </div>

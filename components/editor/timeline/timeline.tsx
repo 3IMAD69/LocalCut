@@ -1,8 +1,14 @@
 "use client";
 
-import { Film, Minus, Plus } from "lucide-react";
+import { Film, Minus, Music, Plus, Video } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { Playhead } from "./playhead";
@@ -32,6 +38,8 @@ interface TimelineProps {
     sourceTrackId: string,
     targetTrackId: string,
   ) => void;
+  onAddTrack?: (type: "video" | "audio") => void;
+  onRemoveTrack?: (trackId: string) => void;
   className?: string;
 }
 
@@ -67,6 +75,8 @@ export function Timeline({
   onTimeChange,
   onClipSelect,
   onClipMove,
+  onAddTrack,
+  onRemoveTrack: _onRemoveTrack, // Reserved for future track deletion UI
   className,
 }: TimelineProps) {
   const [pixelsPerSecond, setPixelsPerSecond] = useState(50);
@@ -108,6 +118,25 @@ export function Timeline({
           <span className="text-xs font-heading uppercase tracking-wide text-foreground/60">
             Timeline
           </span>
+          {/* Add Track Button */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="noShadow" size="sm" className="h-7 gap-1">
+                <Plus className="h-3 w-3" />
+                <span className="text-xs">Add Track</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={() => onAddTrack?.("video")}>
+                <Video className="h-4 w-4 mr-2 text-chart-2" />
+                Video Track
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onAddTrack?.("audio")}>
+                <Music className="h-4 w-4 mr-2 text-chart-3" />
+                Audio Track
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Zoom Controls */}
