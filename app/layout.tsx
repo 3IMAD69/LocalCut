@@ -2,6 +2,7 @@ import { SiGithub, SiX } from "@icons-pack/react-simple-icons";
 import type { Metadata } from "next";
 import { Archivo } from "next/font/google";
 import Link from "next/link";
+import { BrowserWarning } from "@/components/browser-warning";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ClapIcon } from "@/components/ui/clap";
 import "./globals.css";
@@ -39,6 +40,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <BrowserWarning />
           <header className="border-b-4 border-border bg-background">
             <div className="container mx-auto px-6 py-4 flex items-center justify-between">
               <Link

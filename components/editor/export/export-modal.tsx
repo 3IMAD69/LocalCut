@@ -1,7 +1,7 @@
 "use client";
 
 import { Download, Loader2, X } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { TimelineTrackData } from "@/components/editor/preview/timeline-player-context";
 import { Button } from "@/components/ui/button";
 import {
@@ -70,6 +70,44 @@ export function ExportModal({ open, onOpenChange, tracks }: ExportModalProps) {
   const [exportState, setExportState] = useState<ExportState>("idle");
   const [progress, setProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [finalElapsedTime, setFinalElapsedTime] = useState(0);
+  const [exportedBlob, setExportedBlob] = useState<Blob | null>(null);
+  const [exportedFileName, setExportedFileName] = useState<string | null>(null);
+  const startTimeRef = useRef<number | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Track elapsed time during export
+  useEffect(() => {
+    if (exportState === "exporting") {
+      startTimeRef.current = Date.now();
+      timerRef.current = setInterval(() => {
+        if (startTimeRef.current) {
+          setElapsedTime(
+            Math.floor((Date.now() - startTimeRef.current) / 1000),
+          );
+        }
+      }, 1000);
+    } else {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [exportState]);
+
+  // Format elapsed time as mm:ss
+  const formatElapsedTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
 
   // Get effective resolution
   const getResolution = useCallback(() => {
@@ -97,6 +135,7 @@ export function ExportModal({ open, onOpenChange, tracks }: ExportModalProps) {
       return;
     }
 
+    setElapsedTime(0);
     setExportState("exporting");
     setProgress(0);
     setErrorMessage(null);
@@ -116,13 +155,14 @@ export function ExportModal({ open, onOpenChange, tracks }: ExportModalProps) {
     try {
       const { blob, fileName } = await exportTimelineToBlob(options);
 
-      // Trigger download
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fileName;
-      a.click();
-      URL.revokeObjectURL(url);
+      // Store blob for manual download
+      setExportedBlob(blob);
+      setExportedFileName(fileName);
+      // Calculate final elapsed time from start time ref
+      const finalTime = startTimeRef.current
+        ? Math.floor((Date.now() - startTimeRef.current) / 1000)
+        : 0;
+      setFinalElapsedTime(finalTime);
 
       setExportState("done");
     } catch (error) {
@@ -134,11 +174,17 @@ export function ExportModal({ open, onOpenChange, tracks }: ExportModalProps) {
 
   const handleClose = useCallback(() => {
     if (exportState === "exporting") return; // Prevent closing during export
+    // Clear blob if exists
+    if (exportedBlob) {
+      setExportedBlob(null);
+      setExportedFileName(null);
+    }
     setExportState("idle");
     setProgress(0);
     setErrorMessage(null);
+    setFinalElapsedTime(0);
     onOpenChange(false);
-  }, [exportState, onOpenChange]);
+  }, [exportState, exportedBlob, onOpenChange]);
 
   const handleResolutionChange = (value: string) => {
     setResolutionPreset(value);
@@ -172,9 +218,10 @@ export function ExportModal({ open, onOpenChange, tracks }: ExportModalProps) {
               <span className="text-lg font-medium">Exporting...</span>
             </div>
             <Progress value={progress} className="h-3" />
-            <p className="text-center text-sm text-foreground/60">
-              {progress}% complete
-            </p>
+            <div className="flex justify-between text-sm text-foreground/60">
+              <span>{progress}% complete</span>
+              <span>Elapsed: {formatElapsedTime(elapsedTime)}</span>
+            </div>
           </div>
         ) : exportState === "done" ? (
           <div className="py-8 text-center space-y-4">
@@ -184,12 +231,29 @@ export function ExportModal({ open, onOpenChange, tracks }: ExportModalProps) {
             <div>
               <h3 className="text-lg font-semibold">Export Complete!</h3>
               <p className="text-sm text-foreground/60 mt-1">
-                Your video has been downloaded.
+                Completed in {formatElapsedTime(finalElapsedTime)}
               </p>
             </div>
-            <Button onClick={handleClose} className="mt-4">
-              Close
-            </Button>
+            <div className="flex gap-3 justify-center mt-4">
+              <Button
+                onClick={() => {
+                  if (exportedBlob && exportedFileName) {
+                    const url = URL.createObjectURL(exportedBlob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = exportedFileName;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }
+                }}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </Button>
+              <Button onClick={handleClose} variant="neutral">
+                Close
+              </Button>
+            </div>
           </div>
         ) : exportState === "error" ? (
           <div className="py-8 text-center space-y-4">

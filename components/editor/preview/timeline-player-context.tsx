@@ -38,6 +38,18 @@ export interface LoadedSource {
   height: number;
 }
 
+/** Transform applied to a clip in compositor coordinates. */
+export interface ClipTransform {
+  /** Pixel offset from the default centered X position. */
+  x: number;
+  /** Pixel offset from the default centered Y position. */
+  y: number;
+  scaleX: number;
+  scaleY: number;
+  /** Degrees. */
+  rotation: number;
+}
+
 /** Timeline clip with associated asset reference */
 export interface TimelineClipWithAsset {
   id: string;
@@ -50,6 +62,7 @@ export interface TimelineClipWithAsset {
   asset?: ImportedMediaAsset;
   trimStart: number;
   trimEnd: number;
+  transform?: ClipTransform;
 }
 
 /** Track data structure */
@@ -509,13 +522,28 @@ export function buildCompositorComposition(params: {
         const centerX = (width - loadedSource.width) / 2;
         const centerY = (height - loadedSource.height) / 2;
 
+        const clipTransform = clip.transform ?? {
+          x: 0,
+          y: 0,
+          scaleX: 1,
+          scaleY: 1,
+          rotation: 0,
+        };
+
         layers.push({
           source: loadedSource.source,
           sourceTime,
           transform: {
             opacity: 1,
-            x: centerX,
-            y: centerY,
+            x: centerX + clipTransform.x,
+            y: centerY + clipTransform.y,
+            scaleX: clipTransform.scaleX,
+            scaleY: clipTransform.scaleY,
+            rotation: (Math.round(clipTransform.rotation / 90) * 90) as
+              | 0
+              | 90
+              | 180
+              | 270,
           },
           zIndex: trackIndex,
         });

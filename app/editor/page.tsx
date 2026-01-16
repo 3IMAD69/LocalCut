@@ -1,511 +1,221 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  type ClipProperties,
-  EditorHeader,
-  MediaLibrary,
-  PropertiesPanel,
-  Timeline,
-  type TimelineClipWithAsset,
-  TimelinePlayer,
-  TimelinePlayerProvider,
-  type TimelineTrackData,
-  Toolbar,
-  useTimelinePlayer,
-} from "@/components/editor";
-import { ExportModal } from "@/components/editor/export";
-import type { MediaAsset } from "@/components/editor/panels/media-library";
-import {
-  type ImportedMediaAsset,
-  MediaImportProvider,
-  useMediaImport,
-} from "@/lib/media-import";
-import { cn } from "@/lib/utils";
+import { Book, FolderArchive, Plus } from "lucide-react";
+import { nanoid } from "nanoid";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { HeroIcon } from "@/components/hero-icon";
+import { Button } from "@/components/ui/button";
 
-// Empty initial state for tracks (using TimelineTrackData format)
-const emptyTracks: TimelineTrackData[] = [
-  {
-    id: "video-1",
-    type: "video" as const,
-    label: "Video 1",
-    clips: [] as TimelineClipWithAsset[],
-  },
-  {
-    id: "audio-1",
-    type: "audio" as const,
-    label: "Audio 1",
-    clips: [] as TimelineClipWithAsset[],
-  },
-];
-
-function EditorContent() {
-  // Media import context
-  const {
-    assets: importedAssets,
-    isImporting,
-    importError,
-    openFilePicker,
-    removeAsset,
-    importFiles,
-  } = useMediaImport();
-
-  // Timeline player context
-  const {
-    state: playerState,
-    setTracks: setPlayerTracks,
-    seek: playerSeek,
-  } = useTimelinePlayer();
-
-  // Convert imported assets to MediaAsset format for MediaLibrary
-  const mediaAssets: MediaAsset[] = importedAssets.map((asset) => ({
-    id: asset.id,
-    name: asset.name,
-    type: asset.type,
-    duration: asset.duration,
-    file: asset.file,
-    width: asset.width,
-    height: asset.height,
-    frameRate: asset.frameRate,
-    sampleRate: asset.sampleRate,
-    channels: asset.channels,
-  }));
-
-  // Create asset map for quick lookup
-  const assetMap = useMemo(() => {
-    const map = new Map<string, ImportedMediaAsset>();
-    for (const asset of importedAssets) {
-      map.set(asset.id, asset);
-    }
-    return map;
-  }, [importedAssets]);
-
-  // State
-  const [tracks, setTracks] = useState<TimelineTrackData[]>(emptyTracks);
-  const [selectedClip, setSelectedClip] = useState<ClipProperties | null>(null);
-  const [snapEnabled, setSnapEnabled] = useState(true);
-  // const [showWipModal, setShowWipModal] = useState(true);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [showExportModal, setShowExportModal] = useState(false);
-
-  // Sync tracks to player context whenever they change
-  useEffect(() => {
-    setPlayerTracks(tracks);
-  }, [tracks, setPlayerTracks]);
-
-  // Keyboard shortcuts for clip operations
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if focused on an input
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
-      ) {
-        return;
-      }
-
-      if (e.key === "Delete" || e.key === "Backspace") {
-        if (selectedClip) {
-          e.preventDefault();
-          setTracks((prev) =>
-            prev.map((track) => ({
-              ...track,
-              clips: track.clips.filter((c) => c.id !== selectedClip.id),
-            })),
-          );
-          setSelectedClip(null);
-          setHasUnsavedChanges(true);
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedClip]);
-
-  // Use player state for currentTime (single source of truth)
-  const currentTime = playerState.currentTime;
-
-  // Calculate total duration from clips (minimum 60s for empty timeline)
-  const duration = Math.max(
-    ...tracks.flatMap((t) =>
-      t.clips.length > 0 ? t.clips.map((c) => c.startTime + c.duration) : [0],
-    ),
-    60,
-  );
-
-  // Handlers
-  const handleSeek = useCallback(
-    (time: number) => {
-      playerSeek(time);
-    },
-    [playerSeek],
-  );
-
-  // Add new track handler
-  const handleAddTrack = useCallback((type: "video" | "audio") => {
-    setTracks((prev) => {
-      // Count existing tracks of this type to generate label
-      const existingCount = prev.filter((t) => t.type === type).length;
-      const newTrack: TimelineTrackData = {
-        id: `${type}-${Date.now()}`,
-        type,
-        label: `${type === "video" ? "Video" : "Audio"} ${existingCount + 1}`,
-        clips: [],
-      };
-      return [...prev, newTrack];
-    });
-    setHasUnsavedChanges(true);
-  }, []);
-
-  // Remove track handler
-  const handleRemoveTrack = useCallback((trackId: string) => {
-    setTracks((prev) => prev.filter((t) => t.id !== trackId));
-    setHasUnsavedChanges(true);
-  }, []);
-
-  const handleAssetSelect = (asset: MediaAsset) => {
-    console.log("Selected asset:", asset.name);
-  };
-
-  const handleAssetAdd = useCallback(
-    (asset: MediaAsset) => {
-      // Get the full imported asset with Input reference
-      const fullAsset = assetMap.get(asset.id);
-
-      // Add asset to timeline with asset reference for playback
-      const newClip: TimelineClipWithAsset = {
-        id: `clip-${Date.now()}`,
-        name: asset.name,
-        type: asset.type,
-        startTime: 0,
-        duration: asset.duration,
-        color: asset.type === "video" ? "#0099ff" : "#ff7a05",
-        asset: fullAsset, // Include full asset reference for playback
-        trimStart: 0,
-        trimEnd: asset.duration,
-      };
-
-      setTracks((prev) => {
-        // Find the appropriate track for this asset type
-        const trackIndex = prev.findIndex((t) => t.type === asset.type);
-        if (trackIndex === -1) return prev;
-
-        // Calculate start time (after last clip in track)
-        const track = prev[trackIndex];
-        const lastClipEnd = track.clips.reduce(
-          (max, clip) => Math.max(max, clip.startTime + clip.duration),
-          0,
-        );
-        newClip.startTime = lastClipEnd;
-
-        // Add clip to track
-        const updatedTracks = [...prev];
-        updatedTracks[trackIndex] = {
-          ...track,
-          clips: [...track.clips, newClip],
-        };
-
-        return updatedTracks;
-      });
-
-      setHasUnsavedChanges(true);
-      console.log("Added to timeline:", asset.name);
-    },
-    [assetMap],
-  );
-
-  const handleClipSelect = (clipId: string) => {
-    // Find the clip in tracks
-    for (const track of tracks) {
-      const clip = track.clips.find((c) => c.id === clipId);
-      if (clip) {
-        setSelectedClip({
-          id: clip.id,
-          name: clip.name,
-          type: clip.type,
-          positionX: 0,
-          positionY: 0,
-          scaleX: 1,
-          scaleY: 1,
-          rotation: 0,
-          cropTop: 0,
-          cropBottom: 0,
-          cropLeft: 0,
-          cropRight: 0,
-          trimStart: 0,
-          trimEnd: clip.duration,
-          duration: clip.duration,
-          speed: 1,
-        });
-        return;
-      }
-    }
-  };
-
-  const handleClipMove = useCallback(
-    (
-      clipId: string,
-      newStartTime: number,
-      sourceTrackId: string,
-      targetTrackId: string,
-    ) => {
-      setTracks((prev) => {
-        // If moving within the same track
-        if (sourceTrackId === targetTrackId) {
-          return prev.map((track) => {
-            if (track.id !== sourceTrackId) return track;
-            return {
-              ...track,
-              clips: track.clips.map((clip) =>
-                clip.id === clipId
-                  ? { ...clip, startTime: Math.max(0, newStartTime) }
-                  : clip,
-              ),
-            };
-          });
-        }
-
-        // Moving between tracks
-        let movedClip: TimelineClipWithAsset | null = null;
-
-        // Find and remove from source track
-        const tracksWithoutClip = prev.map((track) => {
-          if (track.id !== sourceTrackId) return track;
-          const clipToMove = track.clips.find((c) => c.id === clipId);
-          if (clipToMove) {
-            movedClip = { ...clipToMove, startTime: Math.max(0, newStartTime) };
-          }
-          return {
-            ...track,
-            clips: track.clips.filter((c) => c.id !== clipId),
-          };
-        });
-
-        // Add to target track
-        if (!movedClip) return prev;
-
-        return tracksWithoutClip.map((track) => {
-          if (track.id !== targetTrackId) return track;
-          return {
-            ...track,
-            clips: [...track.clips, movedClip as TimelineClipWithAsset],
-          };
-        });
-      });
-      setHasUnsavedChanges(true);
-    },
-    [],
-  );
-
-  const handlePropertiesChange = (props: Partial<ClipProperties>) => {
-    if (selectedClip) {
-      setSelectedClip({ ...selectedClip, ...props });
-      setHasUnsavedChanges(true);
-    }
-  };
-
-  const handleFileDrop = (files: FileList) => {
-    importFiles(Array.from(files));
-  };
-
-  const handleExport = useCallback(() => {
-    setShowExportModal(true);
-  }, []);
-
-  return (
-    <div className="h-screen flex flex-col bg-background overflow-hidden">
-      {/* Export Modal */}
-      <ExportModal
-        open={showExportModal}
-        onOpenChange={setShowExportModal}
-        tracks={tracks}
-      />
-
-      {/* Header */}
-      {/* Persistent WIP Alert Banner */}
-      {/* <Alert
-        variant="destructive"
-        className="rounded-none border-x-0 border-t-0"
-      >
-        <AlertTriangle className="h-4 w-4" />
-        <AlertTitle>🚧 Work in Progress</AlertTitle>
-        <AlertDescription>
-          This editor is under active development. Features may be incomplete or
-          not working.
-        </AlertDescription>
-      </Alert> */}
-
-      <EditorHeader
-        projectName="Untitled Project"
-        hasUnsavedChanges={hasUnsavedChanges}
-        onNewProject={() => {
-          setTracks(emptyTracks);
-          setSelectedClip(null);
-          playerSeek(0);
-          setHasUnsavedChanges(false);
-        }}
-        onOpenProject={() => console.log("Open project")}
-        onSaveProject={() => {
-          console.log("Save project");
-          setHasUnsavedChanges(false);
-        }}
-        onExport={handleExport}
-        onSettings={() => console.log("Settings")}
-        onHelp={() => console.log("Help")}
-      />
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Panel: Media Library */}
-        <aside className="w-64 flex-shrink-0 border-r-2 border-border relative">
-          <MediaLibrary
-            assets={mediaAssets}
-            isLoading={isImporting}
-            error={importError}
-            onImport={openFilePicker}
-            onFileDrop={handleFileDrop}
-            onAssetSelect={handleAssetSelect}
-            onAssetAdd={handleAssetAdd}
-            onAssetRemove={removeAsset}
-            className="h-full"
-          />
-        </aside>
-
-        {/* Center: Preview + Timeline */}
-        <main className="flex-1 flex flex-col min-w-0">
-          {/* Toolbar */}
-          <Toolbar
-            canUndo={false}
-            canRedo={false}
-            hasSelection={selectedClip !== null}
-            snapEnabled={snapEnabled}
-            onUndo={() => console.log("Undo")}
-            onRedo={() => console.log("Redo")}
-            onCut={() => console.log("Cut")}
-            onCopy={() => console.log("Copy")}
-            onPaste={() => console.log("Paste")}
-            onDelete={() => {
-              if (selectedClip) {
-                setTracks((prev) =>
-                  prev.map((track) => ({
-                    ...track,
-                    clips: track.clips.filter((c) => c.id !== selectedClip.id),
-                  })),
-                );
-                setSelectedClip(null);
-                setHasUnsavedChanges(true);
-              }
-            }}
-            onSplit={() => console.log("Split at", currentTime)}
-            onZoomIn={() => console.log("Zoom in")}
-            onZoomOut={() => console.log("Zoom out")}
-            onToggleSnap={() => setSnapEnabled(!snapEnabled)}
-          />
-
-          {/* Preview Area */}
-          <div className="flex-1 min-h-0 p-4">
-            <TimelinePlayer
-              className="h-full"
-              onFullscreen={() => console.log("Fullscreen")}
-            />
-          </div>
-
-          {/* Timeline */}
-          <div className="h-[280px] flex-shrink-0 border-t-2 border-border">
-            <Timeline
-              tracks={tracks}
-              currentTime={currentTime}
-              duration={duration}
-              onTimeChange={handleSeek}
-              onClipSelect={handleClipSelect}
-              onClipMove={handleClipMove}
-              onAddTrack={handleAddTrack}
-              onRemoveTrack={handleRemoveTrack}
-              className="h-full"
-            />
-          </div>
-        </main>
-
-        {/* Right Panel: Properties */}
-        <aside className="w-72 flex-shrink-0 border-l-2 border-border">
-          <PropertiesPanel
-            clip={selectedClip}
-            onChange={handlePropertiesChange}
-            className="h-full"
-          />
-        </aside>
-      </div>
-
-      {/* Status Bar */}
-      <footer
-        className={cn(
-          "h-8 flex items-center justify-between px-4",
-          "border-t-2 border-border bg-secondary-background",
-          "text-xs font-heading",
-        )}
-      >
-        <div className="flex items-center gap-4">
-          <span className="text-foreground/60">
-            Media: {importedAssets.length} files
-          </span>
-          <span className="text-foreground/60">
-            Timeline: {duration.toFixed(1)}s
-          </span>
-          <span className="text-foreground/60">
-            Clips: {tracks.reduce((sum, t) => sum + t.clips.length, 0)}
-          </span>
-        </div>
-        <div className="flex items-center gap-4">
-          <span
-            className={cn(
-              "px-2 py-0.5 border border-border",
-              snapEnabled ? "bg-main text-main-foreground" : "bg-transparent",
-            )}
-          >
-            Snap: {snapEnabled ? "ON" : "OFF"}
-          </span>
-          <span className="text-foreground/60">Ready</span>
-        </div>
-      </footer>
-
-      {/* Work in Progress Modal */}
-      {/* <Dialog open={showWipModal} onOpenChange={setShowWipModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-2xl">🚧 Work in Progress</DialogTitle>
-            <DialogDescription className="text-base pt-2">
-              The video editor is still under development and is not fully
-              functional yet. Some features may not work as expected or may be
-              incomplete.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-foreground/80">
-              We&apos;re working hard to bring you a powerful editing
-              experience. Check back soon for updates!
-            </p>
-          </div>
-          <DialogFooter>
-            <Button
-              onClick={() => setShowWipModal(false)}
-              className="w-full sm:w-auto"
-            >
-              I Understand
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog> */}
-    </div>
-  );
+interface RecentProject {
+  id: string;
+  name: string;
+  lastOpened: Date;
 }
 
-export default function Editor() {
+function formatRelativeTime(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMinutes = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMinutes < 1) return "Just now";
+  if (diffMinutes < 60)
+    return `${diffMinutes} minute${diffMinutes > 1 ? "s" : ""} ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+  return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+}
+
+function formatDate(date: Date): string {
+  return date.toLocaleDateString("en-US", { day: "numeric", month: "short" });
+}
+
+export default function EditorDashboard() {
+  const router = useRouter();
+  const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
+
+  // Load recent projects from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem("localcut-recent-projects");
+    if (stored) {
+      try {
+        const projects = JSON.parse(stored) as Array<{
+          id: string;
+          name: string;
+          lastOpened: string;
+        }>;
+        setRecentProjects(
+          projects.map((p) => ({
+            ...p,
+            lastOpened: new Date(p.lastOpened),
+          })),
+        );
+      } catch {
+        // Invalid data, ignore
+      }
+    }
+  }, []);
+
+  const handleNewProject = () => {
+    const projectId = nanoid(21);
+    // Add to recent projects
+    const newProject: RecentProject = {
+      id: projectId,
+      name: "Untitled Project",
+      lastOpened: new Date(),
+    };
+    const updated = [newProject, ...recentProjects.slice(0, 9)];
+    localStorage.setItem(
+      "localcut-recent-projects",
+      JSON.stringify(
+        updated.map((p) => ({ ...p, lastOpened: p.lastOpened.toISOString() })),
+      ),
+    );
+    router.push(`/projects/${projectId}`);
+  };
+
+  const handleOpenProject = (projectId: string) => {
+    // Update last opened time
+    const updated = recentProjects.map((p) =>
+      p.id === projectId ? { ...p, lastOpened: new Date() } : p,
+    );
+    // Move to front
+    const project = updated.find((p) => p.id === projectId);
+    if (project) {
+      const others = updated.filter((p) => p.id !== projectId);
+      const reordered = [project, ...others];
+      localStorage.setItem(
+        "localcut-recent-projects",
+        JSON.stringify(
+          reordered.map((p) => ({
+            ...p,
+            lastOpened: p.lastOpened.toISOString(),
+          })),
+        ),
+      );
+    }
+    router.push(`/projects/${projectId}`);
+  };
+
   return (
-    <MediaImportProvider>
-      <TimelinePlayerProvider>
-        <EditorContent />
-      </TimelinePlayerProvider>
-    </MediaImportProvider>
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+        {/* Logo and Title */}
+        <div className="flex items-center gap-4 mb-2">
+          <HeroIcon />
+          <div>
+            <h1 className="text-2xl font-heading text-foreground tracking-tight">
+              LocalCut
+            </h1>
+            <p className="text-sm text-foreground/60">
+              v0.1.0 •{" "}
+              <span className="text-red-500 hover:underline cursor-pointer">
+                Public Beta
+              </span>
+            </p>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex gap-4 mt-8 mb-10">
+          <Button
+            variant="neutral"
+            className="w-36 h-24 flex flex-col items-start justify-between p-4"
+            onClick={handleNewProject}
+          >
+            <Plus className="size-5" />
+            <span className="text-sm font-medium">New Project</span>
+          </Button>
+
+          <Button
+            variant="neutral"
+            className="w-36 h-24 flex flex-col items-start justify-between p-4"
+            onClick={() => console.log("Backup folder")}
+          >
+            <FolderArchive className="size-5" />
+            <span className="text-sm font-medium">Backup Folder</span>
+          </Button>
+
+          <Button
+            variant="neutral"
+            asChild
+            className="w-36 h-24 flex flex-col items-start justify-between p-4"
+          >
+            <Link href="https://github.com/imadselka/LocalCut" target="_blank">
+              <Book className="size-5" />
+              <span className="text-sm font-medium">Documentation</span>
+            </Link>
+          </Button>
+        </div>
+
+        {/* Recent Projects */}
+        <div className="w-full max-w-md">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-heading text-foreground/60">
+              Recent Projects
+            </h2>
+            {recentProjects.length > 0 && (
+              <button
+                type="button"
+                className="text-sm text-foreground/50 hover:text-foreground/80"
+                onClick={() => console.log("View all projects")}
+              >
+                View all ({recentProjects.length})
+              </button>
+            )}
+          </div>
+
+          {recentProjects.length === 0 ? (
+            <p className="text-sm text-foreground/50 text-center py-8">
+              No recent projects. Click &quot;New Project&quot; to get started.
+            </p>
+          ) : (
+            <div className="space-y-1">
+              {recentProjects.slice(0, 5).map((project) => (
+                <button
+                  type="button"
+                  key={project.id}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded border border-transparent hover:border-border hover:bg-secondary-background transition-colors text-left"
+                  onClick={() => handleOpenProject(project.id)}
+                >
+                  <span className="text-sm text-foreground">
+                    {project.name}{" "}
+                    <span className="text-foreground/50">
+                      {formatDate(project.lastOpened)}
+                    </span>
+                  </span>
+                  <span className="text-xs text-foreground/50">
+                    {formatRelativeTime(project.lastOpened)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="border-t-2 border-border py-4">
+        <div className="container mx-auto flex items-center justify-center gap-4 text-xs text-foreground/50">
+          <Link href="#" className="hover:text-foreground">
+            LOG IN
+          </Link>
+          <span>/</span>
+          <Link
+            href="https://github.com/imadselka/LocalCut"
+            className="hover:text-foreground"
+          >
+            GITHUB
+          </Link>
+          <span>/</span>
+          <Link href="#" className="hover:text-foreground">
+            DISCORD
+          </Link>
+        </div>
+      </footer>
+    </div>
   );
 }

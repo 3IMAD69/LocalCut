@@ -19,7 +19,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import type { TimelineClipWithAsset } from "./timeline-player-context";
 import { useTimelinePlayer } from "./timeline-player-context";
+import {
+  type OverlayRect,
+  VideoTransformOverlay,
+} from "./video-transform-overlay";
 
 // ============================================================================
 // Utilities
@@ -39,6 +44,11 @@ function formatTime(seconds: number): string {
 interface TimelinePlayerProps {
   className?: string;
   onFullscreen?: () => void;
+  selectedClipId?: string | null;
+  onClipTransformChange?: (
+    clipId: string,
+    transform: { x: number; y: number },
+  ) => void;
 }
 
 // ============================================================================
@@ -48,6 +58,8 @@ interface TimelinePlayerProps {
 export function TimelinePlayer({
   className,
   onFullscreen,
+  selectedClipId,
+  onClipTransformChange,
 }: TimelinePlayerProps) {
   const {
     canvasRef,
@@ -62,7 +74,104 @@ export function TimelinePlayer({
   } = useTimelinePlayer();
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const videoAreaRef = useRef<HTMLDivElement>(null);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
+
+  const findSelectedClip = useCallback((): {
+    clip: TimelineClipWithAsset;
+    sourceSize: { width: number; height: number };
+  } | null => {
+    if (!selectedClipId) return null;
+
+    for (const track of tracks) {
+      if (track.type !== "video") continue;
+      for (const clip of track.clips) {
+        if (clip.id !== selectedClipId) continue;
+        if (!clip.asset) return null;
+
+        return {
+          clip,
+          sourceSize: {
+            width: clip.asset.width ?? 1920,
+            height: clip.asset.height ?? 1080,
+          },
+        };
+      }
+    }
+
+    return null;
+  }, [selectedClipId, tracks]);
+
+  const overlayRect = useCallback((): OverlayRect | null => {
+    if (!videoAreaRef.current) return null;
+
+    const selected = findSelectedClip();
+    if (!selected) return null;
+
+    const { clip, sourceSize } = selected;
+
+    // Only show overlay if the clip is currently visible.
+    const clipEnd = clip.startTime + clip.duration;
+    if (state.currentTime < clip.startTime || state.currentTime >= clipEnd)
+      return null;
+
+    // Compute where the video is drawn inside the container (object-contain).
+    const container = videoAreaRef.current.getBoundingClientRect();
+    const containerWidth = container.width;
+    const containerHeight = container.height;
+
+    const videoAspect = sourceSize.width / sourceSize.height;
+    const containerAspect = containerWidth / containerHeight;
+
+    const baseHeight =
+      containerAspect > videoAspect
+        ? containerHeight
+        : containerWidth / videoAspect;
+    const baseWidth = baseHeight * videoAspect;
+
+    const offsetX = (containerWidth - baseWidth) / 2;
+    const offsetY = (containerHeight - baseHeight) / 2;
+
+    const transform = clip.transform ?? {
+      x: 0,
+      y: 0,
+      scaleX: 1,
+      scaleY: 1,
+      rotation: 0,
+    };
+
+    const rectWidth = baseWidth * transform.scaleX;
+    const rectHeight = baseHeight * transform.scaleY;
+
+    return {
+      x: offsetX + (baseWidth - rectWidth) / 2 + transform.x,
+      y: offsetY + (baseHeight - rectHeight) / 2 + transform.y,
+      width: rectWidth,
+      height: rectHeight,
+    };
+  }, [findSelectedClip, state.currentTime]);
+
+  const handleOverlayMove = useCallback(
+    ({ dx, dy }: { dx: number; dy: number }) => {
+      if (!selectedClipId) return;
+      const selected = findSelectedClip();
+      if (!selected) return;
+
+      const current = selected.clip.transform ?? {
+        x: 0,
+        y: 0,
+        scaleX: 1,
+        scaleY: 1,
+        rotation: 0,
+      };
+
+      onClipTransformChange?.(selectedClipId, {
+        x: current.x + dx,
+        y: current.y + dy,
+      });
+    },
+    [findSelectedClip, onClipTransformChange, selectedClipId],
+  );
 
   // Handle play/pause
   const handlePlayPause = useCallback(() => {
@@ -233,7 +342,10 @@ export function TimelinePlayer({
         </div>
 
         {/* Video Canvas Area */}
-        <div className="relative flex-1 bg-black min-h-[300px] flex items-center justify-center">
+        <div
+          ref={videoAreaRef}
+          className="relative flex-1 bg-black min-h-[300px] flex items-center justify-center"
+        >
           {/* Canvas for compositor rendering */}
           <canvas
             ref={canvasRef}
@@ -245,6 +357,13 @@ export function TimelinePlayer({
               maxHeight: "100%",
               objectFit: "contain",
             }}
+          />
+
+          <VideoTransformOverlay
+            containerRef={videoAreaRef}
+            rect={overlayRect()}
+            isActive={!isEmpty && !!selectedClipId}
+            onMove={handleOverlayMove}
           />
 
           {/* Empty State Overlay */}

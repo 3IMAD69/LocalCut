@@ -15,6 +15,7 @@ export {
 export { TimelinePlayer } from "./preview/timeline-player";
 export {
   type ActiveClip,
+  type ClipTransform,
   type LoadedSource,
   type TimelineClipWithAsset,
   type TimelinePlaybackState,
@@ -22,6 +23,7 @@ export {
   type TimelineTrackData,
   useTimelinePlayer,
 } from "./preview/timeline-player-context";
+export { VideoTransformOverlay } from "./preview/video-transform-overlay";
 
 // Timeline components
 export { Playhead } from "./timeline/playhead";
