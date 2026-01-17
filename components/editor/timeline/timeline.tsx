@@ -50,14 +50,14 @@ function TimelineEmptyOverlay() {
       <div className="text-center">
         <div
           className={cn(
-            "w-16 h-16 border-2 border-dashed border-border",
+            "w-16 h-16 border border-dashed border-border rounded-lg",
             "flex items-center justify-center mx-auto mb-3",
-            "bg-secondary-background/50",
+            "bg-muted/50",
           )}
         >
           <Film className="h-8 w-8 text-foreground/30" />
         </div>
-        <p className="text-sm font-heading text-foreground/40">
+        <p className="text-sm font-medium text-foreground/40">
           No clips on timeline
         </p>
         <p className="text-xs text-foreground/30">
@@ -108,20 +108,20 @@ export function Timeline({
   return (
     <div
       className={cn(
-        "flex flex-col border-2 border-border bg-background",
+        "flex flex-col border border-border bg-background rounded-lg",
         className,
       )}
     >
       {/* Timeline Header with Controls */}
-      <div className="flex items-center justify-between px-4 py-2 border-b-2 border-border bg-secondary-background">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted rounded-t-lg">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-heading uppercase tracking-wide text-foreground/60">
+          <span className="text-xs font-medium uppercase tracking-wide text-foreground/60">
             Timeline
           </span>
           {/* Add Track Button */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="noShadow" size="sm" className="h-7 gap-1">
+              <Button variant="outline" size="sm" className="h-7 gap-1">
                 <Plus className="h-3 w-3" />
                 <span className="text-xs">Add Track</span>
               </Button>
@@ -142,18 +142,18 @@ export function Timeline({
         {/* Zoom Controls */}
         <div className="flex items-center gap-1">
           <Button
-            variant="noShadow"
+            variant="ghost"
             size="icon"
             className="h-7 w-7"
             onClick={handleZoomOut}
           >
             <Minus className="h-3 w-3" />
           </Button>
-          <span className="text-xs font-heading w-12 text-center">
+          <span className="text-xs font-medium w-12 text-center">
             {Math.round(pixelsPerSecond)}px/s
           </span>
           <Button
-            variant="noShadow"
+            variant="ghost"
             size="icon"
             className="h-7 w-7"
             onClick={handleZoomIn}

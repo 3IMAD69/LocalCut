@@ -407,7 +407,7 @@ export function CropOverlay({
             className={cn(
               "absolute pointer-events-auto",
               "size-4 bg-white border-2 border-black rounded-sm",
-              "hover:bg-main hover:scale-110 transition-transform",
+              "hover:bg-primary hover:scale-110 transition-transform",
               className,
             )}
             onMouseDown={(e) => handleResizeStart(e, position)}

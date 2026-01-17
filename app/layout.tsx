@@ -36,35 +36,35 @@ export default function RootLayout({
         <Analytics />
         <ThemeProvider
           attribute="class"
-          defaultTheme="light"
+          defaultTheme="dark"
           enableSystem
           disableTransitionOnChange
         >
           <BrowserWarning />
-          <header className="border-b-4 border-border bg-background">
+          <header className="border-b border-border bg-background">
             <div className="container mx-auto px-6 py-4 flex items-center justify-between">
               <Link
                 href="/"
                 prefetch={true}
-                className="flex items-center gap-2 hover:translate-x-boxShadowX hover:translate-y-boxShadowY transition-transform"
+                className="flex items-center gap-2 hover:opacity-80 transition-opacity"
               >
-                {/* <div className="p-2 bg-main border-2 border-border"> */}
-                <ClapIcon size={25} className="text-main-foreground" />
+                {/* <div className="p-2 bg-primary"> */}
+                <ClapIcon size={25} className="text-primary" />
                 {/* </div> */}
-                <span className="text-xl font-heading">LocalCut</span>
+                <span className="text-xl font-semibold">LocalCut</span>
               </Link>
               <nav className="flex gap-2">
                 <Link
                   prefetch={true}
                   href="/convert"
-                  className="px-4 py-2 text-sm font-heading border-2 border-border bg-background hover:bg-main hover:text-main-foreground transition-colors"
+                  className="px-4 py-2 text-sm font-medium rounded-md bg-transparent hover:bg-accent transition-colors"
                 >
                   Convert
                 </Link>
                 <Link
                   prefetch={true}
                   href="/editor"
-                  className="px-4 py-2 text-sm font-heading border-2 border-border bg-background hover:bg-main hover:text-main-foreground transition-colors"
+                  className="px-4 py-2 text-sm font-medium rounded-md bg-transparent hover:bg-accent transition-colors"
                 >
                   Editor
                 </Link>
@@ -73,17 +73,17 @@ export default function RootLayout({
           </header>
           {children}
           {/* Footer */}
-          <footer className="border-t-4 border-border py-8">
+          <footer className="border-t border-border py-8">
             <div className="container mx-auto px-6">
               <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                <span className="text-2xl font-heading">LocalCut</span>
-                <p className="text-sm">
+                <span className="text-2xl font-semibold">LocalCut</span>
+                <p className="text-sm text-muted-foreground">
                   Built with{" "}
                   <a
                     href="https://mediabunny.dev"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-heading underline underline-offset-4 hover:bg-main hover:text-main-foreground transition-colors px-1"
+                    className="font-medium underline underline-offset-4 hover:text-foreground transition-colors"
                   >
                     MediaBunny
                   </a>{" "}
@@ -94,7 +94,7 @@ export default function RootLayout({
                     href="https://github.com/3IMAD69"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-2 border-2 border-border bg-background hover:bg-main hover:text-main-foreground transition-colors"
+                    className="p-2 rounded-md hover:bg-accent transition-colors"
                     aria-label="GitHub"
                   >
                     <SiGithub className="size-5" />
@@ -103,7 +103,7 @@ export default function RootLayout({
                     href="https://x.com/3IMXXD"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-2 border-2 border-border bg-background hover:bg-main hover:text-main-foreground transition-colors"
+                    className="p-2 rounded-md hover:bg-accent transition-colors"
                     aria-label="X (Twitter)"
                   >
                     <SiX className="size-5" />

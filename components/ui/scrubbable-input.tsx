@@ -209,10 +209,10 @@ export function ScrubbableInput({
         ref={containerRef}
         style={{ scale: smoothScale }}
         className={cn(
-          "relative h-14 rounded-base border-2 border-border bg-secondary-background overflow-hidden",
+          "relative h-14 rounded-md border border-border bg-muted overflow-hidden",
           "cursor-ew-resize select-none touch-none",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-main focus-visible:ring-offset-2",
-          isDraggingState && "border-main bg-main/5",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+          isDraggingState && "border-primary bg-primary/5",
           disabled && "opacity-50 cursor-not-allowed",
         )}
         tabIndex={disabled ? -1 : 0}
@@ -230,7 +230,7 @@ export function ScrubbableInput({
         aria-valuenow={value}
         aria-label={label}
         aria-disabled={disabled}
-        whileHover={!disabled ? { borderColor: "var(--main)" } : undefined}
+        whileHover={!disabled ? { borderColor: "var(--primary)" } : undefined}
         transition={{
           borderColor: { duration: 0.2, ease: [0.25, 0.1, 0.25, 1] },
         }}
@@ -277,7 +277,7 @@ export function ScrubbableInput({
                   className={cn(
                     "rounded-full transition-all duration-150",
                     tick.isZero
-                      ? "w-1 h-5 bg-main"
+                      ? "w-1 h-5 bg-primary"
                       : "w-1 h-4 bg-foreground/50",
                   )}
                   style={{
@@ -290,7 +290,7 @@ export function ScrubbableInput({
                 {/* Label for zero tick */}
                 {tick.isZero && (
                   <span
-                    className="absolute top-7 text-[9px] font-mono text-main font-bold transition-transform duration-150"
+                    className="absolute top-7 text-[9px] font-mono text-primary font-bold transition-transform duration-150"
                     style={{
                       transform: isDraggingState ? "scale(1.1)" : "scale(1)",
                     }}
@@ -317,7 +317,7 @@ export function ScrubbableInput({
             className={cn(
               "w-0 h-0 border-l-[6px] border-r-[6px] border-t-[8px]",
               "border-l-transparent border-r-transparent transition-all duration-150",
-              isDraggingState ? "border-t-main" : "border-t-foreground",
+              isDraggingState ? "border-t-primary" : "border-t-foreground",
             )}
             style={{
               opacity: isDraggingState || isHovered ? 1 : 0.7,
@@ -327,7 +327,7 @@ export function ScrubbableInput({
           <div
             className={cn(
               "w-0.5 flex-1 transition-all duration-150",
-              isDraggingState ? "bg-main" : "bg-foreground",
+              isDraggingState ? "bg-primary" : "bg-foreground",
             )}
             style={{
               opacity: isDraggingState || isHovered ? 1 : 0.7,
@@ -339,7 +339,7 @@ export function ScrubbableInput({
             className={cn(
               "w-0 h-0 border-l-[6px] border-r-[6px] border-b-[8px]",
               "border-l-transparent border-r-transparent transition-all duration-150",
-              isDraggingState ? "border-b-main" : "border-b-foreground",
+              isDraggingState ? "border-b-primary" : "border-b-foreground",
             )}
             style={{
               opacity: isDraggingState || isHovered ? 1 : 0.7,
@@ -356,7 +356,7 @@ export function ScrubbableInput({
             value === 0
               ? "text-foreground/50"
               : value > 0
-                ? "text-main"
+                ? "text-primary"
                 : "text-foreground",
           )}
         >

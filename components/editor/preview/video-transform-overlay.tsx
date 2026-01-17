@@ -105,7 +105,7 @@ export function VideoTransformOverlay({
         aria-label="Video transform region"
         className={cn(
           "absolute pointer-events-auto",
-          "border-2 border-main",
+          "border-2 border-primary",
           "shadow-[0_0_0_2px_rgba(0,0,0,0.35)]",
           isDragging ? "cursor-grabbing" : "cursor-grab",
         )}
@@ -117,7 +117,7 @@ export function VideoTransformOverlay({
         }}
         onMouseDown={handleMouseDown}
       >
-        <div className="absolute -top-9 left-0 flex items-center gap-2 px-2 py-1 border-2 border-border bg-background shadow-shadow text-xs font-heading">
+        <div className="absolute -top-9 left-0 flex items-center gap-2 px-2 py-1 border border-border bg-background shadow-md rounded-md text-xs font-medium">
           <Move className="h-3.5 w-3.5" />
           Drag to move
         </div>
@@ -126,7 +126,7 @@ export function VideoTransformOverlay({
           <div
             key={handle}
             className={cn(
-              "absolute size-3 bg-main border-2 border-border",
+              "absolute size-3 bg-primary border-2 border-border rounded-sm",
               // Corners
               handle === "nw" &&
                 "left-0 top-0 -translate-x-1/2 -translate-y-1/2",

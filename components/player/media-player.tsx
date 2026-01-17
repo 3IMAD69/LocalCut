@@ -11,7 +11,7 @@ import { TimeDisplay } from "./time-display";
 import { VolumeControl } from "./volume-control";
 
 const Separator: React.FC = () => {
-  return <div className="border-r-2 border-black h-12" />;
+  return <div className="border-r border-border h-12" />;
 };
 
 interface MediaPlayerProps {
@@ -154,9 +154,9 @@ export function MediaPlayer({ src }: MediaPlayerProps) {
     >
       <div
         className={cn(
-          "border-2",
+          "border",
           "rounded-md",
-          "border-black",
+          "border-border",
           "overflow-hidden",
           "bg-black",
           "relative",
@@ -188,18 +188,16 @@ export function MediaPlayer({ src }: MediaPlayerProps) {
           className={cn(
             "flex",
             "flex-col md:flex-row",
-            "border-2",
-            "border-b-4",
+            "border",
             "rounded-md",
-            "border-black",
-            "bg-white",
+            "border-border",
+            "bg-card",
             "overflow-hidden",
-            isFullscreen &&
-              "w-full border-0 border-t-2 rounded-none border-b-0",
+            isFullscreen && "w-full border-0 border-t rounded-none",
           )}
         >
           {/* Mobile SeekBar: Top row on mobile only */}
-          <div className="w-full h-12 border-b-2 border-black flex items-center px-4 md:hidden">
+          <div className="w-full h-12 border-b border-border flex items-center px-4 md:hidden">
             <SeekBar playerRef={mediaFox} />
           </div>
 
@@ -247,16 +245,15 @@ export function MediaPlayer({ src }: MediaPlayerProps) {
           className={cn(
             "flex",
             "flex-row",
-            "border-2",
-            "border-b-4",
+            "border",
             "rounded-md",
-            "border-black",
+            "border-border",
             "items-center",
             "justify-center",
-            "bg-white",
+            "bg-card",
             "h-14",
             "text-sm",
-            "text-gray-500",
+            "text-muted-foreground",
           )}
         >
           Loading player...

@@ -481,7 +481,7 @@ function EditorContent() {
           </div>
 
           {/* Timeline */}
-          <div className="h-[280px] flex-shrink-0 border-t-2 border-border">
+          <div className="h-[280px] flex-shrink-0 border-t border-border">
             <Timeline
               tracks={tracks}
               currentTime={currentTime}
@@ -497,7 +497,7 @@ function EditorContent() {
         </main>
 
         {/* Right Panel: Properties */}
-        <aside className="w-72 flex-shrink-0 border-l-2 border-border">
+        <aside className="w-72 flex-shrink-0 border-l border-border">
           <PropertiesPanel
             clip={selectedClip}
             onChange={handlePropertiesChange}
@@ -510,8 +510,8 @@ function EditorContent() {
       <footer
         className={cn(
           "h-8 flex items-center justify-between px-4",
-          "border-t-2 border-border bg-secondary-background",
-          "text-xs font-heading",
+          "border-t border-border bg-muted",
+          "text-xs font-medium",
         )}
       >
         <div className="flex items-center gap-4">
@@ -528,8 +528,10 @@ function EditorContent() {
         <div className="flex items-center gap-4">
           <span
             className={cn(
-              "px-2 py-0.5 border border-border",
-              snapEnabled ? "bg-main text-main-foreground" : "bg-transparent",
+              "px-2 py-0.5 border border-border rounded",
+              snapEnabled
+                ? "bg-primary text-primary-foreground"
+                : "bg-transparent",
             )}
           >
             Snap: {snapEnabled ? "ON" : "OFF"}

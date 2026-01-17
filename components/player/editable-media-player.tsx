@@ -25,7 +25,7 @@ import { type TrimRange, TrimSeekBar } from "./trim-seek-bar";
 import { VolumeControl } from "./volume-control";
 
 const Separator: React.FC = () => {
-  return <div className="border-r-2 border-black h-12" />;
+  return <div className="border-r border-border h-12" />;
 };
 
 export interface MediaPlayerHandle {
@@ -395,16 +395,16 @@ export const EditableMediaPlayer = forwardRef<
       <div
         ref={videoContainerRef}
         className={cn(
-          "border-2",
-          "rounded-md",
-          "border-black",
+          "border",
+          "rounded-lg",
+          "border-border",
           "overflow-hidden",
           "bg-black",
           "relative",
           isFullscreen &&
             "flex items-center justify-center flex-1 w-full border-0 rounded-none",
-          cropEnabled && "ring-2 ring-main ring-offset-2",
-          trimEnabled && !cropEnabled && "ring-2 ring-main ring-offset-2",
+          cropEnabled && "ring-2 ring-primary ring-offset-2",
+          trimEnabled && !cropEnabled && "ring-2 ring-primary ring-offset-2",
         )}
         style={
           !isFullscreen && displayDimensions
@@ -451,20 +451,18 @@ export const EditableMediaPlayer = forwardRef<
           className={cn(
             "flex",
             "flex-col md:flex-row",
-            "border-2",
-            "border-b-4",
-            "rounded-md",
-            "border-black",
-            "bg-white",
+            "border",
+            "rounded-lg",
+            "border-border",
+            "bg-card",
             "overflow-hidden",
-            isFullscreen &&
-              "w-full border-0 border-t-2 rounded-none border-b-0",
+            isFullscreen && "w-full border-0 border-t rounded-none",
           )}
         >
           {/* Mobile SeekBar: Top row on mobile only */}
           <div
             className={cn(
-              "w-full border-b-2 border-black flex items-center px-4 md:hidden",
+              "w-full border-b border-border flex items-center px-4 md:hidden",
               trimEnabled ? "h-20 pt-4" : "h-12",
             )}
           >
@@ -531,16 +529,15 @@ export const EditableMediaPlayer = forwardRef<
           className={cn(
             "flex",
             "flex-row",
-            "border-2",
-            "border-b-4",
-            "rounded-md",
-            "border-black",
+            "border",
+            "rounded-lg",
+            "border-border",
             "items-center",
             "justify-center",
-            "bg-white",
+            "bg-card",
             "h-14",
             "text-sm",
-            "text-gray-500",
+            "text-muted-foreground",
           )}
         >
           Loading player...

@@ -38,14 +38,14 @@ export function TimelineRuler({
   return (
     <div
       className={cn(
-        "relative h-8 border-2 border-border bg-background",
+        "relative h-8 border border-border bg-background",
         "flex items-end",
         className,
       )}
     >
       {/* Empty space for track labels */}
-      <div className="w-24 h-full border-r-2 border-border flex items-center justify-center">
-        <span className="text-xs font-heading text-foreground/60">TIME</span>
+      <div className="w-24 h-full border-r border-border flex items-center justify-center">
+        <span className="text-xs font-medium text-foreground/60">TIME</span>
       </div>
 
       {/* Ruler ticks */}
@@ -56,7 +56,7 @@ export function TimelineRuler({
             className="absolute bottom-0 flex flex-col items-center"
             style={{ left: `${tick * pixelsPerSecond}px` }}
           >
-            <span className="text-[10px] font-heading text-foreground mb-1">
+            <span className="text-[10px] font-medium text-foreground mb-1">
               {formatTime(tick)}
             </span>
             <div className="w-0.5 h-2 bg-border" />

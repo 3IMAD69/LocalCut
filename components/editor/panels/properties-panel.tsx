@@ -71,9 +71,9 @@ function PropertySection({
           type="button"
           className={cn(
             "w-full flex items-center justify-between",
-            "px-3 py-2 border-b-2 border-border",
-            "bg-secondary-background hover:bg-main/10",
-            "text-xs font-heading uppercase tracking-wide",
+            "px-3 py-2 border-b border-border",
+            "bg-muted hover:bg-accent",
+            "text-xs font-medium uppercase tracking-wide",
           )}
         >
           <div className="flex items-center gap-2">
@@ -89,7 +89,7 @@ function PropertySection({
         </button>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className="p-3 space-y-3 border-b-2 border-border">{children}</div>
+        <div className="p-3 space-y-3 border-b border-border">{children}</div>
       </CollapsibleContent>
     </Collapsible>
   );
@@ -157,12 +157,12 @@ export function PropertiesPanel({
     return (
       <div
         className={cn(
-          "flex flex-col border-2 border-border bg-background h-full",
+          "flex flex-col border border-border bg-background rounded-lg h-full",
           className,
         )}
       >
-        <div className="flex items-center px-3 py-2 border-b-2 border-border bg-secondary-background">
-          <span className="text-xs font-heading uppercase tracking-wide">
+        <div className="flex items-center px-3 py-2 border-b border-border bg-muted">
+          <span className="text-xs font-medium uppercase tracking-wide">
             Properties
           </span>
         </div>
@@ -182,18 +182,18 @@ export function PropertiesPanel({
   return (
     <div
       className={cn(
-        "flex flex-col border-2 border-border bg-background h-full",
+        "flex flex-col border border-border bg-background rounded-lg h-full",
         className,
       )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b-2 border-border bg-secondary-background">
-        <span className="text-xs font-heading uppercase tracking-wide">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted">
+        <span className="text-xs font-medium uppercase tracking-wide">
           Properties
         </span>
         <span
           className={cn(
-            "px-2 py-0.5 border-2 border-border text-[10px] font-heading uppercase",
+            "px-2 py-0.5 rounded text-[10px] font-medium uppercase",
             clip.type === "video" ? "bg-chart-2" : "bg-chart-3",
           )}
         >
@@ -202,8 +202,8 @@ export function PropertiesPanel({
       </div>
 
       {/* Clip Name */}
-      <div className="px-3 py-2 border-b-2 border-border">
-        <p className="text-sm font-heading truncate" title={clip.name}>
+      <div className="px-3 py-2 border-b border-border">
+        <p className="text-sm font-medium truncate" title={clip.name}>
           {clip.name}
         </p>
       </div>
@@ -285,7 +285,7 @@ export function PropertiesPanel({
               {[0, 90, 180, 270].map((angle) => (
                 <Button
                   key={angle}
-                  variant="noShadow"
+                  variant="ghost"
                   size="sm"
                   className="flex-1 h-7 text-xs"
                   onClick={() => handleChange("rotation", angle)}
@@ -337,7 +337,7 @@ export function PropertiesPanel({
               />
             </PropertyRow>
             <Button
-              variant="noShadow"
+              variant="ghost"
               size="sm"
               className="w-full h-7 text-xs mt-2"
               onClick={() => {
@@ -406,7 +406,7 @@ export function PropertiesPanel({
             {[0.5, 1, 1.5, 2].map((speed) => (
               <Button
                 key={speed}
-                variant="noShadow"
+                variant="ghost"
                 size="sm"
                 className="flex-1 h-7 text-xs"
                 onClick={() => handleChange("speed", speed)}

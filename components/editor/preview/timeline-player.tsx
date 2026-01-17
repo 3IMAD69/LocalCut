@@ -326,11 +326,11 @@ export function TimelinePlayer({
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-3 py-2 border-b-2 border-border bg-secondary-background">
-          <span className="text-xs font-heading uppercase tracking-wide">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted">
+          <span className="text-xs font-medium uppercase tracking-wide">
             Preview
           </span>
-          <div className="flex items-center gap-2 text-xs font-heading">
+          <div className="flex items-center gap-2 text-xs font-medium">
             <span className="text-chart-1">
               {formatTime(state.currentTime)}
             </span>
@@ -371,7 +371,7 @@ export function TimelinePlayer({
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="text-center text-foreground/30">
                 <div className="text-4xl mb-2">🎬</div>
-                <p className="text-sm font-heading">Video Preview</p>
+                <p className="text-sm font-medium">Video Preview</p>
                 <p className="text-xs">Add media to see preview</p>
               </div>
             </div>
@@ -382,7 +382,7 @@ export function TimelinePlayer({
             <div className="absolute inset-0 flex items-center justify-center bg-black/50">
               <div className="text-center text-white">
                 <div className="animate-spin text-4xl mb-2">⏳</div>
-                <p className="text-sm font-heading">Loading...</p>
+                <p className="text-sm font-medium">Loading...</p>
               </div>
             </div>
           )}
@@ -392,7 +392,7 @@ export function TimelinePlayer({
             <div className="absolute inset-0 flex items-center justify-center bg-red-900/50">
               <div className="text-center text-white max-w-md px-4">
                 <div className="text-4xl mb-2">⚠️</div>
-                <p className="text-sm font-heading">Error</p>
+                <p className="text-sm font-medium">Error</p>
                 <p className="text-xs mt-1 opacity-80">{state.error.message}</p>
               </div>
             </div>
@@ -423,7 +423,7 @@ export function TimelinePlayer({
         </div>
 
         {/* Seek Bar */}
-        <div className="px-3 py-2 border-t-2 border-border bg-secondary-background">
+        <div className="px-3 py-2 border-t border-border bg-muted">
           <Slider
             value={[state.currentTime]}
             onValueChange={([value]) => seek(value)}
@@ -435,13 +435,13 @@ export function TimelinePlayer({
         </div>
 
         {/* Controls */}
-        <div className="flex items-center justify-between px-3 py-2 border-t-2 border-border bg-secondary-background">
+        <div className="flex items-center justify-between px-3 py-2 border-t border-border bg-muted">
           {/* Left: Transport Controls */}
           <div className="flex items-center gap-1">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant="noShadow"
+                  variant="ghost"
                   size="icon"
                   className="h-9 w-9"
                   onClick={handleSkipBack}
@@ -473,7 +473,7 @@ export function TimelinePlayer({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant="noShadow"
+                  variant="ghost"
                   size="icon"
                   className="h-9 w-9"
                   onClick={handleSkipForward}
@@ -492,7 +492,7 @@ export function TimelinePlayer({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    variant="noShadow"
+                    variant="ghost"
                     size="icon"
                     className="h-9 w-9"
                     onClick={() => setMuted(!state.muted)}
@@ -532,7 +532,7 @@ export function TimelinePlayer({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant="noShadow"
+                  variant="ghost"
                   size="icon"
                   className="h-9 w-9"
                   onClick={handleFullscreen}

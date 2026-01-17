@@ -59,16 +59,16 @@ export function VideoPreview({
     <TooltipProvider>
       <div
         className={cn(
-          "flex flex-col border-2 border-border bg-background",
+          "flex flex-col border border-border bg-background rounded-lg",
           className,
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-3 py-2 border-b-2 border-border bg-secondary-background">
-          <span className="text-xs font-heading uppercase tracking-wide">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted rounded-t-lg">
+          <span className="text-xs font-medium uppercase tracking-wide">
             Preview
           </span>
-          <div className="flex items-center gap-2 text-xs font-heading">
+          <div className="flex items-center gap-2 text-xs font-medium">
             <span className="text-chart-1">{formatTime(currentTime)}</span>
             <span className="text-foreground/40">/</span>
             <span className="text-foreground/60">{formatTime(duration)}</span>
@@ -83,12 +83,12 @@ export function VideoPreview({
               "aspect-video w-full max-w-full max-h-full",
               "bg-gradient-to-br from-zinc-900 to-zinc-800",
               "flex items-center justify-center",
-              "border-2 border-border",
+              "border border-border rounded-md",
             )}
           >
             <div className="text-center text-foreground/30">
               <div className="text-4xl mb-2">🎬</div>
-              <p className="text-sm font-heading">Video Preview</p>
+              <p className="text-sm font-medium">Video Preview</p>
               <p className="text-xs">Add media to see preview</p>
             </div>
           </div>
@@ -106,7 +106,7 @@ export function VideoPreview({
             <div
               className={cn(
                 "w-16 h-16 rounded-full",
-                "border-4 border-white bg-black/50",
+                "border-2 border-white bg-black/50",
                 "flex items-center justify-center",
               )}
             >
@@ -120,7 +120,7 @@ export function VideoPreview({
         </div>
 
         {/* Seek Bar */}
-        <div className="px-3 py-2 border-t-2 border-border bg-secondary-background">
+        <div className="px-3 py-2 border-t border-border bg-muted">
           <Slider
             value={[currentTime]}
             onValueChange={([value]) => onSeek?.(value)}
@@ -132,13 +132,13 @@ export function VideoPreview({
         </div>
 
         {/* Controls */}
-        <div className="flex items-center justify-between px-3 py-2 border-t-2 border-border bg-secondary-background">
+        <div className="flex items-center justify-between px-3 py-2 border-t border-border bg-muted rounded-b-lg">
           {/* Left: Transport Controls */}
           <div className="flex items-center gap-1">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant="noShadow"
+                  variant="ghost"
                   size="icon"
                   className="h-9 w-9"
                   onClick={onSkipBack}
@@ -170,7 +170,7 @@ export function VideoPreview({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant="noShadow"
+                  variant="ghost"
                   size="icon"
                   className="h-9 w-9"
                   onClick={onSkipForward}
@@ -188,7 +188,7 @@ export function VideoPreview({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant="noShadow"
+                  variant="ghost"
                   size="icon"
                   className="h-9 w-9"
                   onClick={() => setShowVolumeSlider(!showVolumeSlider)}
@@ -215,7 +215,7 @@ export function VideoPreview({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant="noShadow"
+                  variant="ghost"
                   size="icon"
                   className="h-9 w-9"
                   onClick={onFullscreen}

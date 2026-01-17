@@ -16,14 +16,14 @@ export function BrowserWarning() {
   if (isChrome) return null;
 
   return (
-    <div className="border-b-2 border-border bg-red-100 px-6 py-3">
+    <div className="border-b border-destructive/50 bg-destructive/10 px-6 py-3">
       <div className="container mx-auto flex items-start gap-3">
-        <div className="text-red-600 mt-0.5">⊘</div>
+        <div className="text-destructive mt-0.5">⊘</div>
         <div>
-          <p className="text-red-600 font-heading text-sm">
+          <p className="text-destructive font-medium text-sm">
             Compatibility Warning
           </p>
-          <p className="text-red-600/80 text-sm">
+          <p className="text-destructive/80 text-sm">
             For a seamless experience with LocalCut, please use Google Chrome.
           </p>
         </div>

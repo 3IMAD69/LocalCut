@@ -173,9 +173,9 @@ export function TimelineTrack({
     <section
       aria-label={`${label} track`}
       className={cn(
-        "relative h-16 border-2 border-border bg-secondary-background",
+        "relative h-16 border border-border bg-muted rounded-md",
         "flex items-center transition-colors duration-150",
-        isSelected && "ring-2 ring-main",
+        isSelected && "ring-2 ring-primary",
         // Valid drop target - green highlight
         isDropTarget &&
           canAcceptDrop &&
@@ -190,10 +190,10 @@ export function TimelineTrack({
       {/* Track Label */}
       <div
         className={cn(
-          "absolute left-0 top-0 bottom-0 w-24 z-10",
+          "absolute left-0 top-0 bottom-0 w-24 z-10 rounded-l-md",
           "flex items-center justify-center",
-          "border-r-2 border-border",
-          "bg-background font-heading text-xs uppercase tracking-wide",
+          "border-r border-border",
+          "bg-background font-medium text-xs uppercase tracking-wide",
           type === "video" ? "text-chart-2" : "text-chart-3",
         )}
       >
@@ -226,14 +226,14 @@ export function TimelineTrack({
             key={clip.id}
             draggable
             className={cn(
-              "absolute top-1 bottom-1 text-left",
-              "border-2 border-border",
+              "absolute top-1 bottom-1 text-left rounded-sm",
+              "border border-border",
               "cursor-grab select-none",
               "flex items-center",
               "transition-shadow duration-75",
-              hoveredClip === clip.id && "ring-2 ring-main ring-offset-1",
+              hoveredClip === clip.id && "ring-2 ring-primary ring-offset-1",
               isDragging === clip.id &&
-                "cursor-grabbing opacity-50 ring-2 ring-main shadow-lg z-50",
+                "cursor-grabbing opacity-50 ring-2 ring-primary shadow-lg z-50",
               type === "video" ? "bg-chart-2" : "bg-chart-3",
             )}
             style={getClipStyle(clip)}
@@ -257,7 +257,7 @@ export function TimelineTrack({
 
             {/* Clip Content */}
             <span className="flex-1 px-3 overflow-hidden pointer-events-none">
-              <span className="text-xs font-heading text-main-foreground truncate block">
+              <span className="text-xs font-medium text-primary-foreground truncate block">
                 {clip.name}
               </span>
             </span>

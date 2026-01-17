@@ -54,13 +54,13 @@ function MainEmptyState({ onImport }: { onImport?: () => void }) {
     <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
       <div
         className={cn(
-          "w-20 h-20 border-4 border-border bg-main/20",
+          "w-20 h-20 border border-border bg-primary/10 rounded-lg",
           "flex items-center justify-center mb-4",
         )}
       >
         <Film className="h-10 w-10 text-foreground/40" />
       </div>
-      <h3 className="text-sm font-heading mb-1">No media imported</h3>
+      <h3 className="text-sm font-medium mb-1">No media imported</h3>
       <p className="text-xs text-foreground/50 mb-4 max-w-[180px]">
         Import video or audio files to start editing your project
       </p>
@@ -81,7 +81,7 @@ function FilteredEmptyState({ type }: { type: "video" | "audio" }) {
       ) : (
         <Music className="h-12 w-12 mb-2" />
       )}
-      <p className="text-sm font-heading">No {type} files</p>
+      <p className="text-sm font-medium">No {type} files</p>
       <p className="text-xs">Import {type} to see it here</p>
     </div>
   );
@@ -92,7 +92,7 @@ function LoadingState() {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-foreground/40">
       <Loader2 className="h-8 w-8 animate-spin mb-2" />
-      <p className="text-sm font-heading">Importing media...</p>
+      <p className="text-sm font-medium">Importing media...</p>
       <p className="text-xs">Analyzing files</p>
     </div>
   );
@@ -104,13 +104,13 @@ function ErrorState({ message }: { message: string }) {
     <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
       <div
         className={cn(
-          "w-12 h-12 border-2 border-red-400 bg-red-400/20",
+          "w-12 h-12 border border-red-400 bg-red-400/20 rounded-lg",
           "flex items-center justify-center mb-2",
         )}
       >
         <X className="h-6 w-6 text-red-500" />
       </div>
-      <p className="text-sm font-heading text-red-500 mb-1">Import Failed</p>
+      <p className="text-sm font-medium text-red-500 mb-1">Import Failed</p>
       <p className="text-xs text-foreground/50">{message}</p>
     </div>
   );
@@ -174,10 +174,10 @@ export function MediaLibrary({
       key={asset.id}
       type="button"
       className={cn(
-        "group relative border-2 border-border bg-secondary-background",
+        "group relative border border-border bg-card rounded-lg",
         "cursor-pointer transition-all text-left w-full",
-        "hover:shadow-shadow hover:-translate-x-boxShadowX hover:-translate-y-boxShadowY",
-        selectedAssetId === asset.id && "ring-2 ring-main",
+        "hover:bg-accent hover:shadow-md",
+        selectedAssetId === asset.id && "ring-2 ring-primary",
       )}
       onClick={() => handleAssetClick(asset)}
       onDoubleClick={() => handleAddToTimeline(asset)}
@@ -189,7 +189,7 @@ export function MediaLibrary({
       {/* Thumbnail */}
       <div
         className={cn(
-          "aspect-video w-full border-b-2 border-border",
+          "aspect-video w-full border-b border-border rounded-t-lg",
           "flex items-center justify-center",
           asset.type === "video" ? "bg-chart-2/20" : "bg-chart-3/20",
         )}
@@ -205,7 +205,7 @@ export function MediaLibrary({
 
       {/* Info */}
       <div className="p-2">
-        <p className="text-xs font-heading truncate" title={asset.name}>
+        <p className="text-xs font-medium truncate" title={asset.name}>
           {asset.name}
         </p>
         <p className="text-[10px] text-foreground/60">
@@ -223,9 +223,9 @@ export function MediaLibrary({
         <button
           type="button"
           className={cn(
-            "h-6 w-6 flex items-center justify-center",
-            "border-2 border-border bg-main",
-            "hover:bg-chart-1 cursor-pointer",
+            "h-6 w-6 flex items-center justify-center rounded",
+            "border border-border bg-primary text-primary-foreground",
+            "hover:bg-primary/80 cursor-pointer",
           )}
           onClick={(e) => {
             e.stopPropagation();
@@ -238,9 +238,9 @@ export function MediaLibrary({
         <button
           type="button"
           className={cn(
-            "h-6 w-6 flex items-center justify-center",
-            "border-2 border-border bg-secondary-background",
-            "hover:bg-red-400 cursor-pointer",
+            "h-6 w-6 flex items-center justify-center rounded",
+            "border border-border bg-card",
+            "hover:bg-destructive hover:text-destructive-foreground cursor-pointer",
           )}
           onClick={(e) => {
             e.stopPropagation();
@@ -258,8 +258,8 @@ export function MediaLibrary({
     <section
       aria-label="Media library"
       className={cn(
-        "flex flex-col border-2 border-border bg-background h-full relative",
-        isDragOver && "ring-2 ring-main ring-inset",
+        "flex flex-col border border-border bg-background rounded-lg h-full relative",
+        isDragOver && "ring-2 ring-primary ring-inset",
         className,
       )}
       onDragOver={handleDragOver}
@@ -267,13 +267,13 @@ export function MediaLibrary({
       onDrop={handleDrop}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b-2 border-border bg-secondary-background">
-        <span className="text-xs font-heading uppercase tracking-wide">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted rounded-t-lg">
+        <span className="text-xs font-medium uppercase tracking-wide">
           Media {assets.length > 0 && `(${assets.length})`}
         </span>
         <div className="flex gap-1">
           <Button
-            variant="noShadow"
+            variant="outline"
             size="sm"
             className="h-7 text-xs"
             onClick={onImport}
@@ -293,13 +293,13 @@ export function MediaLibrary({
       {isDragOver && (
         <div
           className={cn(
-            "absolute inset-0 z-50 bg-main/20 border-4 border-dashed border-main",
+            "absolute inset-0 z-50 bg-primary/10 border-2 border-dashed border-primary rounded-lg",
             "flex items-center justify-center",
           )}
         >
           <div className="text-center">
-            <Upload className="h-12 w-12 text-main mx-auto mb-2" />
-            <p className="font-heading text-main">Drop files to import</p>
+            <Upload className="h-12 w-12 text-primary mx-auto mb-2" />
+            <p className="font-medium text-primary">Drop files to import</p>
           </div>
         </div>
       )}
@@ -359,10 +359,10 @@ export function MediaLibrary({
           <button
             type="button"
             className={cn(
-              "mx-2 mb-2 p-3 border-2 border-dashed border-border",
+              "mx-2 mb-2 p-3 border border-dashed border-border rounded-lg",
               "flex flex-col items-center justify-center gap-1 w-[calc(100%-1rem)]",
               "text-foreground/40 text-xs bg-transparent",
-              "cursor-pointer hover:border-main hover:text-foreground/60",
+              "cursor-pointer hover:border-primary hover:text-foreground/60",
             )}
             onClick={onImport}
           >

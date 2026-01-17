@@ -452,18 +452,18 @@ function FilterPresetButton({
   return (
     <Button
       size="sm"
-      variant={isSelected ? "default" : "neutral"}
+      variant={isSelected ? "default" : "outline"}
       onClick={onClick}
       className={cn(
         "text-xs px-2 py-2 h-auto flex flex-col items-center gap-2 font-semibold overflow-hidden",
-        isSelected && "ring-2 ring-offset-2 ring-main",
+        isSelected && "ring-2 ring-offset-2 ring-primary",
         isNone && "col-span-2 sm:col-span-3",
       )}
     >
       {/* Thumbnail preview */}
       {thumbnailDataUrl && !isNone && (
         <div
-          className="w-full h-20 rounded border-2 border-black bg-black overflow-hidden relative"
+          className="w-full h-20 rounded border border-border bg-black overflow-hidden relative"
           style={{
             filter: filterCSS !== "none" ? filterCSS : undefined,
           }}
@@ -497,20 +497,20 @@ function ToggleItem({
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-4 p-3 rounded-base",
-        "border-2 border-border bg-white dark:bg-gray-950",
+        "flex items-center justify-between gap-4 p-3 rounded-lg",
+        "border border-border bg-card",
         "transition-all duration-200",
-        checked && "border-main bg-main/5 dark:bg-main/10",
+        checked && "border-primary bg-primary/5 dark:bg-primary/10",
         disabled && "opacity-50 cursor-not-allowed",
       )}
     >
       <div className="flex items-center gap-3">
         <div
           className={cn(
-            "flex items-center justify-center size-10 rounded-base",
-            "border-2 border-border bg-secondary-background",
+            "flex items-center justify-center size-10 rounded-lg",
+            "border border-border bg-muted",
             "transition-all duration-200",
-            checked && "border-main bg-main text-white",
+            checked && "border-primary bg-primary text-white",
           )}
         >
           {icon}
@@ -724,12 +724,7 @@ export function EditingPanel({
   );
 
   return (
-    <Card
-      className={cn(
-        "shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,0.1)]",
-        className,
-      )}
-    >
+    <Card className={cn("shadow-lg", className)}>
       <CardHeader>
         <CardTitle className="text-xl flex items-center gap-2">
           {/* <Scissors className="size-5" /> */}
@@ -804,7 +799,7 @@ export function EditingPanel({
 
             {/* Trim info when active */}
             {state.trim.enabled && (
-              <div className="p-3 rounded-base border-2 border-main bg-main/10 text-sm">
+              <div className="p-3 rounded-lg border border-primary bg-primary/10 text-sm">
                 <div className="font-semibold mb-1 flex items-center gap-2">
                   <ScissorsIcon animateOnHover />
                   Trim Range
@@ -838,7 +833,7 @@ export function EditingPanel({
 
                 {/* Rotation degree selector */}
                 {state.rotate.enabled && (
-                  <div className="p-3 rounded-base border-2 border-main bg-main/10">
+                  <div className="p-3 rounded-lg border border-primary bg-primary/10">
                     <div className="font-semibold mb-2 flex items-center gap-2 text-sm">
                       <RotateCcw className="size-4" />
                       Rotation Angle
@@ -851,13 +846,13 @@ export function EditingPanel({
                           variant={
                             state.rotate.degrees === degree
                               ? "default"
-                              : "neutral"
+                              : "outline"
                           }
                           onClick={() => handleRotateDegreeChange(degree)}
                           className={cn(
                             "flex-1 font-mono font-bold",
                             state.rotate.degrees === degree &&
-                              "ring-2 ring-offset-2 ring-main",
+                              "ring-2 ring-offset-2 ring-primary",
                           )}
                         >
                           {degree}°
@@ -884,7 +879,7 @@ export function EditingPanel({
 
             {/* Crop info when active */}
             {state.crop.enabled && state.crop.rect && (
-              <div className="p-3 rounded-base border-2 border-main bg-main/10 text-sm">
+              <div className="p-3 rounded-lg border border-primary bg-primary/10 text-sm">
                 <div className="font-semibold mb-1 flex items-center gap-2">
                   <Crop className="size-4" />
                   Crop Region
@@ -935,7 +930,7 @@ export function EditingPanel({
             {/* Refresh thumbnails button */}
             {(playerCanvasRef || playerRef) && (
               <Button
-                variant="neutral"
+                variant="outline"
                 size="sm"
                 onClick={captureThumb}
                 className="w-full text-xs"
@@ -946,7 +941,7 @@ export function EditingPanel({
 
             {/* Active filter preview */}
             {state.fineTune.enabled && selectedPreset !== "None" && (
-              <div className="p-3 sm:p-4 rounded-base border-2 border-main bg-main/10 text-sm">
+              <div className="p-3 sm:p-4 rounded-lg border border-primary bg-primary/10 text-sm">
                 <div className="font-semibold mb-2 flex items-center gap-2 text-sm sm:text-base">
                   <SlidersHorizontalIcon
                     size={18}
@@ -966,7 +961,7 @@ export function EditingPanel({
                       return (
                         <div key={key} className="flex justify-between py-0.5">
                           <span>{label}:</span>
-                          <span className={value > 0 ? "text-main" : ""}>
+                          <span className={value > 0 ? "text-primary" : ""}>
                             {value > 0 ? `+${value}` : value}
                           </span>
                         </div>
@@ -1005,11 +1000,11 @@ export function EditingPanel({
                   <Button
                     key={key}
                     size="sm"
-                    variant={selectedFilter === key ? "default" : "neutral"}
+                    variant={selectedFilter === key ? "default" : "outline"}
                     onClick={() => setSelectedFilter(key)}
                     className={cn(
                       "text-xs px-2 py-1 h-auto",
-                      isActive && selectedFilter !== key && "border-main",
+                      isActive && selectedFilter !== key && "border-primary",
                     )}
                   >
                     {label}
@@ -1037,7 +1032,7 @@ export function EditingPanel({
             {/* Reset Button */}
             {hasActiveFilters && (
               <Button
-                variant="neutral"
+                variant="outline"
                 size="sm"
                 onClick={handleResetFilters}
                 className="w-full"
@@ -1048,7 +1043,7 @@ export function EditingPanel({
 
             {/* Active filters summary */}
             {state.fineTune.enabled && hasActiveFilters && (
-              <div className="p-3 rounded-base border-2 border-main bg-main/10 text-sm">
+              <div className="p-3 rounded-lg border border-primary bg-primary/10 text-sm">
                 <div className="font-semibold mb-2 flex items-center gap-2">
                   <SlidersHorizontalIcon
                     size={20}
@@ -1064,7 +1059,7 @@ export function EditingPanel({
                     return (
                       <div key={key} className="flex justify-between">
                         <span>{label}:</span>
-                        <span className={value > 0 ? "text-main" : ""}>
+                        <span className={value > 0 ? "text-primary" : ""}>
                           {value > 0 ? `+${value}` : value}
                         </span>
                       </div>

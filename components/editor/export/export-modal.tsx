@@ -214,7 +214,7 @@ export function ExportModal({ open, onOpenChange, tracks }: ExportModalProps) {
         {exportState === "exporting" ? (
           <div className="py-8 space-y-4">
             <div className="flex items-center justify-center gap-3">
-              <Loader2 className="h-6 w-6 animate-spin text-main" />
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
               <span className="text-lg font-medium">Exporting...</span>
             </div>
             <Progress value={progress} className="h-3" />
@@ -250,7 +250,7 @@ export function ExportModal({ open, onOpenChange, tracks }: ExportModalProps) {
                 <Download className="h-4 w-4 mr-2" />
                 Download
               </Button>
-              <Button onClick={handleClose} variant="neutral">
+              <Button onClick={handleClose} variant="outline">
                 Close
               </Button>
             </div>
@@ -266,7 +266,7 @@ export function ExportModal({ open, onOpenChange, tracks }: ExportModalProps) {
             </div>
             <Button
               onClick={() => setExportState("idle")}
-              variant="neutral"
+              variant="outline"
               className="mt-4"
             >
               Try Again
@@ -277,7 +277,7 @@ export function ExportModal({ open, onOpenChange, tracks }: ExportModalProps) {
             {/* Settings Form */}
             <div className="space-y-5 py-4">
               {/* Timeline Info */}
-              <div className="p-3 bg-secondary-background border-2 border-border rounded-md">
+              <div className="p-3 bg-muted border border-border rounded-md">
                 <div className="flex justify-between text-sm">
                   <span className="text-foreground/60">Duration:</span>
                   <span className="font-medium">
@@ -405,7 +405,7 @@ export function ExportModal({ open, onOpenChange, tracks }: ExportModalProps) {
             </div>
 
             <DialogFooter className="gap-2 sm:gap-0">
-              <Button variant="neutral" onClick={handleClose}>
+              <Button variant="outline" onClick={handleClose}>
                 Cancel
               </Button>
               <Button onClick={handleExport} disabled={clipCount === 0}>

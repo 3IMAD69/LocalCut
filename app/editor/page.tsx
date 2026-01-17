@@ -107,7 +107,7 @@ export default function EditorDashboard() {
         <div className="flex items-center gap-4 mb-2">
           <HeroIcon />
           <div>
-            <h1 className="text-2xl font-heading text-foreground tracking-tight">
+            <h1 className="text-2xl font-semibold text-foreground tracking-tight">
               LocalCut
             </h1>
             <p className="text-sm text-foreground/60">
@@ -122,7 +122,7 @@ export default function EditorDashboard() {
         {/* Action Buttons */}
         <div className="flex gap-4 mt-8 mb-10">
           <Button
-            variant="neutral"
+            variant="outline"
             className="w-36 h-24 flex flex-col items-start justify-between p-4"
             onClick={handleNewProject}
           >
@@ -131,7 +131,7 @@ export default function EditorDashboard() {
           </Button>
 
           <Button
-            variant="neutral"
+            variant="outline"
             className="w-36 h-24 flex flex-col items-start justify-between p-4"
             onClick={() => console.log("Backup folder")}
           >
@@ -140,7 +140,7 @@ export default function EditorDashboard() {
           </Button>
 
           <Button
-            variant="neutral"
+            variant="outline"
             asChild
             className="w-36 h-24 flex flex-col items-start justify-between p-4"
           >
@@ -154,7 +154,7 @@ export default function EditorDashboard() {
         {/* Recent Projects */}
         <div className="w-full max-w-md">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-heading text-foreground/60">
+            <h2 className="text-sm font-medium text-muted-foreground">
               Recent Projects
             </h2>
             {recentProjects.length > 0 && (
@@ -178,7 +178,7 @@ export default function EditorDashboard() {
                 <button
                   type="button"
                   key={project.id}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded border border-transparent hover:border-border hover:bg-secondary-background transition-colors text-left"
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-md hover:bg-accent transition-colors text-left"
                   onClick={() => handleOpenProject(project.id)}
                 >
                   <span className="text-sm text-foreground">
@@ -198,7 +198,7 @@ export default function EditorDashboard() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t-2 border-border py-4">
+      <footer className="border-t border-border py-4">
         <div className="container mx-auto flex items-center justify-center gap-4 text-xs text-foreground/50">
           <Link href="#" className="hover:text-foreground">
             LOG IN

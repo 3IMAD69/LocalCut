@@ -60,12 +60,13 @@ function ToolButton({
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
-          variant="noShadow"
+          variant="ghost"
           size="icon"
           className={cn(
             "h-9 w-9",
-            active && "bg-main text-main-foreground",
-            variant === "danger" && "hover:bg-red-400 hover:text-white",
+            active && "bg-primary text-primary-foreground",
+            variant === "danger" &&
+              "hover:bg-destructive hover:text-destructive-foreground",
             disabled && "opacity-40",
           )}
           onClick={onClick}
@@ -106,8 +107,8 @@ export function Toolbar({
     <TooltipProvider>
       <div
         className={cn(
-          "flex items-center gap-1 px-3 py-2",
-          "border-2 border-border bg-secondary-background",
+          "flex items-center gap-1 px-3 py-2 rounded-lg",
+          "border border-border bg-muted",
           className,
         )}
       >

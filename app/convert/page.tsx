@@ -873,7 +873,7 @@ export default function ConvertPage() {
 
     if (loadingMetadata) {
       return (
-        <div className="flex items-center justify-center gap-2 rounded-base border-2 border-border bg-white dark:bg-gray-950 p-4">
+        <div className="flex items-center justify-center gap-2 rounded-lg border border-border bg-card p-4">
           <Loader2 className="size-4 animate-spin" />
           <span className="text-sm text-foreground/60">
             Loading metadata...
@@ -885,22 +885,22 @@ export default function ConvertPage() {
     if (!metadata) return null;
 
     return (
-      <div className="rounded-base border-2 border-border bg-white dark:bg-gray-950 p-4">
+      <div className="rounded-lg border border-border bg-card p-4">
         <div className="flex items-center gap-2 mb-3">
           <h4 className="font-semibold text-sm">File Information</h4>
           {metadata.isAudioOnly && (
-            <span className="rounded-full bg-main/20 px-2 py-0.5 text-xs font-medium">
+            <span className="rounded-full bg-primary/20 px-2 py-0.5 text-xs font-medium">
               Audio Only
             </span>
           )}
         </div>
         <div className="grid grid-cols-2 gap-2 text-sm">
-          <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+          <div className="rounded-md border border-border bg-muted px-3 py-2">
             <div className="text-xs text-foreground/60">Container</div>
             <div className="font-semibold">{metadata.container}</div>
           </div>
           {metadata.duration !== null && (
-            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+            <div className="rounded-md border border-border bg-muted px-3 py-2">
               <div className="text-xs text-foreground/60">Duration</div>
               <div className="font-semibold">
                 {formatTime(metadata.duration)}
@@ -908,7 +908,7 @@ export default function ConvertPage() {
             </div>
           )}
           {metadata.dimensions && (
-            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+            <div className="rounded-md border border-border bg-muted px-3 py-2">
               <div className="text-xs text-foreground/60">Dimensions</div>
               <div className="font-semibold">
                 {metadata.dimensions.width}x{metadata.dimensions.height}
@@ -916,7 +916,7 @@ export default function ConvertPage() {
             </div>
           )}
           {metadata.frameRate !== null && (
-            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+            <div className="rounded-md border border-border bg-muted px-3 py-2">
               <div className="text-xs text-foreground/60">Frame Rate</div>
               <div className="font-semibold">
                 {metadata.frameRate.toFixed(2)} FPS
@@ -924,7 +924,7 @@ export default function ConvertPage() {
             </div>
           )}
           {metadata.videoCodec && (
-            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+            <div className="rounded-md border border-border bg-muted px-3 py-2">
               <div className="text-xs text-foreground/60">Video Codec</div>
               <div className="font-semibold">
                 {VIDEO_CODEC_LABELS[
@@ -934,7 +934,7 @@ export default function ConvertPage() {
             </div>
           )}
           {metadata.audioCodec && (
-            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+            <div className="rounded-md border border-border bg-muted px-3 py-2">
               <div className="text-xs text-foreground/60">Audio Codec</div>
               <div className="font-semibold">
                 {AUDIO_CODEC_LABELS[
@@ -944,13 +944,13 @@ export default function ConvertPage() {
             </div>
           )}
           {metadata.sampleRate !== null && (
-            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+            <div className="rounded-md border border-border bg-muted px-3 py-2">
               <div className="text-xs text-foreground/60">Sample Rate</div>
               <div className="font-semibold">{metadata.sampleRate} Hz</div>
             </div>
           )}
           {metadata.numberOfChannels !== null && (
-            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+            <div className="rounded-md border border-border bg-muted px-3 py-2">
               <div className="text-xs text-foreground/60">Channels</div>
               <div className="font-semibold">
                 {metadata.numberOfChannels === 1
@@ -962,7 +962,7 @@ export default function ConvertPage() {
             </div>
           )}
           {metadata.isHdr && (
-            <div className="rounded-base border border-border bg-main/5 dark:bg-main/10 px-3 py-2">
+            <div className="rounded-md border border-border bg-muted px-3 py-2">
               <div className="text-xs text-foreground/60">Color</div>
               <div className="font-semibold">HDR</div>
             </div>
@@ -980,7 +980,7 @@ export default function ConvertPage() {
         <div className="space-y-2">
           <span className="text-sm font-semibold block">Input Format</span>
           <Select value={inputFormat} onValueChange={setInputFormat}>
-            <SelectTrigger className="h-12 bg-white dark:bg-gray-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
+            <SelectTrigger className="h-12 bg-card shadow-sm">
               <SelectValue placeholder="Select input format" />
             </SelectTrigger>
             <SelectContent>
@@ -998,7 +998,7 @@ export default function ConvertPage() {
 
         {/* Arrow Icon */}
         <div className="flex items-end justify-center pb-2 md:pb-0 md:items-center">
-          <div className="rounded-full border-2 border-border bg-main p-3 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
+          <div className="rounded-full border border-border bg-primary p-3 shadow-sm">
             <ArrowRightIcon animateOnHover />
           </div>
         </div>
@@ -1007,7 +1007,7 @@ export default function ConvertPage() {
         <div className="space-y-2">
           <span className="text-sm font-semibold block">Output Format</span>
           <Select value={outputFormat} onValueChange={setOutputFormat}>
-            <SelectTrigger className="h-12 bg-white dark:bg-gray-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
+            <SelectTrigger className="h-12 bg-card shadow-sm">
               <SelectValue placeholder="Select output format" />
             </SelectTrigger>
             <SelectContent>
@@ -1037,7 +1037,7 @@ export default function ConvertPage() {
     }
 
     return (
-      <div className="rounded-base border-2 border-border bg-white dark:bg-gray-950 p-4">
+      <div className="rounded-lg border border-border bg-card p-4">
         <div className="flex items-center gap-2 mb-4">
           <h4 className="font-semibold text-sm">Encoding Options</h4>
           <span className="text-xs text-foreground/70">
@@ -1059,7 +1059,7 @@ export default function ConvertPage() {
                 <div className="space-y-2">
                   <span className="text-sm font-medium block">Video Codec</span>
                   <Select value={videoCodec} onValueChange={setVideoCodec}>
-                    <SelectTrigger className="bg-white dark:bg-gray-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
+                    <SelectTrigger className="bg-card shadow-sm">
                       <SelectValue placeholder="Select video codec" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1091,7 +1091,7 @@ export default function ConvertPage() {
             <div className="space-y-2">
               <span className="text-sm font-medium block">Audio Codec</span>
               <Select value={audioCodec} onValueChange={setAudioCodec}>
-                <SelectTrigger className="bg-white dark:bg-gray-950 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
+                <SelectTrigger className="bg-card shadow-sm">
                   <SelectValue placeholder="Select audio codec" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1135,7 +1135,7 @@ export default function ConvertPage() {
     <div className="min-h-screen bg-background dark:bg-black p-4 md:p-8">
       {/* Header */}
       <div className="mb-8 text-center">
-        <h1 className="mb-3 font-heading text-5xl tracking-tight text-foreground">
+        <h1 className="mb-3 font-semibold text-5xl tracking-tight text-foreground">
           LocalCut - Media Converter
         </h1>
         <p className="text-lg text-foreground/70">
@@ -1144,7 +1144,7 @@ export default function ConvertPage() {
       </div>
 
       {/* Main Converter Section */}
-      <div className="mb-6 border-4 border-black dark:border-white rounded-base bg-white dark:bg-gray-950 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,0.1)] p-6 md:p-8">
+      <div className="mb-6 border border-border rounded-lg bg-card shadow-lg p-6 md:p-8">
         <div className="mb-6">
           <h2 className="text-2xl font-bold mb-2">Media Converter</h2>
           <p className="text-foreground/70">
@@ -1171,10 +1171,10 @@ export default function ConvertPage() {
                 {!selectedFile ? (
                   <label
                     htmlFor="video-upload"
-                    className={`flex h-32 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-base border-2 border-dashed transition-all hover:translate-x-1 hover:translate-y-1 ${
+                    className={`flex h-32 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed transition-all ${
                       isDragging
-                        ? "border-main bg-main/10 scale-[1.02]"
-                        : "border-border bg-white dark:bg-gray-950 hover:bg-main/5 dark:hover:bg-main/10"
+                        ? "border-primary bg-primary/10 scale-[1.02]"
+                        : "border-border bg-card hover:bg-muted"
                     }`}
                     onDragEnter={handleDragEnter}
                     onDragLeave={handleDragLeave}
@@ -1229,7 +1229,7 @@ export default function ConvertPage() {
                     />
                     <div className="space-y-3 max-w-3xl mx-auto">
                       {/* File Info Header */}
-                      <div className="flex items-center justify-between gap-3 rounded-base border-2 border-border bg-white dark:bg-gray-950 p-3">
+                      <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3">
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold truncate">
                             {selectedFile.name}
@@ -1239,12 +1239,12 @@ export default function ConvertPage() {
                           </p>
                         </div>
                         <Button
-                          variant="neutral"
+                          variant="outline"
                           size="sm"
                           onClick={() =>
                             document.getElementById("video-upload")?.click()
                           }
-                          className="shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]"
+                          className="shadow-sm"
                         >
                           <Upload className="size-4" />
                           Change File
@@ -1280,7 +1280,7 @@ export default function ConvertPage() {
                   outputFormat &&
                   outputContainers.includes(outputFormat as OutputContainer) &&
                   !isAudioOnlyFormat(outputFormat as OutputContainer) && (
-                    <div className="rounded-base border-2 border-amber-500 bg-amber-50 dark:bg-amber-950 p-4">
+                    <div className="rounded-lg border border-amber-500 bg-amber-50 dark:bg-amber-950 p-4">
                       <div className="flex items-start gap-2">
                         <span className="text-lg">ℹ️</span>
                         <div>
@@ -1338,7 +1338,7 @@ export default function ConvertPage() {
                   outputContainers.includes(
                     outputFormat as OutputContainer,
                   ) && (
-                    <div className="rounded-base border-2 border-border bg-white dark:bg-gray-950 p-4">
+                    <div className="rounded-lg border border-border bg-card p-4">
                       <div className="flex items-center gap-3">
                         <input
                           type="checkbox"

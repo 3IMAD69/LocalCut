@@ -47,7 +47,7 @@ export function EditorHeader({
       <header
         className={cn(
           "flex items-center justify-between h-14",
-          "px-4 border-b-2 border-border bg-main",
+          "px-4 border-b border-border bg-card",
           className,
         )}
       >
@@ -57,13 +57,13 @@ export function EditorHeader({
           <div className="flex items-center gap-2">
             <div
               className={cn(
-                "w-8 h-8 border-2 border-border bg-secondary-background",
+                "w-8 h-8 border border-border bg-muted rounded-md",
                 "flex items-center justify-center",
               )}
             >
-              <Film className="h-5 w-5 text-main-foreground" />
+              <Film className="h-5 w-5 text-foreground" />
             </div>
-            <span className="font-heading text-lg text-main-foreground hidden sm:block">
+            <span className="font-semibold text-lg text-foreground hidden sm:block">
               LocalCut
             </span>
           </div>
@@ -73,7 +73,7 @@ export function EditorHeader({
 
           {/* Project Name */}
           <div className="flex items-center gap-2">
-            <span className="font-heading text-sm text-main-foreground truncate max-w-[200px]">
+            <span className="font-medium text-sm text-foreground truncate max-w-[200px]">
               {projectName}
             </span>
             {hasUnsavedChanges && (
@@ -90,9 +90,9 @@ export function EditorHeader({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant="noShadow"
+                variant="ghost"
                 size="sm"
-                className="h-8 bg-secondary-background"
+                className="h-8 bg-muted"
                 onClick={onNewProject}
               >
                 <Film className="h-4 w-4 mr-1" />
@@ -105,9 +105,9 @@ export function EditorHeader({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant="noShadow"
+                variant="ghost"
                 size="sm"
-                className="h-8 bg-secondary-background"
+                className="h-8 bg-muted"
                 onClick={onOpenProject}
               >
                 <FolderOpen className="h-4 w-4 mr-1" />
@@ -120,9 +120,9 @@ export function EditorHeader({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant="noShadow"
+                variant="ghost"
                 size="sm"
-                className="h-8 bg-secondary-background"
+                className="h-8 bg-muted"
                 onClick={onSaveProject}
                 disabled={isSaving}
               >
@@ -159,9 +159,9 @@ export function EditorHeader({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant="noShadow"
+                variant="ghost"
                 size="icon"
-                className="h-8 w-8 bg-secondary-background"
+                className="h-8 w-8 bg-muted"
                 onClick={onHelp}
               >
                 <HelpCircle className="h-4 w-4" />
@@ -173,9 +173,9 @@ export function EditorHeader({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant="noShadow"
+                variant="ghost"
                 size="icon"
-                className="h-8 w-8 bg-secondary-background"
+                className="h-8 w-8 bg-muted"
                 onClick={onSettings}
               >
                 <Settings className="h-4 w-4" />

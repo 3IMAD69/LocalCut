@@ -165,8 +165,8 @@ export function TrimSeekBar({
             "relative flex w-full touch-none select-none items-center cursor-pointer",
           )}
         >
-          <SliderPrimitive.Track className="relative w-full grow overflow-hidden rounded-base bg-secondary-background border-2 border-border h-3">
-            <SliderPrimitive.Range className="absolute bg-main h-full" />
+          <SliderPrimitive.Track className="relative w-full grow overflow-hidden rounded-full bg-muted border border-border h-3">
+            <SliderPrimitive.Range className="absolute bg-primary h-full" />
           </SliderPrimitive.Track>
           <SliderPrimitive.Thumb className="block h-5 w-5 rounded-full border-2 border-border bg-white ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" />
         </SliderPrimitive.Root>
@@ -189,7 +189,7 @@ export function TrimSeekBar({
           minStepsBetweenThumbs={1}
           className="relative flex w-full touch-none select-none items-center cursor-pointer h-8"
         >
-          <SliderPrimitive.Track className="relative w-full grow overflow-hidden rounded-base bg-secondary-background border-2 border-border h-4">
+          <SliderPrimitive.Track className="relative w-full grow overflow-hidden rounded-md bg-muted border border-border h-4">
             {/* Excluded regions (darker) */}
             <div
               className="absolute h-full bg-black/30 dark:bg-black/50"
@@ -200,18 +200,18 @@ export function TrimSeekBar({
               style={{ left: `${trimEndPercent}%`, right: 0 }}
             />
             {/* Active trim region */}
-            <SliderPrimitive.Range className="absolute bg-main/40 h-full" />
+            <SliderPrimitive.Range className="absolute bg-primary/40 h-full" />
           </SliderPrimitive.Track>
 
           {/* Start thumb */}
-          <SliderPrimitive.Thumb className="block w-3 h-8 rounded-l-base bg-main border-2 border-black cursor-ew-resize hover:bg-main/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 shadow-md">
+          <SliderPrimitive.Thumb className="block w-3 h-8 rounded-l-md bg-primary border border-border cursor-ew-resize hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 shadow-md">
             <div className="flex items-center justify-center h-full">
               <div className="w-0.5 h-4 bg-black/40 rounded-full" />
             </div>
           </SliderPrimitive.Thumb>
 
           {/* End thumb */}
-          <SliderPrimitive.Thumb className="block w-3 h-8 rounded-r-base bg-main border-2 border-black cursor-ew-resize hover:bg-main/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 shadow-md">
+          <SliderPrimitive.Thumb className="block w-3 h-8 rounded-r-md bg-primary border border-border cursor-ew-resize hover:bg-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 shadow-md">
             <div className="flex items-center justify-center h-full">
               <div className="w-0.5 h-4 bg-black/40 rounded-full" />
             </div>
@@ -231,17 +231,17 @@ export function TrimSeekBar({
       {/* Time labels */}
       <div className="flex justify-between text-xs text-foreground/60 px-1">
         <div className="flex items-center gap-1">
-          <span className="font-semibold text-main">Start:</span>
+          <span className="font-semibold text-primary">Start:</span>
           <span className="font-mono">{formatTime(effectiveStart)}</span>
         </div>
         <div className="flex items-center gap-1">
           <span className="font-semibold">Duration:</span>
-          <span className="font-mono text-main">
+          <span className="font-mono text-primary">
             {formatTime(effectiveEnd - effectiveStart)}
           </span>
         </div>
         <div className="flex items-center gap-1">
-          <span className="font-semibold text-main">End:</span>
+          <span className="font-semibold text-primary">End:</span>
           <span className="font-mono">{formatTime(effectiveEnd)}</span>
         </div>
       </div>
