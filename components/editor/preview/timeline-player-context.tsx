@@ -109,6 +109,8 @@ export interface TimelinePlaybackState {
 interface TimelinePlayerContextValue {
   // Canvas ref for rendering
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  // Unique key to force fresh canvas element on remount
+  canvasKey: number;
 
   // Compositor instance
   compositor: Compositor | null;
@@ -155,6 +157,9 @@ interface TimelinePlayerProviderProps {
   backgroundColor?: string;
 }
 
+// Counter to generate unique canvas keys
+let canvasKeyCounter = 0;
+
 export function TimelinePlayerProvider({
   children,
   width = 1920,
@@ -166,6 +171,8 @@ export function TimelinePlayerProvider({
   const loadedSourcesRef = useRef<Map<string, LoadedSource>>(new Map());
   const volumeRef = useRef(1);
   const mutedRef = useRef(false);
+  // Unique key to force fresh canvas on each mount (prevents transferControlToOffscreen errors)
+  const [canvasKey] = useState(() => ++canvasKeyCounter);
 
   const [loadedSources, setLoadedSources] = useState<Map<string, LoadedSource>>(
     new Map(),
@@ -450,6 +457,7 @@ export function TimelinePlayerProvider({
 
   const contextValue: TimelinePlayerContextValue = {
     canvasRef,
+    canvasKey,
     compositor: compositorRef.current,
     loadedSources,
     state,

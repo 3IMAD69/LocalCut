@@ -63,6 +63,7 @@ export function TimelinePlayer({
 }: TimelinePlayerProps) {
   const {
     canvasRef,
+    canvasKey,
     state,
     tracks,
     play,
@@ -346,8 +347,9 @@ export function TimelinePlayer({
           ref={videoAreaRef}
           className="relative flex-1 bg-black min-h-[300px] flex items-center justify-center"
         >
-          {/* Canvas for compositor rendering */}
+          {/* Canvas for compositor rendering - key ensures fresh element on remount */}
           <canvas
+            key={canvasKey}
             ref={canvasRef}
             className={cn(
               "aspect-video w-full max-w-full max-h-full",
