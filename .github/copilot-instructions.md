@@ -58,7 +58,7 @@ Remember that:
 
 ## UI/Design System
 
-This project uses **Neobrutalism** design style. See [ui-design-system.instructions.md](./ui-design-system.instructions.md) for complete guidelines.
+This project uses the **Caffeine** design style. See [ui-design-system.instructions.md](./ui-design-system.instructions.md) for complete guidelines.
 
 ---
 

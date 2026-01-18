@@ -35,6 +35,7 @@ export const PlayPauseButton: React.FC<{
 
   const playPauseIconStyle: React.CSSProperties = {
     width: 15,
+    color: "white",
   };
 
   return (

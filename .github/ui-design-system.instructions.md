@@ -1,99 +1,49 @@
-# UI Design System - Neobrutalism Style
+# UI Design System - "Caffeine" Modern Theme
 
-This project uses **Neobrutalism** design style for all UI components.
-
-## Component Source
-
-Get all components from https://www.neobrutalism.dev/docs/
-
-### Component URLs Pattern
-
-Follow this URL pattern: `https://www.neobrutalism.dev/docs/{component-name}`
-
-**Examples:**
-- Accordion: https://www.neobrutalism.dev/docs/accordion
-- Button: https://www.neobrutalism.dev/docs/button
-- Card: https://www.neobrutalism.dev/docs/card
-- Input: https://www.neobrutalism.dev/docs/input
-- Dialog: https://www.neobrutalism.dev/docs/dialog
-- Checkbox: https://www.neobrutalism.dev/docs/checkbox
-- Select: https://www.neobrutalism.dev/docs/select
-- Tabs: https://www.neobrutalism.dev/docs/tabs
+This project uses the **Caffeine** design system: a modern, warm, and sophisticated aesthetic inspired by coffee culture. It moves away from harsh lines and high contrast towards soft depth, organic tones, and premium minimalism.
 
 ## Design Principles
 
-### Visual Style
-- **Bold, thick borders** (typically 2-4px solid black)
-- **High contrast color combinations** (bright colors on light backgrounds)
-- **Heavy shadows for depth** (solid color box-shadows, not blurred)
-- **Sharp corners** (no border-radius or minimal)
-- **Playful, retro aesthetic**
-- **Strong visual hierarchy**
+### Visual Aesthetic
+- **Soft Depth:** Use subtle, blurred shadows (`box-shadow`) instead of hard, solid ones.
+- **Rounded Elegance:** Larger border-radius for components (default: `12px` or `0.75rem`) to feel friendly and modern.
+- **Micro-Gradients:** Subtle background gradients or overlays that add texture without being distracting.
+- **Bento Layouts:** Clean, grid-based arrangements for information density with plenty of whitespace.
 
-### Color Usage
-- Use bold, saturated colors
-- High contrast between elements
-- Black borders as primary element separator
-- Solid color fills (avoid gradients)
-
-### Shadows
-- Use hard, solid shadows (not blur)
-- Offset shadows to create depth
-- Typically: `box-shadow: 4px 4px 0px 0px #000`
+### Color Palette (Inspired by Caffeine)
+- **Background:** Deep Espresso (`#0c0a09`) - a warm, rich black for dark mode.
+- **Foreground:** Cream / Caffè Latte (`#ffe0c2`) - a soft, warm white for high readability.
+- **Primary:** Caffeine Accent (`#ffe0c2`) - used for buttons and key highlights (often inverts text to dark).
+- **Secondary / Surface:** Roasted Bean (`#1c1917`) - used for cards and nested surfaces.
+- **Muted Elements:** Cocoa Grey - used for less important text and subtle borders.
 
 ### Typography
-- Bold, clear font weights
-- High contrast text
-- Clear hierarchy
+- **Modern Sans:** Use clean, readable sans-serif fonts (e.g., Inter, DM Sans, or Archivo).
+- **Hierarchy:** Strong contrast between bold headlines and legible body text.
 
 ## Implementation Guidelines
 
-### When Creating Components
+### shadcn/ui Integration
+This project follows `shadcn/ui` patterns. Use standard Tailwind CSS classes and ensure they align with the warm theme.
 
-1. **Fetch from neobrutalism.dev**
-   - Always check the documentation URL first
-   - Use the exact component structure provided
-   - Maintain their class naming conventions
+### Key Aesthetic Requirements
+- **Consistency:** All components must share the same `0.75rem` (12px) border radius.
+- **Shadows:** Only use blurred shadows for depth. Avoid any `shadow-hard` or neobrutalist variants.
+- **Borders:** Thin, subtle borders (`1px`) using low-contrast colors for separation.
 
-2. **Maintain Consistency**
-   - Match existing neobrutalism components in the project
-   - Use the same border thickness across components
-   - Apply consistent shadow patterns
+## Avoid These Patterns (Anti-Brutalism)
+- **NO** thick 2px+ black borders.
+- **NO** hard, unblurred box-shadows.
+- **NO** 0px border-radius (sharp corners).
+- **NO** neon or "acid" color combinations.
 
-3. **Key CSS Properties**
-   - `border: 2px solid #000` (or thicker)
-   - `box-shadow: 4px 4px 0px 0px #000`
-   - `border-radius: 0` or very minimal
-   - High contrast colors
-
-4. **Avoid Anti-Patterns**
-   - No subtle gradients
-   - No soft, blurred shadows
-   - No rounded corners (or minimal)
-   - No low contrast color schemes
-
-## When to Use This Guide
-
-Apply neobrutalism style when:
-- Creating new UI components
-- Updating existing components to match the design system
-- User requests any UI element or component
-- Building forms, buttons, cards, or interactive elements
-- Adding new pages or layouts
-
-## Example Component Structure
-
+## Example Component Pattern
 ```tsx
-// Typical neobrutalism component structure
-<div className="border-2 border-black bg-white shadow-[4px_4px_0px_0px_#000]">
-  <button className="border-2 border-black bg-blue-500 text-white font-bold px-4 py-2 shadow-[2px_2px_0px_0px_#000] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all">
-    Click Me
+<div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+  <h2 className="text-2xl font-bold text-foreground">Premium Coffee</h2>
+  <p className="mt-2 text-muted-foreground">Modern, warm, and sophisticated aesthetic.</p>
+  <button className="mt-4 rounded-lg bg-primary px-4 py-2 font-medium text-primary-foreground hover:opacity-90 transition-opacity">
+    Get Started
   </button>
 </div>
 ```
-
-## Resources
-
-- Main documentation: https://www.neobrutalism.dev/
-- Component library: https://www.neobrutalism.dev/docs/
-- Browse all components: https://www.neobrutalism.dev/docs/components

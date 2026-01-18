@@ -1,5 +1,2 @@
-+ add preview for rotate take a frame from the video and show it in the rotate ui
-+ add compresion in /convert
-
-
-- for now crop is disabled when rotate is enable need to find a way to rotate the preview to make this work 
++fix the download section color section (remove hardcoded green color)
++fix main page style 2 -3 section

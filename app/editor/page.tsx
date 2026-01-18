@@ -196,26 +196,6 @@ export default function EditorDashboard() {
           )}
         </div>
       </main>
-
-      {/* Footer */}
-      <footer className="border-t border-border py-4">
-        <div className="container mx-auto flex items-center justify-center gap-4 text-xs text-foreground/50">
-          <Link href="#" className="hover:text-foreground">
-            LOG IN
-          </Link>
-          <span>/</span>
-          <Link
-            href="https://github.com/imadselka/LocalCut"
-            className="hover:text-foreground"
-          >
-            GITHUB
-          </Link>
-          <span>/</span>
-          <Link href="#" className="hover:text-foreground">
-            DISCORD
-          </Link>
-        </div>
-      </footer>
     </div>
   );
 }

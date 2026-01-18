@@ -510,7 +510,7 @@ function ToggleItem({
             "flex items-center justify-center size-10 rounded-lg",
             "border border-border bg-muted",
             "transition-all duration-200",
-            checked && "border-primary bg-primary text-white",
+            checked && "border-primary bg-primary text-black",
           )}
         >
           {icon}
@@ -724,8 +724,8 @@ export function EditingPanel({
   );
 
   return (
-    <Card className={cn("shadow-lg", className)}>
-      <CardHeader>
+    <Card className={cn("shadow-lg pb-6", className)}>
+      <CardHeader className="pt-6">
         <CardTitle className="text-xl flex items-center gap-2">
           {/* <Scissors className="size-5" /> */}
           <ScissorsIcon animateOnHover />

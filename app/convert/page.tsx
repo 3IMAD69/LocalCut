@@ -999,7 +999,7 @@ export default function ConvertPage() {
         {/* Arrow Icon */}
         <div className="flex items-end justify-center pb-2 md:pb-0 md:items-center">
           <div className="rounded-full border border-border bg-primary p-3 shadow-sm">
-            <ArrowRightIcon animateOnHover />
+            <ArrowRightIcon className="text-black" animateOnHover />
           </div>
         </div>
 
@@ -1258,7 +1258,7 @@ export default function ConvertPage() {
             {/* End Left Column */}
 
             {/* Right Column: Editor & Actions (Black Zone) */}
-            <div className="space-y-1 mt-6 lg:mt-7">
+            <div className="space-y-4 mt-6 lg:mt-7">
               {/* File Information - Metadata Display */}
               <AutoHeight deps={[metadataDisplay]}>
                 {metadataDisplay}

@@ -46,6 +46,7 @@ export function VolumeControl({ playerRef }: VolumeControlProps) {
 
   const iconStyle: React.CSSProperties = {
     width: 20,
+    color: "white",
   };
 
   return (

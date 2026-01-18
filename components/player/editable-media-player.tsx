@@ -25,7 +25,7 @@ import { type TrimRange, TrimSeekBar } from "./trim-seek-bar";
 import { VolumeControl } from "./volume-control";
 
 const Separator: React.FC = () => {
-  return <div className="border-r border-border h-12" />;
+  return <div className="border-r border-border h-8" />;
 };
 
 export interface MediaPlayerHandle {
