@@ -7,8 +7,8 @@ import {
   type TimelineRow,
   type TimelineState,
 } from "@xzdarcy/react-timeline-editor";
-import { Film, Minus, Music, Plus, Video } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Film, Minus, Music, Plus, Scissors, Video } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -16,6 +16,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { TimelineTrackData } from "../preview/timeline-player-context";
 import { AudioWaveform } from "./audio-waveform";
@@ -121,6 +127,87 @@ export function Timeline({
     [],
   );
 
+  // Split clip at playhead position
+  const splitClipAtPlayhead = useCallback(() => {
+    if (!onTracksChange) return;
+
+    // Find clips that the playhead is currently over
+    const clipsToSplit: Array<{
+      trackId: string;
+      clip: TimelineTrackData["clips"][number];
+    }> = [];
+
+    for (const track of tracks) {
+      for (const clip of track.clips) {
+        const clipEnd = clip.startTime + clip.duration;
+        // Check if playhead is within this clip (not at the very edges)
+        if (currentTime > clip.startTime && currentTime < clipEnd) {
+          clipsToSplit.push({ trackId: track.id, clip });
+        }
+      }
+    }
+
+    if (clipsToSplit.length === 0) return;
+
+    // Create new tracks with split clips
+    const newTracks = tracks.map((track) => {
+      const clipToSplit = clipsToSplit.find((c) => c.trackId === track.id);
+      if (!clipToSplit) return track;
+
+      const { clip } = clipToSplit;
+      const splitPoint = currentTime - clip.startTime; // Time within the clip where we split
+
+      // First part: from clip start to playhead
+      const firstPart: TimelineTrackData["clips"][number] = {
+        ...clip,
+        id: `${clip.id}-part1-${Date.now()}`,
+        duration: splitPoint,
+        trimEnd: clip.trimStart + splitPoint,
+      };
+
+      // Second part: from playhead to clip end
+      const secondPart: TimelineTrackData["clips"][number] = {
+        ...clip,
+        id: `${clip.id}-part2-${Date.now()}`,
+        startTime: currentTime,
+        duration: clip.duration - splitPoint,
+        trimStart: clip.trimStart + splitPoint,
+      };
+
+      // Replace the original clip with the two parts
+      return {
+        ...track,
+        clips: track.clips.flatMap((c) =>
+          c.id === clip.id ? [firstPart, secondPart] : [c],
+        ),
+      };
+    });
+
+    onTracksChange(newTracks);
+  }, [tracks, currentTime, onTracksChange]);
+
+  // Keyboard shortcut for split (Ctrl+B)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if focused on an input
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+
+      // Ctrl/Cmd + B for split
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        splitClipAtPlayhead();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [splitClipAtPlayhead]);
+
   useEffect(() => {
     timelineRef.current?.setTime(currentTime);
   }, [currentTime]);
@@ -154,6 +241,24 @@ export function Timeline({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1 rounded-full px-3 text-xs bg-background/50 border-border/50 shadow-sm hover:bg-background"
+                  onClick={splitClipAtPlayhead}
+                >
+                  <Scissors className="h-3 w-3" />
+                  <span className="text-xs">Split</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>Split clip at playhead (Ctrl+B)</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
 
         <div className="flex items-center gap-1">
