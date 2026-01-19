@@ -16,6 +16,11 @@ import {
 import { ExportModal } from "@/components/editor/export";
 import type { MediaAsset } from "@/components/editor/panels/media-library";
 import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
+import {
   type ImportedMediaAsset,
   MediaImportProvider,
   useMediaImport,
@@ -318,73 +323,92 @@ function EditorContent() {
         className="h-16 px-6 bg-background/50 backdrop-blur-sm border-b-0"
       />
 
-      <div className="flex-1 flex flex-col overflow-hidden px-4 pb-4 gap-3">
-        {/* Top Section: Sidebar + Preview */}
-        <div className="flex-1 flex overflow-hidden min-h-0 gap-3">
-          {/* Left Sidebar: Media Library */}
-          <aside className="w-[360px] flex-shrink-0 bg-card rounded-2xl border border-border/40 shadow-sm z-10 flex flex-col overflow-hidden">
-            <MediaLibrary
-              assets={mediaAssets}
-              isLoading={isImporting}
-              error={importError}
-              onImport={openFilePicker}
-              onFileDrop={handleFileDrop}
-              onAssetSelect={(asset) => console.log("Selected asset", asset)}
-              onAssetAdd={handleAssetAdd}
-              onAssetRemove={removeAsset}
-              className="h-full border-none"
-            />
-          </aside>
+      <div className="flex-1 overflow-hidden px-4 pb-4">
+        <ResizablePanelGroup direction="vertical" className="h-full">
+          {/* Top Section: Sidebar + Preview */}
+          <ResizablePanel defaultSize={70} minSize={40}>
+            <div className="h-full pb-3">
+              <ResizablePanelGroup direction="horizontal" className="h-full">
+                {/* Left Sidebar: Media Library */}
+                <ResizablePanel defaultSize={25} minSize={15} maxSize={50}>
+                  <aside className="h-full bg-card rounded-2xl border border-border/40 shadow-sm z-10 flex flex-col overflow-hidden">
+                    <MediaLibrary
+                      assets={mediaAssets}
+                      isLoading={isImporting}
+                      error={importError}
+                      onImport={openFilePicker}
+                      onFileDrop={handleFileDrop}
+                      onAssetSelect={(asset) =>
+                        console.log("Selected asset", asset)
+                      }
+                      onAssetAdd={handleAssetAdd}
+                      onAssetRemove={removeAsset}
+                      className="h-full border-none"
+                    />
+                  </aside>
+                </ResizablePanel>
 
-          {/* Main Content: Preview Area - Card style */}
-          <main className="flex-1 min-w-0 bg-black rounded-2xl border border-border/40 shadow-sm relative overflow-hidden ring-1 ring-white/5">
-            <TimelinePlayer
-              className="w-full h-full"
-              selectedClipId={selectedClip?.id ?? null}
-              onClipTransformChange={(clipId, transform) => {
-                setTracks((prev) =>
-                  prev.map((track) => ({
-                    ...track,
-                    clips: track.clips.map((clip) => {
-                      if (clip.id !== clipId) return clip;
-                      const existing: ClipTransform = clip.transform ?? {
-                        x: 0,
-                        y: 0,
-                        scaleX: 1,
-                        scaleY: 1,
-                        rotation: 0,
-                      };
-                      return {
-                        ...clip,
-                        transform: {
-                          ...existing,
-                          x: transform.x,
-                          y: transform.y,
-                        },
-                      };
-                    }),
-                  })),
-                );
-              }}
-              onFullscreen={() => console.log("Fullscreen")}
-            />
-          </main>
-        </div>
+                <ResizableHandle className="mx-1 w-1 bg-transparent hover:bg-primary/30 data-[resize-handle-state=drag]:bg-primary/50 transition-all duration-200 rounded-full" />
 
-        {/* Bottom Section: Timeline - Card style */}
-        <div className="h-[340px] flex-shrink-0 bg-background rounded-2xl border border-border/40 shadow-sm z-20 overflow-hidden">
-          <Timeline
-            tracks={tracks}
-            currentTime={currentTime}
-            duration={duration}
-            onTimeChange={handleSeek}
-            onClipSelect={handleClipSelect}
-            onClipMove={handleClipMove}
-            onAddTrack={handleAddTrack}
-            onRemoveTrack={handleRemoveTrack}
-            className="h-full border-none"
-          />
-        </div>
+                {/* Main Content: Preview Area */}
+                <ResizablePanel defaultSize={75} minSize={40}>
+                  <main className="h-full bg-black rounded-2xl border border-border/40 shadow-sm relative overflow-hidden ring-1 ring-white/5">
+                    <TimelinePlayer
+                      className="w-full h-full"
+                      selectedClipId={selectedClip?.id ?? null}
+                      onClipTransformChange={(clipId, transform) => {
+                        setTracks((prev) =>
+                          prev.map((track) => ({
+                            ...track,
+                            clips: track.clips.map((clip) => {
+                              if (clip.id !== clipId) return clip;
+                              const existing: ClipTransform =
+                                clip.transform ?? {
+                                  x: 0,
+                                  y: 0,
+                                  scaleX: 1,
+                                  scaleY: 1,
+                                  rotation: 0,
+                                };
+                              return {
+                                ...clip,
+                                transform: {
+                                  ...existing,
+                                  x: transform.x,
+                                  y: transform.y,
+                                },
+                              };
+                            }),
+                          })),
+                        );
+                      }}
+                      onFullscreen={() => console.log("Fullscreen")}
+                    />
+                  </main>
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            </div>
+          </ResizablePanel>
+
+          <ResizableHandle className="my-1 h-1 bg-transparent hover:bg-primary/30 data-[resize-handle-state=drag]:bg-primary/50 transition-all duration-200 rounded-full" />
+
+          {/* Bottom Section: Timeline */}
+          <ResizablePanel defaultSize={30} minSize={15} maxSize={60}>
+            <div className="h-full bg-background rounded-2xl border border-border/40 shadow-sm z-20 overflow-hidden">
+              <Timeline
+                tracks={tracks}
+                currentTime={currentTime}
+                duration={duration}
+                onTimeChange={handleSeek}
+                onClipSelect={handleClipSelect}
+                onClipMove={handleClipMove}
+                onAddTrack={handleAddTrack}
+                onRemoveTrack={handleRemoveTrack}
+                className="h-full border-none"
+              />
+            </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
       </div>
     </div>
   );
