@@ -1,7 +1,14 @@
 "use client";
 
+import {
+  Timeline as ReactTimelineEditor,
+  type TimelineAction,
+  type TimelineEffect,
+  type TimelineRow,
+  type TimelineState,
+} from "@xzdarcy/react-timeline-editor";
 import { Film, Minus, Music, Plus, Video } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -9,41 +16,22 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { Playhead } from "./playhead";
-import { TimelineRuler } from "./timeline-ruler";
-import {
-  type DragData,
-  type TimelineClip,
-  TimelineTrack,
-} from "./timeline-track";
-
-interface Track {
-  id: string;
-  type: "video" | "audio";
-  label: string;
-  clips: TimelineClip[];
-}
+import type { TimelineTrackData } from "../preview/timeline-player-context";
 
 interface TimelineProps {
-  tracks: Track[];
+  tracks: TimelineTrackData[];
   currentTime: number;
   duration: number;
+  selectedClipId?: string | null;
   onTimeChange?: (time: number) => void;
   onClipSelect?: (clipId: string) => void;
-  onClipMove?: (
-    clipId: string,
-    newStartTime: number,
-    sourceTrackId: string,
-    targetTrackId: string,
-  ) => void;
+  onTracksChange?: (tracks: TimelineTrackData[]) => void;
   onAddTrack?: (type: "video" | "audio") => void;
   onRemoveTrack?: (trackId: string) => void;
   className?: string;
 }
 
-// Empty timeline state
 function TimelineEmptyOverlay() {
   return (
     <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
@@ -72,48 +60,77 @@ export function Timeline({
   tracks,
   currentTime,
   duration,
+  selectedClipId,
   onTimeChange,
   onClipSelect,
-  onClipMove,
+  onTracksChange,
   onAddTrack,
-  onRemoveTrack: _onRemoveTrack, // Reserved for future track deletion UI
+  onRemoveTrack: _onRemoveTrack,
   className,
 }: TimelineProps) {
   const [pixelsPerSecond, setPixelsPerSecond] = useState(50);
-  const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
-  const [draggedClip, setDraggedClip] = useState<DragData | null>(null);
+  const [rowScrollTop, setRowScrollTop] = useState(0);
+  const timelineRef = useRef<TimelineState>(null);
 
-  const handleZoomIn = () => {
-    setPixelsPerSecond((prev) => Math.min(prev * 1.5, 200));
-  };
+  const labelWidth = 96;
+  const rowHeight = 56;
+  const timeAreaHeight = 32;
+  const rowOffset = 10;
+  const scale = 1;
+  const minScaleCount = Math.max(20, Math.ceil(duration / scale));
+  const maxScaleCount = Math.max(minScaleCount, 5000);
 
-  const handleZoomOut = () => {
-    setPixelsPerSecond((prev) => Math.max(prev / 1.5, 10));
-  };
-
-  const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left - 96; // Subtract track label width
-    if (x >= 0) {
-      const newTime = x / pixelsPerSecond;
-      onTimeChange?.(Math.max(0, Math.min(newTime, duration)));
+  const clipById = useMemo(() => {
+    const map = new Map<string, TimelineTrackData["clips"][number]>();
+    for (const track of tracks) {
+      for (const clip of track.clips) {
+        map.set(clip.id, clip);
+      }
     }
-  };
+    return map;
+  }, [tracks]);
 
-  const timelineWidth = duration * pixelsPerSecond + 96 + 100; // Extra padding at end
+  const editorData = useMemo<TimelineRow[]>(() => {
+    return tracks.map((track) => ({
+      id: track.id,
+      rowHeight,
+      classNames: [
+        "lc-timeline-row",
+        track.type === "video"
+          ? "lc-timeline-row-video"
+          : "lc-timeline-row-audio",
+      ],
+      actions: track.clips.map<TimelineAction>((clip) => ({
+        id: clip.id,
+        start: clip.startTime,
+        end: clip.startTime + clip.duration,
+        effectId: clip.type,
+        movable: true,
+        flexible: false,
+        selected: clip.id === selectedClipId,
+      })),
+    }));
+  }, [selectedClipId, tracks]);
 
-  // Check if timeline is empty (no clips in any track)
-  const isEmpty = tracks.every((track) => track.clips.length === 0);
+  const effects = useMemo<Record<string, TimelineEffect>>(
+    () => ({
+      video: { id: "video", name: "Video" },
+      audio: { id: "audio", name: "Audio" },
+    }),
+    [],
+  );
+
+  useEffect(() => {
+    timelineRef.current?.setTime(currentTime);
+  }, [currentTime]);
 
   return (
     <div className={cn("flex flex-col bg-background/50", className)}>
-      {/* Timeline Header with Controls */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border/40 bg-muted/30">
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold uppercase tracking-wider text-foreground/50 bg-foreground/5 px-2 py-1 rounded-md">
             Timeline
           </span>
-          {/* Add Track Button */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -138,13 +155,14 @@ export function Timeline({
           </DropdownMenu>
         </div>
 
-        {/* Zoom Controls */}
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
             size="icon"
             className="h-7 w-7 rounded-full hover:bg-background/80"
-            onClick={handleZoomOut}
+            onClick={() =>
+              setPixelsPerSecond((prev) => Math.max(prev / 1.5, 10))
+            }
           >
             <Minus className="h-3 w-3" />
           </Button>
@@ -155,87 +173,184 @@ export function Timeline({
             variant="ghost"
             size="icon"
             className="h-7 w-7 rounded-full hover:bg-background/80"
-            onClick={handleZoomIn}
+            onClick={() =>
+              setPixelsPerSecond((prev) => Math.min(prev * 1.5, 200))
+            }
           >
             <Plus className="h-3 w-3" />
           </Button>
         </div>
       </div>
 
-      {/* Timeline Content */}
-      <ScrollArea className="flex-1">
-        <div
-          role="slider"
-          tabIndex={0}
-          aria-label="Timeline"
-          aria-valuemin={0}
-          aria-valuemax={duration}
-          aria-valuenow={currentTime}
-          className="relative min-h-[200px]"
-          style={{ width: `${timelineWidth}px` }}
-          onClick={handleTimelineClick}
-          onKeyDown={(e) => {
-            if (e.key === "ArrowLeft") {
-              onTimeChange?.(Math.max(0, currentTime - 1));
-            } else if (e.key === "ArrowRight") {
-              onTimeChange?.(Math.min(duration, currentTime + 1));
-            }
-          }}
-        >
-          {/* Ruler */}
-          <TimelineRuler
-            duration={duration}
-            pixelsPerSecond={pixelsPerSecond}
-          />
+      <div className="relative flex-1 overflow-hidden lc-timeline">
+        <ReactTimelineEditor
+          ref={timelineRef}
+          editorData={editorData}
+          effects={effects}
+          scale={scale}
+          scaleWidth={pixelsPerSecond}
+          scaleSplitCount={10}
+          startLeft={labelWidth}
+          rowHeight={rowHeight}
+          minScaleCount={minScaleCount}
+          maxScaleCount={maxScaleCount}
+          autoScroll
+          onScroll={({ scrollTop }) => setRowScrollTop(scrollTop)}
+          onChange={(nextData) => {
+            if (!onTracksChange) return;
 
-          {/* Tracks */}
-          <div className="flex flex-col">
-            {tracks.map((track) => (
-              <TimelineTrack
-                key={track.id}
-                id={track.id}
-                type={track.type}
-                label={track.label}
-                clips={track.clips}
-                isSelected={selectedTrackId === track.id}
-                onClipSelect={(clipId) => {
-                  setSelectedTrackId(track.id);
-                  onClipSelect?.(clipId);
-                }}
-                onClipMove={(clipId, newStartTime) => {
-                  onClipMove?.(clipId, newStartTime, track.id, track.id);
-                }}
-                onClipDragStart={(dragData) => {
-                  setDraggedClip(dragData);
-                }}
-                onClipDragEnd={() => {
-                  setDraggedClip(null);
-                }}
-                onClipDrop={(clipId, newStartTime, targetTrackId) => {
-                  if (draggedClip) {
-                    onClipMove?.(
-                      clipId,
-                      newStartTime,
-                      draggedClip.sourceTrackId,
-                      targetTrackId,
-                    );
+            const trackMap = new Map(tracks.map((track) => [track.id, track]));
+
+            const nextTracks = nextData.map((row) => {
+              const baseTrack = trackMap.get(row.id);
+              const type = baseTrack?.type ?? "video";
+              const label = baseTrack?.label ?? row.id;
+
+              return {
+                id: row.id,
+                type,
+                label,
+                clips: row.actions.map((action) => {
+                  const existing = clipById.get(action.id);
+                  const start = Math.max(0, action.start);
+                  const end = Math.max(start, action.end);
+                  const duration = end - start;
+
+                  if (existing) {
+                    return {
+                      ...existing,
+                      startTime: start,
+                      duration,
+                    };
                   }
-                  setDraggedClip(null);
+
+                  return {
+                    id: action.id,
+                    name: action.id,
+                    type,
+                    startTime: start,
+                    duration,
+                    color: type === "video" ? "#0099ff" : "#ff7a05",
+                    trimStart: 0,
+                    trimEnd: duration,
+                  };
+                }),
+              };
+            });
+
+            onTracksChange(nextTracks);
+          }}
+          onClickTimeArea={(time) => {
+            onTimeChange?.(Math.max(0, Math.min(time, duration)));
+            return true;
+          }}
+          onCursorDrag={(time) => {
+            onTimeChange?.(Math.max(0, Math.min(time, duration)));
+          }}
+          onCursorDragEnd={(time) => {
+            onTimeChange?.(Math.max(0, Math.min(time, duration)));
+          }}
+          onClickActionOnly={(_, { action }) => onClipSelect?.(action.id)}
+          getActionRender={(action) => {
+            const clip = clipById.get(action.id);
+            const isVideo = (clip?.type ?? "video") === "video";
+            const thumbnails = clip?.thumbnails ?? [];
+            const filmstrip = thumbnails.length ? thumbnails : [];
+            const backgroundImage = filmstrip
+              .map((src) => `url("${src}")`)
+              .join(", ");
+            const backgroundSize = filmstrip
+              .map(() => `${100 / filmstrip.length}% 100%`)
+              .join(", ");
+            const backgroundPosition = filmstrip
+              .map((_, index) => `${(index * 100) / filmstrip.length}% 50%`)
+              .join(", ");
+
+            return (
+              <div
+                className={cn(
+                  "relative h-full w-full rounded-xl border border-border/50",
+                  "shadow-sm overflow-hidden",
+                  "text-[11px] font-medium",
+                  action.selected && "ring-2 ring-primary ring-offset-1",
+                )}
+                style={{
+                  backgroundColor: isVideo
+                    ? "color-mix(in oklch, var(--card), transparent 10%)"
+                    : "color-mix(in oklch, var(--muted), transparent 20%)",
                 }}
-                draggedClip={draggedClip}
-                pixelsPerSecond={pixelsPerSecond}
-              />
-            ))}
+              >
+                {filmstrip.length > 0 ? (
+                  <div
+                    className="absolute inset-0 opacity-90"
+                    style={{
+                      backgroundImage,
+                      backgroundRepeat: "no-repeat",
+                      backgroundSize,
+                      backgroundPosition,
+                    }}
+                  />
+                ) : (
+                  <div
+                    className={cn(
+                      "absolute inset-0",
+                      isVideo
+                        ? "bg-gradient-to-r from-card/80 via-card/60 to-card/80"
+                        : "bg-gradient-to-r from-muted/80 via-muted/60 to-muted/80",
+                    )}
+                  />
+                )}
+
+                <div className="absolute inset-0 bg-gradient-to-r from-background/70 via-transparent to-background/70" />
+                <div className="relative z-10 flex items-center h-full px-2">
+                  <span className="text-foreground truncate">
+                    {clip?.name ?? action.id}
+                  </span>
+                </div>
+              </div>
+            );
+          }}
+        />
+
+        <div
+          className="absolute left-0 top-0 z-20 h-full"
+          style={{ width: `${labelWidth}px` }}
+          aria-hidden
+        >
+          <div className="h-8 border-b border-border/40 bg-background/70" />
+          <div
+            className="absolute left-0 right-0"
+            style={{
+              top: timeAreaHeight + rowOffset,
+              height: `calc(100% - ${timeAreaHeight + rowOffset}px)`,
+            }}
+          >
+            <div
+              className="absolute left-0 right-0"
+              style={{ transform: `translateY(-${rowScrollTop}px)` }}
+            >
+              {tracks.map((track) => (
+                <div
+                  key={track.id}
+                  className={cn(
+                    "h-14 flex items-center justify-center",
+                    "text-[11px] font-semibold uppercase tracking-wide",
+                    "border-b border-border/30",
+                    "bg-background/70",
+                    track.type === "video" ? "text-chart-2" : "text-chart-3",
+                  )}
+                >
+                  {track.label}
+                </div>
+              ))}
+            </div>
           </div>
-
-          {/* Empty state overlay */}
-          {isEmpty && <TimelineEmptyOverlay />}
-
-          {/* Playhead */}
-          <Playhead position={currentTime} pixelsPerSecond={pixelsPerSecond} />
         </div>
-        <ScrollBar orientation="horizontal" />
-      </ScrollArea>
+
+        {tracks.every((track) => track.clips.length === 0) && (
+          <TimelineEmptyOverlay />
+        )}
+      </div>
     </div>
   );
 }

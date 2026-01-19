@@ -70,6 +70,12 @@ This project uses the **Caffeine** design style. See [ui-design-system.instructi
 3. **DO NOT** use native HTML5 `<video>` or `<audio>` elements. Use MediaFox components which render to `<canvas>`.
 
 
+## React Timeline Documentation
+
+**CRITICAL:** When working with the timeline, tracks, or clip editing:
+1. **MUST READ** [.github/react-timeline-editor/index.md](.github/react-timeline-editor/index.md) and ALL markdown files in [.github/react-timeline-editor/guide/](.github/react-timeline-editor/guide/) (including subdirectories) to understand the timeline library's capabilities, hooks, and interaction models.
+
+
 ## Editor Architecture
 
 When working with the video editor code:

@@ -24,6 +24,7 @@ export interface MediaAsset {
   type: "video" | "audio";
   duration: number;
   thumbnail?: string;
+  thumbnails?: string[];
   file?: File;
   // Additional metadata
   width?: number;

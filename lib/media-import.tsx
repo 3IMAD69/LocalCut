@@ -1,6 +1,6 @@
 "use client";
 
-import { ALL_FORMATS, BlobSource, Input } from "mediabunny";
+import { ALL_FORMATS, BlobSource, CanvasSink, Input } from "mediabunny";
 import {
   createContext,
   type ReactNode,
@@ -17,6 +17,7 @@ export interface ImportedMediaAsset {
   type: "video" | "audio";
   file: File;
   duration: number;
+  thumbnails?: string[];
   // Video-specific metadata
   width?: number;
   height?: number;
@@ -103,6 +104,33 @@ function getMediaType(file: File): "video" | "audio" | null {
   return null;
 }
 
+async function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error ?? new Error("Read failed"));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function canvasToDataUrl(
+  canvas: HTMLCanvasElement | OffscreenCanvas,
+): Promise<string> {
+  if ("toDataURL" in canvas) {
+    return canvas.toDataURL("image/jpeg", 0.75);
+  }
+
+  if ("convertToBlob" in canvas) {
+    const blob = await canvas.convertToBlob({
+      type: "image/jpeg",
+      quality: 0.75,
+    });
+    return blobToDataUrl(blob);
+  }
+
+  throw new Error("Unsupported canvas type");
+}
+
 interface MediaImportProviderProps {
   children: ReactNode;
 }
@@ -157,6 +185,48 @@ export function MediaImportProvider({ children }: MediaImportProviderProps) {
             asset.sampleRate = audioTrack.sampleRate;
             asset.channels = audioTrack.numberOfChannels;
             asset.audioCodec = audioTrack.codec ?? undefined;
+          }
+
+          if (videoTrack && (await videoTrack.canDecode())) {
+            try {
+              const thumbnailEverySeconds = 2;
+              const thumbnailCount = Math.min(
+                12,
+                Math.max(3, Math.ceil(duration / thumbnailEverySeconds)),
+              );
+              const startTimestamp = await videoTrack.getFirstTimestamp();
+              const endTimestamp = await videoTrack.computeDuration();
+              const span = Math.max(0.001, endTimestamp - startTimestamp);
+              const timestamps = Array.from(
+                { length: thumbnailCount },
+                (_, index) =>
+                  startTimestamp +
+                  (span * index) / Math.max(1, thumbnailCount - 1),
+              );
+
+              const sink = new CanvasSink(videoTrack, {
+                width: 160,
+                height: 90,
+                fit: "cover",
+                poolSize: 1,
+              });
+
+              const thumbnails: string[] = [];
+              for await (const result of sink.canvasesAtTimestamps(
+                timestamps,
+              )) {
+                if (result) {
+                  const dataUrl = await canvasToDataUrl(result.canvas);
+                  thumbnails.push(dataUrl);
+                }
+              }
+
+              if (thumbnails.length > 0) {
+                asset.thumbnails = thumbnails;
+              }
+            } catch (error) {
+              console.error("Failed to generate thumbnails:", error);
+            }
           }
         } else {
           const audioTrack = await input.getPrimaryAudioTrack();

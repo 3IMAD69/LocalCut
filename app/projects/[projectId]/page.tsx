@@ -27,20 +27,7 @@ import {
 } from "@/lib/media-import";
 
 // Empty initial state for tracks
-const emptyTracks: TimelineTrackData[] = [
-  {
-    id: "video-1",
-    type: "video" as const,
-    label: "Video 1",
-    clips: [] as TimelineClipWithAsset[],
-  },
-  {
-    id: "audio-1",
-    type: "audio" as const,
-    label: "Audio 1",
-    clips: [] as TimelineClipWithAsset[],
-  },
-];
+const emptyTracks: TimelineTrackData[] = [];
 
 function EditorContent() {
   // Media import context
@@ -66,6 +53,7 @@ function EditorContent() {
     name: asset.name,
     type: asset.type,
     duration: asset.duration,
+    thumbnails: asset.thumbnails,
     file: asset.file,
     width: asset.width,
     height: asset.height,
@@ -86,12 +74,12 @@ function EditorContent() {
   // State
   const [tracks, setTracks] = useState<TimelineTrackData[]>(emptyTracks);
   const [selectedClip, setSelectedClip] = useState<ClipProperties | null>(null);
-  const [_hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [, setHasUnsavedChanges] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
 
   // History state for Undo/Redo (placeholder)
-  const [canUndo, _setCanUndo] = useState(false);
-  const [canRedo, _setCanRedo] = useState(false);
+  const [canUndo] = useState(false);
+  const [canRedo] = useState(false);
 
   // Sync tracks to player context whenever they change
   useEffect(() => {
@@ -180,28 +168,21 @@ function EditorContent() {
         duration: asset.duration,
         color: asset.type === "video" ? "#0099ff" : "#ff7a05",
         asset: fullAsset,
+        thumbnails: fullAsset?.thumbnails,
         trimStart: 0,
         trimEnd: asset.duration,
       };
 
       setTracks((prev) => {
-        const trackIndex = prev.findIndex((t) => t.type === asset.type);
-        if (trackIndex === -1) return prev;
-
-        const track = prev[trackIndex];
-        const lastClipEnd = track.clips.reduce(
-          (max, clip) => Math.max(max, clip.startTime + clip.duration),
-          0,
-        );
-        newClip.startTime = lastClipEnd;
-
-        const updatedTracks = [...prev];
-        updatedTracks[trackIndex] = {
-          ...track,
-          clips: [...track.clips, newClip],
+        const existingCount = prev.filter((t) => t.type === asset.type).length;
+        const newTrack: TimelineTrackData = {
+          id: `${asset.type}-${Date.now()}`,
+          type: asset.type,
+          label: `${asset.type === "video" ? "Video" : "Audio"} ${existingCount + 1}`,
+          clips: [{ ...newClip }],
         };
 
-        return updatedTracks;
+        return [...prev, newTrack];
       });
 
       setHasUnsavedChanges(true);
@@ -245,57 +226,6 @@ function EditorContent() {
     // Deselect if not found (clicked empty space usually handles this too)
     setSelectedClip(null);
   };
-
-  const handleClipMove = useCallback(
-    (
-      clipId: string,
-      newStartTime: number,
-      sourceTrackId: string,
-      targetTrackId: string,
-    ) => {
-      setTracks((prev) => {
-        if (sourceTrackId === targetTrackId) {
-          return prev.map((track) => {
-            if (track.id !== sourceTrackId) return track;
-            return {
-              ...track,
-              clips: track.clips.map((clip) =>
-                clip.id === clipId
-                  ? { ...clip, startTime: Math.max(0, newStartTime) }
-                  : clip,
-              ),
-            };
-          });
-        }
-
-        let movedClip: TimelineClipWithAsset | null = null;
-
-        const tracksWithoutClip = prev.map((track) => {
-          if (track.id !== sourceTrackId) return track;
-          const clipToMove = track.clips.find((c) => c.id === clipId);
-          if (clipToMove) {
-            movedClip = { ...clipToMove, startTime: Math.max(0, newStartTime) };
-          }
-          return {
-            ...track,
-            clips: track.clips.filter((c) => c.id !== clipId),
-          };
-        });
-
-        if (!movedClip) return prev;
-
-        return tracksWithoutClip.map((track) => {
-          if (track.id !== targetTrackId) return track;
-          return {
-            ...track,
-            clips: [...track.clips, movedClip as TimelineClipWithAsset],
-          };
-        });
-      });
-      setHasUnsavedChanges(true);
-    },
-    [],
-  );
 
   const handleFileDrop = (files: FileList) => {
     importFiles(Array.from(files));
@@ -400,8 +330,12 @@ function EditorContent() {
                 currentTime={currentTime}
                 duration={duration}
                 onTimeChange={handleSeek}
+                selectedClipId={selectedClip?.id ?? null}
                 onClipSelect={handleClipSelect}
-                onClipMove={handleClipMove}
+                onTracksChange={(nextTracks) => {
+                  setTracks(nextTracks);
+                  setHasUnsavedChanges(true);
+                }}
                 onAddTrack={handleAddTrack}
                 onRemoveTrack={handleRemoveTrack}
                 className="h-full border-none"

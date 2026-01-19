@@ -59,6 +59,7 @@ export interface TimelineClipWithAsset {
   duration: number;
   color: string;
   thumbnail?: string;
+  thumbnails?: string[];
   asset?: ImportedMediaAsset;
   trimStart: number;
   trimEnd: number;

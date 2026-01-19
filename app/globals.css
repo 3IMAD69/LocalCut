@@ -165,3 +165,91 @@
     font-family: var(--font-archivo), var(--font-sans);
   }
 }
+
+/* React Timeline Editor - Caffeine Theme Overrides */
+.lc-timeline .timeline-editor {
+  background: transparent;
+  color: var(--foreground);
+}
+
+.lc-timeline .timeline-editor-time-area {
+  background: color-mix(in oklch, var(--muted), transparent 40%);
+  border-bottom: 1px solid color-mix(in oklch, var(--border), transparent 40%);
+}
+
+.lc-timeline .timeline-editor-time-unit {
+  border-right: 1px solid color-mix(in oklch, var(--border), transparent 40%);
+}
+
+.lc-timeline .timeline-editor-time-unit-scale {
+  color: color-mix(in oklch, var(--foreground), transparent 45%);
+}
+
+.lc-timeline .timeline-editor-edit-area {
+  background: transparent;
+}
+
+.lc-timeline .timeline-editor-edit-row {
+  background-image:
+    linear-gradient(var(--card), var(--card)),
+    linear-gradient(
+      90deg,
+      color-mix(in oklch, var(--border), transparent 70%) 1px,
+      transparent 0
+    );
+}
+
+.lc-timeline .timeline-editor-edit-row.lc-timeline-row-video {
+  background-image:
+    linear-gradient(
+      color-mix(in oklch, var(--card), transparent 12%),
+      color-mix(in oklch, var(--card), transparent 12%)
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in oklch, var(--border), transparent 70%) 1px,
+      transparent 0
+    );
+}
+
+.lc-timeline .timeline-editor-edit-row.lc-timeline-row-audio {
+  background-image:
+    linear-gradient(
+      color-mix(in oklch, var(--card), transparent 8%),
+      color-mix(in oklch, var(--card), transparent 8%)
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in oklch, var(--border), transparent 70%) 1px,
+      transparent 0
+    );
+}
+
+.lc-timeline .timeline-editor-action {
+  background: transparent;
+  border-radius: 0.75rem;
+}
+
+.lc-timeline
+  .timeline-editor-action
+  .timeline-editor-action-left-stretch::after,
+.lc-timeline
+  .timeline-editor-action
+  .timeline-editor-action-right-stretch::after {
+  border-color: color-mix(in oklch, var(--foreground), transparent 75%);
+}
+
+.lc-timeline .timeline-editor-cursor {
+  border-left-color: color-mix(in oklch, var(--primary), transparent 10%);
+  border-right-color: color-mix(in oklch, var(--primary), transparent 10%);
+}
+
+.lc-timeline .timeline-editor-drag-line {
+  background: color-mix(in oklch, var(--primary), transparent 20%);
+}
+
+.lc-timeline
+  .timeline-editor-edit-area
+  .ReactVirtualized__Grid::-webkit-scrollbar-thumb {
+  background: color-mix(in oklch, var(--foreground), transparent 70%);
+}
