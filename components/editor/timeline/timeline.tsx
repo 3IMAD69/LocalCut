@@ -300,6 +300,7 @@ export function Timeline({
           rowHeight={rowHeight}
           minScaleCount={minScaleCount}
           maxScaleCount={maxScaleCount}
+          dragLine={true}
           autoScroll
           onScroll={({ scrollTop }) => setRowScrollTop(scrollTop)}
           onChange={(nextData) => {
@@ -361,16 +362,52 @@ export function Timeline({
             const clip = clipById.get(action.id);
             const isVideo = (clip?.type ?? "video") === "video";
             const thumbnails = clip?.thumbnails ?? [];
-            const filmstrip = thumbnails.length ? thumbnails : [];
+
+            // Calculate clip's visual pixel width on the timeline
+            const clipDuration = action.end - action.start;
+            const clipPixelWidth = clipDuration * pixelsPerSecond;
+
+            // Only show thumbnails that fit at minimum 60px each
+            // This prevents cramped appearance on short/zoomed-out clips
+            const minThumbnailWidth = 60;
+            const maxVisibleThumbnails = Math.max(
+              1,
+              Math.floor(clipPixelWidth / minThumbnailWidth),
+            );
+
+            // Take evenly-spaced thumbnails from the available set
+            const selectEvenly = (arr: string[], count: number): string[] => {
+              if (arr.length === 0 || count <= 0) return [];
+              if (count === 1) return [arr[Math.floor(arr.length / 2)]]; // Return middle thumbnail
+              if (arr.length <= count) return arr;
+              const step = (arr.length - 1) / (count - 1);
+              return Array.from(
+                { length: count },
+                (_, i) => arr[Math.round(i * step)],
+              );
+            };
+
+            const filmstrip =
+              thumbnails.length > 0
+                ? selectEvenly(thumbnails, maxVisibleThumbnails)
+                : [];
+
+            // For single thumbnail: use cover to fill naturally
+            // For multiple: tile them evenly
+            const isSingle = filmstrip.length === 1;
             const backgroundImage = filmstrip
               .map((src) => `url("${src}")`)
               .join(", ");
-            const backgroundSize = filmstrip
-              .map(() => `${100 / filmstrip.length}% 100%`)
-              .join(", ");
-            const backgroundPosition = filmstrip
-              .map((_, index) => `${(index * 100) / filmstrip.length}% 50%`)
-              .join(", ");
+            const backgroundSize = isSingle
+              ? "cover"
+              : filmstrip
+                  .map(() => `${100 / filmstrip.length}% 100%`)
+                  .join(", ");
+            const backgroundPosition = isSingle
+              ? "center"
+              : filmstrip
+                  .map((_, i) => `${(i * 100) / filmstrip.length}% 50%`)
+                  .join(", ");
 
             return (
               <div
