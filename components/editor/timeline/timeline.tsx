@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import type { TimelineTrackData } from "../preview/timeline-player-context";
+import { AudioWaveform } from "./audio-waveform";
 
 interface TimelineProps {
   tracks: TimelineTrackData[];
@@ -277,33 +278,38 @@ export function Timeline({
                 style={{
                   backgroundColor: isVideo
                     ? "color-mix(in oklch, var(--card), transparent 10%)"
-                    : "color-mix(in oklch, var(--muted), transparent 20%)",
+                    : "color-mix(in oklch, var(--background), transparent 10%)",
                 }}
               >
-                {filmstrip.length > 0 ? (
-                  <div
-                    className="absolute inset-0 opacity-90"
-                    style={{
-                      backgroundImage,
-                      backgroundRepeat: "no-repeat",
-                      backgroundSize,
-                      backgroundPosition,
-                    }}
+                {isVideo ? (
+                  filmstrip.length > 0 ? (
+                    <div
+                      className="absolute inset-0 opacity-90"
+                      style={{
+                        backgroundImage,
+                        backgroundRepeat: "no-repeat",
+                        backgroundSize,
+                        backgroundPosition,
+                      }}
+                    />
+                  ) : (
+                    <div className="absolute inset-0 bg-gradient-to-r from-card/80 via-card/60 to-card/80" />
+                  )
+                ) : clip?.asset ? (
+                  <AudioWaveform
+                    asset={clip.asset}
+                    trimStart={clip.trimStart}
+                    pixelsPerSecond={pixelsPerSecond}
+                    height={rowHeight}
+                    color="rgb(255, 223, 181)"
                   />
                 ) : (
-                  <div
-                    className={cn(
-                      "absolute inset-0",
-                      isVideo
-                        ? "bg-gradient-to-r from-card/80 via-card/60 to-card/80"
-                        : "bg-gradient-to-r from-muted/80 via-muted/60 to-muted/80",
-                    )}
-                  />
+                  <div className="absolute inset-0 bg-gradient-to-r from-muted/80 via-muted/60 to-muted/80" />
                 )}
 
-                <div className="absolute inset-0 bg-gradient-to-r from-background/70 via-transparent to-background/70" />
-                <div className="relative z-10 flex items-center h-full px-2">
-                  <span className="text-foreground truncate">
+                <div className="absolute inset-0 bg-gradient-to-r from-background/70 via-transparent to-background/70 pointer-events-none" />
+                <div className="relative z-10 flex items-center h-full px-2 pointer-events-none">
+                  <span className="text-foreground truncate shadow-sm">
                     {clip?.name ?? action.id}
                   </span>
                 </div>

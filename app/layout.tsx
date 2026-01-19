@@ -48,9 +48,7 @@ export default function RootLayout({
                 prefetch={true}
                 className="flex items-center gap-2 hover:opacity-80 transition-opacity"
               >
-                {/* <div className="p-2 bg-primary"> */}
                 <ClapIcon size={25} className="text-primary" />
-                {/* </div> */}
                 <span className="text-xl font-semibold">LocalCut</span>
               </Link>
               <nav className="flex gap-2">
