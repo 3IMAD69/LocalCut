@@ -1,18 +1,21 @@
 "use client";
 
+import type { LucideIcon } from "lucide-react";
 import {
-  Film,
+  FileIcon,
   FolderOpen,
-  Loader2,
+  ImageIcon,
+  LayoutGrid,
   Music,
   Plus,
+  Shapes,
+  Trash2,
+  Type,
   Upload,
-  X,
 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
 export interface MediaAsset {
@@ -42,84 +45,194 @@ interface MediaLibraryProps {
   className?: string;
 }
 
-function formatDuration(seconds: number): string {
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${mins}:${secs.toString().padStart(2, "0")}`;
+// Sidebar Tab Item
+function SidebarTab({
+  icon: Icon,
+  isActive,
+  onClick,
+}: {
+  icon: LucideIcon;
+  isActive?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "w-10 h-10 flex items-center justify-center rounded-xl transition-all duration-200",
+        isActive
+          ? "text-primary bg-primary/10 shadow-sm scale-110"
+          : "text-muted-foreground hover:text-foreground hover:bg-muted",
+      )}
+    >
+      <Icon className="w-5 h-5" />
+    </button>
+  );
 }
 
-// Main empty state for when no media is imported
-function MainEmptyState({ onImport }: { onImport?: () => void }) {
+// Empty state matching the image
+function EmptyState({ onImport }: { onImport?: () => void }) {
   return (
-    <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-      <div
-        className={cn(
-          "w-20 h-20 border border-border bg-primary/10 rounded-lg",
-          "flex items-center justify-center mb-4",
-        )}
-      >
-        <Film className="h-10 w-10 text-foreground/40" />
+    <div className="flex flex-col items-center justify-center bg-card rounded-xl border border-border/50 border-dashed p-8 text-center h-[300px] m-4">
+      <div className="mb-4 text-muted-foreground/30">
+        <FileIcon className="w-16 h-16" />
       </div>
-      <h3 className="text-sm font-medium mb-1">No media imported</h3>
-      <p className="text-xs text-foreground/50 mb-4 max-w-[180px]">
-        Import video or audio files to start editing your project
-      </p>
-      <Button variant="default" size="sm" onClick={onImport}>
-        <Upload className="h-4 w-4 mr-2" />
-        Import Media
+      <h3 className="text-sm text-foreground/80 font-medium mb-2 max-w-[200px] leading-relaxed">
+        Add your image, video, music, and voiceover collection to compose your
+        project.
+      </h3>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={onImport}
+        className="mt-4 border-border/60 hover:bg-white/5 hover:text-foreground transition-all rounded-full px-6"
+      >
+        <Upload className="w-4 h-4 mr-2" />
+        Import
       </Button>
     </div>
   );
 }
 
-// Empty state for filtered tabs
-function FilteredEmptyState({ type }: { type: "video" | "audio" }) {
+// Media Thumbnail Component - shows actual video/audio preview
+function MediaThumbnail({
+  asset,
+  className,
+}: {
+  asset: MediaAsset;
+  className?: string;
+}) {
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (asset.file) {
+      const url = URL.createObjectURL(asset.file);
+      setObjectUrl(url);
+      return () => URL.revokeObjectURL(url);
+    }
+  }, [asset.file]);
+
+  if (asset.type === "video" && objectUrl) {
+    return (
+      <video
+        src={objectUrl}
+        className={cn("w-full h-full object-cover", className)}
+        muted
+        playsInline
+      />
+    );
+  }
+
+  // Fallback to icon
   return (
-    <div className="flex flex-col items-center justify-center py-8 text-foreground/40">
-      {type === "video" ? (
-        <Film className="h-12 w-12 mb-2" />
-      ) : (
-        <Music className="h-12 w-12 mb-2" />
+    <div
+      className={cn(
+        "w-full h-full flex items-center justify-center text-muted-foreground/40",
+        className,
       )}
-      <p className="text-sm font-medium">No {type} files</p>
-      <p className="text-xs">Import {type} to see it here</p>
+    >
+      {asset.type === "video" ? (
+        <ImageIcon className="w-8 h-8" />
+      ) : (
+        <Music className="w-8 h-8" />
+      )}
     </div>
   );
 }
 
-// Loading state
-function LoadingState() {
-  return (
-    <div className="flex flex-col items-center justify-center py-12 text-foreground/40">
-      <Loader2 className="h-8 w-8 animate-spin mb-2" />
-      <p className="text-sm font-medium">Importing media...</p>
-      <p className="text-xs">Analyzing files</p>
-    </div>
-  );
+// Context Menu Component
+interface ContextMenuProps {
+  asset: MediaAsset;
+  position: { x: number; y: number };
+  onAdd: (asset: MediaAsset) => void;
+  onRemove: (assetId: string) => void;
+  onClose: () => void;
 }
 
-// Error state
-function ErrorState({ message }: { message: string }) {
+function ContextMenu({
+  asset,
+  position,
+  onAdd,
+  onRemove,
+  onClose,
+}: ContextMenuProps) {
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Handle clicks outside the context menu
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [onClose]);
+
   return (
-    <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
-      <div
-        className={cn(
-          "w-12 h-12 border border-red-400 bg-red-400/20 rounded-lg",
-          "flex items-center justify-center mb-2",
-        )}
-      >
-        <X className="h-6 w-6 text-red-500" />
+    <div
+      ref={menuRef}
+      className="fixed z-50 w-56 bg-zinc-900/95 backdrop-blur-md rounded-2xl border border-zinc-700/50 shadow-2xl overflow-hidden"
+      style={{
+        left: `${position.x}px`,
+        top: `${position.y}px`,
+      }}
+    >
+      {/* Media Preview */}
+      <div className="aspect-video bg-zinc-800/50 border-b border-zinc-700/50 relative overflow-hidden">
+        <MediaThumbnail asset={asset} />
+        {/* Asset Name Overlay */}
+        <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-sm p-1.5">
+          <p className="text-xs text-white/90 truncate">{asset.name}</p>
+        </div>
       </div>
-      <p className="text-sm font-medium text-red-500 mb-1">Import Failed</p>
-      <p className="text-xs text-foreground/50">{message}</p>
+
+      {/* Menu Actions */}
+      <div className="p-1">
+        <button
+          type="button"
+          onClick={() => {
+            onAdd(asset);
+            onClose();
+          }}
+          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800 rounded transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          Add
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            onRemove(asset.id);
+            onClose();
+          }}
+          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-zinc-800 rounded transition-colors"
+        >
+          <Trash2 className="w-4 h-4" />
+          Remove
+        </button>
+      </div>
     </div>
   );
 }
 
 export function MediaLibrary({
   assets,
-  isLoading = false,
-  error = null,
+  isLoading: _isLoading = false,
+  error: _error = null,
   onImport,
   onFileDrop,
   onAssetSelect,
@@ -127,20 +240,14 @@ export function MediaLibrary({
   onAssetRemove,
   className,
 }: MediaLibraryProps) {
-  const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<
+    "media" | "text" | "shapes" | "transitions"
+  >("media");
   const [isDragOver, setIsDragOver] = useState(false);
-
-  const videoAssets = assets.filter((a) => a.type === "video");
-  const audioAssets = assets.filter((a) => a.type === "audio");
-
-  const handleAssetClick = (asset: MediaAsset) => {
-    setSelectedAssetId(asset.id);
-    onAssetSelect?.(asset);
-  };
-
-  const handleAddToTimeline = (asset: MediaAsset) => {
-    onAssetAdd?.(asset);
-  };
+  const [contextMenu, setContextMenu] = useState<{
+    asset: MediaAsset;
+    position: { x: number; y: number };
+  } | null>(null);
 
   // Handle drag and drop
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -169,208 +276,143 @@ export function MediaLibrary({
     [onFileDrop],
   );
 
-  const renderAssetCard = (asset: MediaAsset) => (
-    <button
-      key={asset.id}
-      type="button"
-      className={cn(
-        "group relative border border-border bg-card rounded-lg",
-        "cursor-pointer transition-all text-left w-full",
-        "hover:bg-accent hover:shadow-md",
-        selectedAssetId === asset.id && "ring-2 ring-primary",
-      )}
-      onClick={() => handleAssetClick(asset)}
-      onDoubleClick={() => handleAddToTimeline(asset)}
-      draggable
-      onDragStart={(e) => {
-        e.dataTransfer.setData("application/json", JSON.stringify(asset));
-      }}
-    >
-      {/* Thumbnail */}
-      <div
-        className={cn(
-          "aspect-video w-full border-b border-border rounded-t-lg",
-          "flex items-center justify-center",
-          asset.type === "video" ? "bg-chart-2/20" : "bg-chart-3/20",
-        )}
-      >
-        <div className="flex flex-col items-center gap-1 text-foreground/40">
-          {asset.type === "video" ? (
-            <Film className="h-8 w-8" />
-          ) : (
-            <Music className="h-8 w-8" />
-          )}
-        </div>
-      </div>
-
-      {/* Info */}
-      <div className="p-2">
-        <p className="text-xs font-medium truncate" title={asset.name}>
-          {asset.name}
-        </p>
-        <p className="text-[10px] text-foreground/60">
-          {formatDuration(asset.duration)}
-        </p>
-      </div>
-
-      {/* Quick Actions (visible on hover) */}
-      <div
-        className={cn(
-          "absolute top-1 right-1 flex gap-1",
-          "opacity-0 group-hover:opacity-100 transition-opacity",
-        )}
-      >
-        <button
-          type="button"
-          className={cn(
-            "h-6 w-6 flex items-center justify-center rounded",
-            "border border-border bg-primary text-primary-foreground",
-            "hover:bg-primary/80 cursor-pointer",
-          )}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleAddToTimeline(asset);
-          }}
-          title="Add to timeline"
-        >
-          <Plus className="h-3 w-3" />
-        </button>
-        <button
-          type="button"
-          className={cn(
-            "h-6 w-6 flex items-center justify-center rounded",
-            "border border-border bg-card",
-            "hover:bg-destructive hover:text-destructive-foreground cursor-pointer",
-          )}
-          onClick={(e) => {
-            e.stopPropagation();
-            onAssetRemove?.(asset.id);
-          }}
-          title="Remove"
-        >
-          <X className="h-3 w-3" />
-        </button>
-      </div>
-    </button>
-  );
-
   return (
-    <section
-      aria-label="Media library"
-      className={cn(
-        "flex flex-col border border-border bg-background rounded-lg h-full relative",
-        isDragOver && "ring-2 ring-primary ring-inset",
-        className,
-      )}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted rounded-t-lg">
-        <span className="text-xs font-medium uppercase tracking-wide">
-          Media {assets.length > 0 && `(${assets.length})`}
-        </span>
-        <div className="flex gap-1">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 text-xs"
-            onClick={onImport}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-            ) : (
-              <Upload className="h-3 w-3 mr-1" />
-            )}
-            Import
-          </Button>
-        </div>
+    <div className={cn("flex flex-col h-full bg-background/50", className)}>
+      {/* Top Tabs Bar */}
+      <div className="flex items-center gap-1 p-2 border-b border-border">
+        <SidebarTab
+          icon={FolderOpen}
+          isActive={activeTab === "media"}
+          onClick={() => setActiveTab("media")}
+        />
+        <SidebarTab
+          icon={Type}
+          isActive={activeTab === "text"}
+          onClick={() => setActiveTab("text")}
+        />
+        <SidebarTab
+          icon={Shapes}
+          isActive={activeTab === "shapes"}
+          onClick={() => setActiveTab("shapes")}
+        />
+        <SidebarTab
+          icon={LayoutGrid}
+          isActive={activeTab === "transitions"}
+          onClick={() => setActiveTab("transitions")}
+        />
+        <div className="flex-1" />
       </div>
 
-      {/* Drag overlay */}
-      {isDragOver && (
-        <div
-          className={cn(
-            "absolute inset-0 z-50 bg-primary/10 border-2 border-dashed border-primary rounded-lg",
-            "flex items-center justify-center",
-          )}
-        >
-          <div className="text-center">
-            <Upload className="h-12 w-12 text-primary mx-auto mb-2" />
-            <p className="font-medium text-primary">Drop files to import</p>
+      {/* Main Content Area */}
+      {/* biome-ignore lint/a11y/useSemanticElements: div required for flex layout and drag-drop functionality */}
+      <div
+        role="region"
+        aria-label="Media drop zone"
+        className="flex-1 flex flex-col relative"
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        onKeyDown={(e) => {
+          // Suppress keyboard interaction warning for drag-drop zone
+          if (e.key === "Escape" && isDragOver) {
+            setIsDragOver(false);
+          }
+        }}
+      >
+        {isDragOver && (
+          <div className="absolute inset-0 z-50 bg-primary/10 backdrop-blur-[1px] flex items-center justify-center border-2 border-primary m-2 rounded-lg">
+            <div className="text-primary font-medium flex flex-col items-center gap-2">
+              <Upload className="w-8 h-8" />
+              Drop to Import
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Content */}
-      {isLoading ? (
-        <LoadingState />
-      ) : error ? (
-        <ErrorState message={error} />
-      ) : assets.length === 0 ? (
-        <MainEmptyState onImport={onImport} />
-      ) : (
-        <Tabs defaultValue="all" className="flex-1 flex flex-col">
-          <TabsList className="mx-2 mt-2 h-9">
-            <TabsTrigger value="all" className="text-xs">
-              All ({assets.length})
-            </TabsTrigger>
-            <TabsTrigger value="video" className="text-xs">
-              <Film className="h-3 w-3 mr-1" />
-              {videoAssets.length}
-            </TabsTrigger>
-            <TabsTrigger value="audio" className="text-xs">
-              <Music className="h-3 w-3 mr-1" />
-              {audioAssets.length}
-            </TabsTrigger>
-          </TabsList>
-
+        {/* Tab Content */}
+        {activeTab === "media" && (
           <ScrollArea className="flex-1">
-            <TabsContent value="all" className="m-0 p-2">
-              <div className="grid grid-cols-2 gap-2">
-                {assets.map(renderAssetCard)}
+            {assets.length === 0 ? (
+              <EmptyState onImport={onImport} />
+            ) : (
+              <div className="grid grid-cols-2 gap-2 p-2">
+                <button
+                  type="button"
+                  onClick={onImport}
+                  className="aspect-video bg-muted/30 border border-border/50 border-dashed rounded-xl flex flex-col items-center justify-center hover:bg-muted/50 transition-all group hover:scale-[1.02] duration-200"
+                >
+                  <Upload className="w-5 h-5 text-muted-foreground group-hover:text-foreground mb-1" />
+                  <span className="text-[10px] text-muted-foreground group-hover:text-foreground">
+                    Import
+                  </span>
+                </button>
+                {assets.map((asset) => (
+                  // biome-ignore lint/a11y/useSemanticElements: Needs to be div for draggable attribute support
+                  <div
+                    key={asset.id}
+                    role="button"
+                    tabIndex={0}
+                    className="aspect-video bg-muted/20 border border-border/40 rounded-xl relative group cursor-pointer overflow-hidden shadow-sm hover:shadow-md transition-all hover:ring-2 ring-primary/20"
+                    onClick={() => onAssetSelect?.(asset)}
+                    onDoubleClick={() => onAssetAdd?.(asset)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onAssetSelect?.(asset);
+                      }
+                    }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setContextMenu({
+                        asset,
+                        position: { x: e.clientX, y: e.clientY },
+                      });
+                    }}
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData(
+                        "application/json",
+                        JSON.stringify(asset),
+                      );
+                    }}
+                  >
+                    <MediaThumbnail
+                      asset={asset}
+                      className="absolute inset-0"
+                    />
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-[2px] p-1.5 flex justify-between items-center text-[10px] text-white/90">
+                      <span className="truncate max-w-[70%]">{asset.name}</span>
+                      <span className="opacity-70">
+                        {Math.round(asset.duration)}s
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
-            </TabsContent>
-
-            <TabsContent value="video" className="m-0 p-2">
-              {videoAssets.length === 0 ? (
-                <FilteredEmptyState type="video" />
-              ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  {videoAssets.map(renderAssetCard)}
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="audio" className="m-0 p-2">
-              {audioAssets.length === 0 ? (
-                <FilteredEmptyState type="audio" />
-              ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  {audioAssets.map(renderAssetCard)}
-                </div>
-              )}
-            </TabsContent>
-          </ScrollArea>
-
-          {/* Drop Zone - only show when there are assets */}
-          <button
-            type="button"
-            className={cn(
-              "mx-2 mb-2 p-3 border border-dashed border-border rounded-lg",
-              "flex flex-col items-center justify-center gap-1 w-[calc(100%-1rem)]",
-              "text-foreground/40 text-xs bg-transparent",
-              "cursor-pointer hover:border-primary hover:text-foreground/60",
             )}
-            onClick={onImport}
-          >
-            <FolderOpen className="h-4 w-4" />
-            <span>Add more files</span>
-          </button>
-        </Tabs>
+          </ScrollArea>
+        )}
+
+        {activeTab !== "media" && (
+          <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
+            Coming Soon
+          </div>
+        )}
+      </div>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <ContextMenu
+          asset={contextMenu.asset}
+          position={contextMenu.position}
+          onAdd={(asset) => {
+            onAssetAdd?.(asset);
+          }}
+          onRemove={(assetId) => {
+            onAssetRemove?.(assetId);
+          }}
+          onClose={() => setContextMenu(null)}
+        />
       )}
-    </section>
+    </div>
   );
 }

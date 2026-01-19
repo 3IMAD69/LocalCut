@@ -50,7 +50,7 @@ function TimelineEmptyOverlay() {
       <div className="text-center">
         <div
           className={cn(
-            "w-16 h-16 border border-dashed border-border rounded-lg",
+            "w-16 h-16 border border-dashed border-border rounded-2xl",
             "flex items-center justify-center mx-auto mb-3",
             "bg-muted/50",
           )}
@@ -106,22 +106,21 @@ export function Timeline({
   const isEmpty = tracks.every((track) => track.clips.length === 0);
 
   return (
-    <div
-      className={cn(
-        "flex flex-col border border-border bg-background rounded-lg",
-        className,
-      )}
-    >
+    <div className={cn("flex flex-col bg-background/50", className)}>
       {/* Timeline Header with Controls */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted rounded-t-lg">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border/40 bg-muted/30">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium uppercase tracking-wide text-foreground/60">
+          <span className="text-xs font-bold uppercase tracking-wider text-foreground/50 bg-foreground/5 px-2 py-1 rounded-md">
             Timeline
           </span>
           {/* Add Track Button */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-7 gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1 rounded-full px-3 text-xs bg-background/50 border-border/50 shadow-sm hover:bg-background"
+              >
                 <Plus className="h-3 w-3" />
                 <span className="text-xs">Add Track</span>
               </Button>
@@ -144,7 +143,7 @@ export function Timeline({
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7"
+            className="h-7 w-7 rounded-full hover:bg-background/80"
             onClick={handleZoomOut}
           >
             <Minus className="h-3 w-3" />
@@ -155,7 +154,7 @@ export function Timeline({
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7"
+            className="h-7 w-7 rounded-full hover:bg-background/80"
             onClick={handleZoomIn}
           >
             <Plus className="h-3 w-3" />

@@ -321,13 +321,10 @@ export function TimelinePlayer({
     <TooltipProvider>
       <div
         ref={containerRef}
-        className={cn(
-          "flex flex-col border-2 border-border bg-background",
-          className,
-        )}
+        className={cn("flex flex-col bg-background/50", className)}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-border/40 bg-muted/30">
           <span className="text-xs font-medium uppercase tracking-wide">
             Preview
           </span>
@@ -351,10 +348,7 @@ export function TimelinePlayer({
           <canvas
             key={canvasKey}
             ref={canvasRef}
-            className={cn(
-              "aspect-video w-full max-w-full max-h-full",
-              "border-2 border-border",
-            )}
+            className={cn("aspect-video w-full max-w-full max-h-full")}
             style={{
               maxHeight: "100%",
               objectFit: "contain",
@@ -437,7 +431,7 @@ export function TimelinePlayer({
         </div>
 
         {/* Controls */}
-        <div className="flex items-center justify-between px-3 py-2 border-t border-border bg-muted">
+        <div className="flex items-center justify-between px-3 py-2 border-t border-border/40 bg-muted/30">
           {/* Left: Transport Controls */}
           <div className="flex items-center gap-1">
             <Tooltip>
@@ -445,7 +439,7 @@ export function TimelinePlayer({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9"
+                  className="h-9 w-9 rounded-full hover:bg-background/80"
                   onClick={handleSkipBack}
                 >
                   <SkipBack className="h-4 w-4" />
@@ -459,7 +453,7 @@ export function TimelinePlayer({
                 <Button
                   variant="default"
                   size="icon"
-                  className="h-10 w-10"
+                  className="h-10 w-10 rounded-full shadow-lg hover:scale-105 transition-transform"
                   onClick={handlePlayPause}
                 >
                   {state.playing ? (
@@ -477,7 +471,7 @@ export function TimelinePlayer({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9"
+                  className="h-9 w-9 rounded-full hover:bg-background/80"
                   onClick={handleSkipForward}
                 >
                   <SkipForward className="h-4 w-4" />
@@ -496,7 +490,7 @@ export function TimelinePlayer({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-9 w-9"
+                    className="h-9 w-9 rounded-full hover:bg-background/80"
                     onClick={() => setMuted(!state.muted)}
                     onDoubleClick={() => setShowVolumeSlider(!showVolumeSlider)}
                   >
@@ -536,7 +530,7 @@ export function TimelinePlayer({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9"
+                  className="h-9 w-9 rounded-full hover:bg-background/80"
                   onClick={handleFullscreen}
                 >
                   <Maximize className="h-4 w-4" />

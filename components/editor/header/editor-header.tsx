@@ -1,190 +1,91 @@
-"use client";
-
-import {
-  Download,
-  Film,
-  FolderOpen,
-  HelpCircle,
-  Save,
-  Settings,
-} from "lucide-react";
+import { ChevronLeft, Redo2, Undo2 } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 interface EditorHeaderProps {
   projectName?: string;
-  onNewProject?: () => void;
-  onOpenProject?: () => void;
-  onSaveProject?: () => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
   onExport?: () => void;
-  onSettings?: () => void;
-  onHelp?: () => void;
-  isSaving?: boolean;
-  hasUnsavedChanges?: boolean;
+  canUndo?: boolean;
+  canRedo?: boolean;
   className?: string;
 }
 
 export function EditorHeader({
   projectName = "Untitled Project",
-  onNewProject,
-  onOpenProject,
-  onSaveProject,
+  onUndo,
+  onRedo,
   onExport,
-  onSettings,
-  onHelp,
-  isSaving = false,
-  hasUnsavedChanges = false,
+  canUndo = false,
+  canRedo = false,
   className,
 }: EditorHeaderProps) {
   return (
-    <TooltipProvider>
-      <header
-        className={cn(
-          "flex items-center justify-between h-14",
-          "px-4 border-b border-border bg-card",
-          className,
-        )}
-      >
-        {/* Left: Logo & Project Name */}
-        <div className="flex items-center gap-4">
-          {/* Logo */}
-          <div className="flex items-center gap-2">
-            <div
-              className={cn(
-                "w-8 h-8 border border-border bg-muted rounded-md",
-                "flex items-center justify-center",
-              )}
-            >
-              <Film className="h-5 w-5 text-foreground" />
-            </div>
-            <span className="font-semibold text-lg text-foreground hidden sm:block">
-              LocalCut
-            </span>
-          </div>
+    <header
+      className={cn(
+        "flex items-center justify-between h-14 px-4 bg-background border-b border-border select-none",
+        className,
+      )}
+    >
+      {/* Left Section: Back & History Controls */}
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 text-muted-foreground hover:text-foreground rounded-full hover:bg-muted"
+          asChild
+        >
+          <Link href="/projects">
+            <ChevronLeft className="h-5 w-5" />
+          </Link>
+        </Button>
 
-          {/* Divider */}
-          <div className="w-px h-6 bg-border hidden sm:block" />
+        <div className="w-px h-4 bg-border mx-2" />
 
-          {/* Project Name */}
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-sm text-foreground truncate max-w-[200px]">
-              {projectName}
-            </span>
-            {hasUnsavedChanges && (
-              <span
-                className="w-2 h-2 rounded-full bg-chart-3"
-                title="Unsaved changes"
-              />
-            )}
-          </div>
-        </div>
-
-        {/* Center: File Actions */}
         <div className="flex items-center gap-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 bg-muted"
-                onClick={onNewProject}
-              >
-                <Film className="h-4 w-4 mr-1" />
-                <span className="hidden md:inline">New</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>New Project</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 bg-muted"
-                onClick={onOpenProject}
-              >
-                <FolderOpen className="h-4 w-4 mr-1" />
-                <span className="hidden md:inline">Open</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Open Project</TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 bg-muted"
-                onClick={onSaveProject}
-                disabled={isSaving}
-              >
-                <Save className="h-4 w-4 mr-1" />
-                <span className="hidden md:inline">
-                  {isSaving ? "Saving..." : "Save"}
-                </span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Save Project (Ctrl+S)</TooltipContent>
-          </Tooltip>
-
-          {/* Divider */}
-          <div className="w-px h-6 bg-border mx-2" />
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="default"
-                size="sm"
-                className="h-8"
-                onClick={onExport}
-              >
-                <Download className="h-4 w-4 mr-1" />
-                <span className="hidden md:inline">Export</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Export Video</TooltipContent>
-          </Tooltip>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 text-muted-foreground hover:text-foreground rounded-full"
+            onClick={onUndo}
+            disabled={!canUndo}
+          >
+            <Undo2 className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 text-muted-foreground hover:text-foreground rounded-full"
+            onClick={onRedo}
+            disabled={!canRedo}
+          >
+            <Redo2 className="h-4 w-4" />
+          </Button>
         </div>
+      </div>
 
-        {/* Right: Settings & Help */}
-        <div className="flex items-center gap-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 bg-muted"
-                onClick={onHelp}
-              >
-                <HelpCircle className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Help</TooltipContent>
-          </Tooltip>
+      {/* Center Section: Project Name */}
+      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+        <span className="text-sm font-medium text-foreground/90">
+          {projectName}
+        </span>
+      </div>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 bg-muted"
-                onClick={onSettings}
-              >
-                <Settings className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Settings</TooltipContent>
-          </Tooltip>
-        </div>
-      </header>
-    </TooltipProvider>
+      {/* Right Section: Actions */}
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          onClick={onExport}
+          className="h-9 px-5 text-sm font-medium bg-white text-black hover:bg-white/90 rounded-full shadow-lg hover:shadow-xl transition-all"
+        >
+          Export
+          <span className="ml-2 text-[10px] opacity-60 bg-black/10 px-1.5 py-0.5 rounded-full">
+            ⌘E
+          </span>
+        </Button>
+      </div>
+    </header>
   );
 }
