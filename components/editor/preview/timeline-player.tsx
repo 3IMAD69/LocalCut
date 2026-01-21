@@ -78,6 +78,33 @@ export function TimelinePlayer({
   const videoAreaRef = useRef<HTMLDivElement>(null);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
 
+  const getDisplayMapping = useCallback(() => {
+    if (!videoAreaRef.current || !canvasRef.current) return null;
+
+    const container = videoAreaRef.current.getBoundingClientRect();
+    const outputWidth = canvasRef.current.width || 1920;
+    const outputHeight = canvasRef.current.height || 1080;
+
+    const scale = Math.min(
+      container.width / outputWidth,
+      container.height / outputHeight,
+    );
+
+    const displayWidth = outputWidth * scale;
+    const displayHeight = outputHeight * scale;
+
+    const offsetX = (container.width - displayWidth) / 2;
+    const offsetY = (container.height - displayHeight) / 2;
+
+    return {
+      scale,
+      offsetX,
+      offsetY,
+      outputWidth,
+      outputHeight,
+    };
+  }, [canvasRef]);
+
   const findSelectedClip = useCallback((): {
     clip: TimelineClipWithAsset;
     sourceSize: { width: number; height: number };
@@ -109,6 +136,9 @@ export function TimelinePlayer({
     const selected = findSelectedClip();
     if (!selected) return null;
 
+    const mapping = getDisplayMapping();
+    if (!mapping) return null;
+
     const { clip, sourceSize } = selected;
 
     // Only show overlay if the clip is currently visible.
@@ -117,21 +147,7 @@ export function TimelinePlayer({
       return null;
 
     // Compute where the video is drawn inside the container (object-contain).
-    const container = videoAreaRef.current.getBoundingClientRect();
-    const containerWidth = container.width;
-    const containerHeight = container.height;
-
-    const videoAspect = sourceSize.width / sourceSize.height;
-    const containerAspect = containerWidth / containerHeight;
-
-    const baseHeight =
-      containerAspect > videoAspect
-        ? containerHeight
-        : containerWidth / videoAspect;
-    const baseWidth = baseHeight * videoAspect;
-
-    const offsetX = (containerWidth - baseWidth) / 2;
-    const offsetY = (containerHeight - baseHeight) / 2;
+    const { scale, offsetX, offsetY, outputWidth, outputHeight } = mapping;
 
     const transform = clip.transform ?? {
       x: 0,
@@ -141,22 +157,32 @@ export function TimelinePlayer({
       rotation: 0,
     };
 
-    const rectWidth = baseWidth * transform.scaleX;
-    const rectHeight = baseHeight * transform.scaleY;
+    const rectWidth = sourceSize.width * transform.scaleX * scale;
+    const rectHeight = sourceSize.height * transform.scaleY * scale;
+
+    const baseX = (outputWidth - sourceSize.width) / 2 + transform.x;
+    const baseY = (outputHeight - sourceSize.height) / 2 + transform.y;
 
     return {
-      x: offsetX + (baseWidth - rectWidth) / 2 + transform.x,
-      y: offsetY + (baseHeight - rectHeight) / 2 + transform.y,
+      x: offsetX + baseX * scale,
+      y: offsetY + baseY * scale,
       width: rectWidth,
       height: rectHeight,
     };
-  }, [findSelectedClip, state.currentTime]);
+  }, [findSelectedClip, getDisplayMapping, state.currentTime]);
 
   const handleOverlayMove = useCallback(
     ({ dx, dy }: { dx: number; dy: number }) => {
       if (!selectedClipId) return;
       const selected = findSelectedClip();
       if (!selected) return;
+
+      const mapping = getDisplayMapping();
+      if (!mapping) return;
+
+      const { scale } = mapping;
+      const normalizedDx = dx / scale;
+      const normalizedDy = dy / scale;
 
       const current = selected.clip.transform ?? {
         x: 0,
@@ -167,11 +193,20 @@ export function TimelinePlayer({
       };
 
       onClipTransformChange?.(selectedClipId, {
-        x: current.x + dx,
-        y: current.y + dy,
+        x: current.x + normalizedDx,
+        y: current.y + normalizedDy,
       });
+
+      void seek(state.currentTime);
     },
-    [findSelectedClip, onClipTransformChange, selectedClipId],
+    [
+      findSelectedClip,
+      getDisplayMapping,
+      onClipTransformChange,
+      selectedClipId,
+      seek,
+      state.currentTime,
+    ],
   );
 
   // Handle play/pause

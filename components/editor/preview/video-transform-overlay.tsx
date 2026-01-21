@@ -32,9 +32,7 @@ export function VideoTransformOverlay({
 }: VideoTransformOverlayProps) {
   const [containerBounds, setContainerBounds] = useState<DOMRect | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-
-  const initialRectRef = useRef<OverlayRect | null>(null);
+  const lastPointerRef = useRef({ x: 0, y: 0 });
 
   useLayoutEffect(() => {
     if (!isActive || !containerRef.current) return;
@@ -63,8 +61,7 @@ export function VideoTransformOverlay({
       if (!rect) return;
 
       setIsDragging(true);
-      setDragStart({ x: e.clientX, y: e.clientY });
-      initialRectRef.current = rect;
+      lastPointerRef.current = { x: e.clientX, y: e.clientY };
     },
     [rect],
   );
@@ -73,16 +70,15 @@ export function VideoTransformOverlay({
     if (!isDragging) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (!initialRectRef.current) return;
+      const dx = e.clientX - lastPointerRef.current.x;
+      const dy = e.clientY - lastPointerRef.current.y;
 
-      const dx = e.clientX - dragStart.x;
-      const dy = e.clientY - dragStart.y;
+      lastPointerRef.current = { x: e.clientX, y: e.clientY };
       onMove?.({ dx, dy });
     };
 
     const handleMouseUp = () => {
       setIsDragging(false);
-      initialRectRef.current = null;
     };
 
     window.addEventListener("mousemove", handleMouseMove);
@@ -92,7 +88,7 @@ export function VideoTransformOverlay({
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [dragStart, isDragging, onMove]);
+  }, [isDragging, onMove]);
 
   if (!isActive || !containerBounds || !rect) return null;
 
