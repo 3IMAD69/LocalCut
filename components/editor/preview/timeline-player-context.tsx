@@ -284,7 +284,7 @@ export function TimelinePlayerProvider({
     setState((prev) => ({ ...prev, duration: maxTime }));
   }, [tracks]);
 
-  // Update preview whenever tracks change
+  // Update preview whenever tracks or loaded sources change
   useEffect(() => {
     const compositor = compositorRef.current;
     if (!compositor) return;
@@ -294,7 +294,7 @@ export function TimelinePlayerProvider({
       return buildCompositorComposition({
         time,
         tracks,
-        loadedSources: loadedSourcesRef.current,
+        loadedSources,
         width,
         height,
         transformOverrides: transformOverridesRef.current,
@@ -307,7 +307,21 @@ export function TimelinePlayerProvider({
       loop: state.loop,
       getComposition,
     });
-  }, [tracks, state.duration, state.loop, width, height]);
+
+    // Re-render the current frame to reflect track changes immediately
+    // (e.g., when adding or removing clips from the timeline)
+    if (!state.playing) {
+      compositor.seek(currentTimeRef.current);
+    }
+  }, [
+    tracks,
+    loadedSources,
+    state.duration,
+    state.loop,
+    state.playing,
+    width,
+    height,
+  ]);
 
   // Load a media source into the compositor
   const loadSource = useCallback(
