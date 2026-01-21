@@ -14,6 +14,7 @@ import {
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 
 // Worker URL for Next.js - using dynamic URL construction
@@ -122,16 +123,23 @@ interface TimelinePlayerContextValue {
   // Playback state
   state: TimelinePlaybackState;
 
+  // Current time store (avoids rerendering all consumers on playback)
+  getCurrentTime: () => number;
+  subscribeCurrentTime: (listener: () => void) => () => void;
+
   // Track data
   tracks: TimelineTrackData[];
 
   // Actions
   setTracks: (tracks: TimelineTrackData[]) => void;
+  setClipTransformOverride: (clipId: string, transform: ClipTransform) => void;
+  clearClipTransformOverride: (clipId: string) => void;
   loadSource: (asset: ImportedMediaAsset) => Promise<LoadedSource | null>;
   unloadSource: (assetId: string) => void;
   play: () => Promise<void>;
   pause: () => void;
   seek: (time: number) => Promise<void>;
+  renderFrame: (time: number) => Promise<void>;
   setVolume: (volume: number) => void;
   setMuted: (muted: boolean) => void;
   setLoop: (loop: boolean) => void;
@@ -170,8 +178,12 @@ export function TimelinePlayerProvider({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const compositorRef = useRef<Compositor | null>(null);
   const loadedSourcesRef = useRef<Map<string, LoadedSource>>(new Map());
+  const transformOverridesRef = useRef<Map<string, ClipTransform>>(new Map());
   const volumeRef = useRef(1);
   const mutedRef = useRef(false);
+  const currentTimeRef = useRef(0);
+  const currentTimeListenersRef = useRef(new Set<() => void>());
+  const suppressTimeUpdateRef = useRef(false);
   // Unique key to force fresh canvas on each mount (prevents transferControlToOffscreen errors)
   const [canvasKey] = useState(() => ++canvasKeyCounter);
 
@@ -217,7 +229,11 @@ export function TimelinePlayerProvider({
 
         // Listen to compositor events
         compositor.on("timeupdate", ({ currentTime }) => {
-          setState((prev) => ({ ...prev, currentTime }));
+          if (suppressTimeUpdateRef.current) return;
+          currentTimeRef.current = currentTime;
+          for (const listener of currentTimeListenersRef.current) {
+            listener();
+          }
         });
 
         compositor.on("play", () => {
@@ -281,6 +297,7 @@ export function TimelinePlayerProvider({
         loadedSources: loadedSourcesRef.current,
         width,
         height,
+        transformOverrides: transformOverridesRef.current,
       });
     };
 
@@ -380,6 +397,17 @@ export function TimelinePlayerProvider({
     [loadSource],
   );
 
+  const setClipTransformOverride = useCallback(
+    (clipId: string, transform: ClipTransform) => {
+      transformOverridesRef.current.set(clipId, transform);
+    },
+    [],
+  );
+
+  const clearClipTransformOverride = useCallback((clipId: string) => {
+    transformOverridesRef.current.delete(clipId);
+  }, []);
+
   // Playback controls
   const play = useCallback(async () => {
     const compositor = compositorRef.current;
@@ -399,7 +427,27 @@ export function TimelinePlayerProvider({
     const compositor = compositorRef.current;
     if (compositor) {
       await compositor.seek(time);
+      currentTimeRef.current = time;
+      for (const listener of currentTimeListenersRef.current) {
+        listener();
+      }
       setState((prev) => ({ ...prev, currentTime: time }));
+    }
+  }, []);
+
+  const renderFrame = useCallback(async (time: number) => {
+    const compositor = compositorRef.current;
+    if (!compositor) return;
+
+    suppressTimeUpdateRef.current = true;
+    try {
+      await compositor.seek(time);
+      currentTimeRef.current = time;
+      for (const listener of currentTimeListenersRef.current) {
+        listener();
+      }
+    } finally {
+      suppressTimeUpdateRef.current = false;
     }
   }, []);
 
@@ -435,7 +483,7 @@ export function TimelinePlayerProvider({
       if (!compositor) return null;
 
       try {
-        const targetTime = time ?? state.currentTime;
+        const targetTime = time ?? currentTimeRef.current;
         const blob = await compositor.exportFrame(targetTime, {
           format: "png",
         });
@@ -445,7 +493,7 @@ export function TimelinePlayerProvider({
         return null;
       }
     },
-    [state.currentTime],
+    [],
   );
 
   // Resize compositor
@@ -462,13 +510,23 @@ export function TimelinePlayerProvider({
     compositor: compositorRef.current,
     loadedSources,
     state,
+    getCurrentTime: () => currentTimeRef.current,
+    subscribeCurrentTime: (listener) => {
+      currentTimeListenersRef.current.add(listener);
+      return () => {
+        currentTimeListenersRef.current.delete(listener);
+      };
+    },
     tracks,
     setTracks,
+    setClipTransformOverride,
+    clearClipTransformOverride,
     loadSource,
     unloadSource,
     play,
     pause,
     seek,
+    renderFrame,
     setVolume,
     setMuted,
     setLoop,
@@ -499,14 +557,32 @@ export function useTimelinePlayer(): TimelinePlayerContextValue {
   return context;
 }
 
+export function useTimelinePlayerTime(): number {
+  const context = useContext(TimelinePlayerContext);
+
+  if (!context) {
+    throw new Error(
+      "useTimelinePlayerTime must be used within a TimelinePlayerProvider",
+    );
+  }
+
+  return useSyncExternalStore(
+    context.subscribeCurrentTime,
+    context.getCurrentTime,
+    context.getCurrentTime,
+  );
+}
+
 export function buildCompositorComposition(params: {
   time: number;
   tracks: TimelineTrackData[];
   loadedSources: Map<string, LoadedSource>;
   width: number;
   height: number;
+  transformOverrides?: Map<string, ClipTransform>;
 }): { time: number; layers: CompositorLayer[]; audio?: AudioLayer[] } {
-  const { time, tracks, loadedSources, width, height } = params;
+  const { time, tracks, loadedSources, width, height, transformOverrides } =
+    params;
 
   const layers: CompositorLayer[] = [];
   const audio: AudioLayer[] = [];
@@ -531,13 +607,14 @@ export function buildCompositorComposition(params: {
         const centerX = (width - loadedSource.width) / 2;
         const centerY = (height - loadedSource.height) / 2;
 
-        const clipTransform = clip.transform ?? {
-          x: 0,
-          y: 0,
-          scaleX: 1,
-          scaleY: 1,
-          rotation: 0,
-        };
+        const clipTransform = transformOverrides?.get(clip.id) ??
+          clip.transform ?? {
+            x: 0,
+            y: 0,
+            scaleX: 1,
+            scaleY: 1,
+            rotation: 0,
+          };
 
         layers.push({
           source: loadedSource.source,

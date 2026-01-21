@@ -22,6 +22,7 @@ export {
   TimelinePlayerProvider,
   type TimelineTrackData,
   useTimelinePlayer,
+  useTimelinePlayerTime,
 } from "./preview/timeline-player-context";
 export { VideoTransformOverlay } from "./preview/video-transform-overlay";
 

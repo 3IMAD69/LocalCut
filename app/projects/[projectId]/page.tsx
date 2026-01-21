@@ -15,6 +15,7 @@ import {
 } from "@/components/editor";
 import { ExportModal } from "@/components/editor/export";
 import type { MediaAsset } from "@/components/editor/panels/media-library";
+import { useTimelinePlayerTime } from "@/components/editor/preview/timeline-player-context";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -29,6 +30,45 @@ import {
 // Empty initial state for tracks
 const emptyTracks: TimelineTrackData[] = [];
 
+interface TimelineWithTimeProps {
+  tracks: TimelineTrackData[];
+  duration: number;
+  selectedClipId: string | null;
+  onTimeChange: (time: number) => void;
+  onClipSelect: (clipId: string) => void;
+  onTracksChange: (nextTracks: TimelineTrackData[]) => void;
+  onAddTrack: (type: "video" | "audio") => void;
+  onRemoveTrack: (trackId: string) => void;
+}
+
+function TimelineWithTime({
+  tracks,
+  duration,
+  selectedClipId,
+  onTimeChange,
+  onClipSelect,
+  onTracksChange,
+  onAddTrack,
+  onRemoveTrack,
+}: TimelineWithTimeProps) {
+  const currentTime = useTimelinePlayerTime();
+
+  return (
+    <Timeline
+      tracks={tracks}
+      currentTime={currentTime}
+      duration={duration}
+      onTimeChange={onTimeChange}
+      selectedClipId={selectedClipId}
+      onClipSelect={onClipSelect}
+      onTracksChange={onTracksChange}
+      onAddTrack={onAddTrack}
+      onRemoveTrack={onRemoveTrack}
+      className="h-full border-none"
+    />
+  );
+}
+
 function EditorContent() {
   // Media import context
   const {
@@ -41,11 +81,7 @@ function EditorContent() {
   } = useMediaImport();
 
   // Timeline player context
-  const {
-    state: playerState,
-    setTracks: setPlayerTracks,
-    seek: playerSeek,
-  } = useTimelinePlayer();
+  const { setTracks: setPlayerTracks, seek: playerSeek } = useTimelinePlayer();
 
   // Convert imported assets to MediaAsset format for MediaLibrary
   const mediaAssets: MediaAsset[] = importedAssets.map((asset) => ({
@@ -76,6 +112,7 @@ function EditorContent() {
   const [selectedClip, setSelectedClip] = useState<ClipProperties | null>(null);
   const [, setHasUnsavedChanges] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [isMediaPanelOpen, setIsMediaPanelOpen] = useState(true);
 
   // History state for Undo/Redo (placeholder)
   const [canUndo] = useState(false);
@@ -115,9 +152,6 @@ function EditorContent() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedClip]);
-
-  // Use player state for currentTime (single source of truth)
-  const currentTime = playerState.currentTime;
 
   // Calculate total duration from clips (minimum 60s for empty timeline)
   const duration = Math.max(
@@ -250,35 +284,40 @@ function EditorContent() {
         canUndo={canUndo}
         canRedo={canRedo}
         onExport={handleExport}
+        isMediaPanelOpen={isMediaPanelOpen}
+        onToggleMediaPanel={() => setIsMediaPanelOpen((prev) => !prev)}
         className="h-16 px-6 bg-background/50 backdrop-blur-sm border-b-0"
       />
 
-      <div className="flex-1 overflow-hidden px-4 pb-4">
+      <div className="flex-1 overflow-hidden px-2 pb-2">
         <ResizablePanelGroup direction="vertical" className="h-full">
           {/* Top Section: Sidebar + Preview */}
           <ResizablePanel defaultSize={70} minSize={40}>
-            <div className="h-full pb-3">
+            <div className="h-full pb-2">
               <ResizablePanelGroup direction="horizontal" className="h-full">
                 {/* Left Sidebar: Media Library */}
-                <ResizablePanel defaultSize={25} minSize={15} maxSize={50}>
-                  <aside className="h-full bg-card rounded-2xl border border-border/40 shadow-sm z-10 flex flex-col overflow-hidden">
-                    <MediaLibrary
-                      assets={mediaAssets}
-                      isLoading={isImporting}
-                      error={importError}
-                      onImport={openFilePicker}
-                      onFileDrop={handleFileDrop}
-                      onAssetSelect={(asset) =>
-                        console.log("Selected asset", asset)
-                      }
-                      onAssetAdd={handleAssetAdd}
-                      onAssetRemove={removeAsset}
-                      className="h-full border-none"
-                    />
-                  </aside>
-                </ResizablePanel>
-
-                <ResizableHandle className="mx-1 w-1 bg-transparent hover:bg-primary/30 data-[resize-handle-state=drag]:bg-primary/50 transition-all duration-200 rounded-full" />
+                {isMediaPanelOpen && (
+                  <>
+                    <ResizablePanel defaultSize={25} minSize={15} maxSize={50}>
+                      <aside className="h-full bg-card rounded-2xl border border-border/40 shadow-sm z-10 flex flex-col overflow-hidden">
+                        <MediaLibrary
+                          assets={mediaAssets}
+                          isLoading={isImporting}
+                          error={importError}
+                          onImport={openFilePicker}
+                          onFileDrop={handleFileDrop}
+                          onAssetSelect={(asset) =>
+                            console.log("Selected asset", asset)
+                          }
+                          onAssetAdd={handleAssetAdd}
+                          onAssetRemove={removeAsset}
+                          className="h-full border-none"
+                        />
+                      </aside>
+                    </ResizablePanel>
+                    <ResizableHandle className="mx-1 w-1 bg-transparent hover:bg-primary/30 data-[resize-handle-state=drag]:bg-primary/50 transition-all duration-200 rounded-full" />
+                  </>
+                )}
 
                 {/* Main Content: Preview Area */}
                 <ResizablePanel defaultSize={75} minSize={40}>
@@ -325,9 +364,8 @@ function EditorContent() {
           {/* Bottom Section: Timeline */}
           <ResizablePanel defaultSize={30} minSize={15} maxSize={60}>
             <div className="h-full bg-background rounded-2xl border border-border/40 shadow-sm z-20 overflow-hidden">
-              <Timeline
+              <TimelineWithTime
                 tracks={tracks}
-                currentTime={currentTime}
                 duration={duration}
                 onTimeChange={handleSeek}
                 selectedClipId={selectedClip?.id ?? null}
@@ -338,7 +376,6 @@ function EditorContent() {
                 }}
                 onAddTrack={handleAddTrack}
                 onRemoveTrack={handleRemoveTrack}
-                className="h-full border-none"
               />
             </div>
           </ResizablePanel>

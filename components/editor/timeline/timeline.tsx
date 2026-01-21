@@ -79,10 +79,10 @@ export function Timeline({
   const [rowScrollTop, setRowScrollTop] = useState(0);
   const timelineRef = useRef<TimelineState>(null);
 
-  const labelWidth = 96;
-  const rowHeight = 56;
-  const timeAreaHeight = 32;
-  const rowOffset = 10;
+  const labelWidth = 80;
+  const rowHeight = 36;
+  const timeAreaHeight = 24;
+  const rowOffset = 4;
   const scale = 1;
   const minScaleCount = Math.max(20, Math.ceil(duration / scale));
   const maxScaleCount = Math.max(minScaleCount, 5000);

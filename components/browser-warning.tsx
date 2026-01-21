@@ -12,6 +12,9 @@ export function BrowserWarning() {
     setIsChrome(isChromeBrowser);
   }, []);
 
+  // Don't show warning in development
+  if (process.env.NODE_ENV === "development") return null;
+
   // Don't show warning if browser is Chrome
   if (isChrome) return null;
 

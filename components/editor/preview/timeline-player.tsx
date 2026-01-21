@@ -9,7 +9,13 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import {
@@ -19,8 +25,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import type { TimelineClipWithAsset } from "./timeline-player-context";
-import { useTimelinePlayer } from "./timeline-player-context";
+import {
+  type ClipTransform,
+  type TimelineClipWithAsset,
+  useTimelinePlayer,
+  useTimelinePlayerTime,
+} from "./timeline-player-context";
 import {
   type OverlayRect,
   VideoTransformOverlay,
@@ -69,14 +79,32 @@ export function TimelinePlayer({
     play,
     pause,
     seek,
+    renderFrame,
+    setClipTransformOverride,
+    clearClipTransformOverride,
     setVolume,
     setMuted,
     exportFrame,
   } = useTimelinePlayer();
+  const currentTime = useTimelinePlayerTime();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const videoAreaRef = useRef<HTMLDivElement>(null);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
+  const pendingTransformRef = useRef<ClipTransform | null>(null);
+  const lastSelectedClipIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (
+      lastSelectedClipIdRef.current &&
+      lastSelectedClipIdRef.current !== selectedClipId
+    ) {
+      clearClipTransformOverride(lastSelectedClipIdRef.current);
+    }
+
+    lastSelectedClipIdRef.current = selectedClipId ?? null;
+    pendingTransformRef.current = null;
+  }, [clearClipTransformOverride, selectedClipId]);
 
   const getDisplayMapping = useCallback(() => {
     if (!videoAreaRef.current || !canvasRef.current) return null;
@@ -130,7 +158,11 @@ export function TimelinePlayer({
     return null;
   }, [selectedClipId, tracks]);
 
-  const overlayRect = useCallback((): OverlayRect | null => {
+  const [overlayRectState, setOverlayRectState] = useState<OverlayRect | null>(
+    null,
+  );
+
+  const computeOverlayRect = useCallback((): OverlayRect | null => {
     if (!videoAreaRef.current) return null;
 
     const selected = findSelectedClip();
@@ -143,8 +175,7 @@ export function TimelinePlayer({
 
     // Only show overlay if the clip is currently visible.
     const clipEnd = clip.startTime + clip.duration;
-    if (state.currentTime < clip.startTime || state.currentTime >= clipEnd)
-      return null;
+    if (currentTime < clip.startTime || currentTime >= clipEnd) return null;
 
     // Compute where the video is drawn inside the container (object-contain).
     const { scale, offsetX, offsetY, outputWidth, outputHeight } = mapping;
@@ -169,7 +200,26 @@ export function TimelinePlayer({
       width: rectWidth,
       height: rectHeight,
     };
-  }, [findSelectedClip, getDisplayMapping, state.currentTime]);
+  }, [currentTime, findSelectedClip, getDisplayMapping]);
+
+  useLayoutEffect(() => {
+    if (!videoAreaRef.current) return;
+
+    const update = () => {
+      setOverlayRectState(computeOverlayRect());
+    };
+
+    update();
+
+    const resizeObserver = new ResizeObserver(update);
+    resizeObserver.observe(videoAreaRef.current);
+    window.addEventListener("resize", update);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, [computeOverlayRect]);
 
   const handleOverlayMove = useCallback(
     ({ dx, dy }: { dx: number; dy: number }) => {
@@ -192,22 +242,123 @@ export function TimelinePlayer({
         rotation: 0,
       };
 
-      onClipTransformChange?.(selectedClipId, {
-        x: current.x + normalizedDx,
-        y: current.y + normalizedDy,
-      });
+      const baseTransform = pendingTransformRef.current ?? current;
 
-      void seek(state.currentTime);
+      let newX = baseTransform.x + normalizedDx;
+      let newY = baseTransform.y + normalizedDy;
+
+      // Clamping Logic (1920x1080)
+      const CANVAS_WIDTH = 1920;
+      const CANVAS_HEIGHT = 1080;
+      const { width: sourceW, height: sourceH } = selected.sourceSize;
+
+      const currentW = sourceW * Math.abs(baseTransform.scaleX);
+      const currentH = sourceH * Math.abs(baseTransform.scaleY);
+
+      // The compositor centers the source, then adds offset (transform.x/y)
+      // So AbsoluteLeft = (CanvasW - SourceW)/2 + transform.x
+      // Wait: Compositor logic in timeline-player-context usually applies scale from center?
+      // Let's assume standard behavior where visual bounding box is controlled by transform.
+      // If the overlay rect uses:
+      // baseX = (outputWidth - sourceSize.width) / 2 + transform.x;
+      // This confirms transform.x is applied to the top-left of the unscaled source relative to the centered slot.
+      // BUT if scaling is applied, where is the pivot?
+      // The overlayRect calculation suggests scaling happens around the top-left of that positioned box?
+      // rectWidth = sourceSize.width * transform.scaleX
+      // Overlay X = offsetX + baseX * scale
+      // This implies the visual box starts at `baseX`.
+      // So `ActualLeft = (CANVAS_WIDTH - sourceW) / 2 + transform.x`.
+
+      const baseX = (CANVAS_WIDTH - sourceW) / 2;
+      const baseY = (CANVAS_HEIGHT - sourceH) / 2;
+
+      // Calculate Clamped X
+      const proposedLeft = baseX + newX;
+      let clampedLeft = proposedLeft;
+
+      if (currentW <= CANVAS_WIDTH) {
+        // Must be fully contained [0, CANVAS_WIDTH - currentW]
+        clampedLeft = Math.max(
+          0,
+          Math.min(CANVAS_WIDTH - currentW, proposedLeft),
+        );
+      } else {
+        // Must cover the canvas (no empty space)
+        // Left must be <= 0, and Right (Left + W) must be >= CANVAS_WIDTH
+        // So Left must be >= CANVAS_WIDTH - currentW
+        clampedLeft = Math.max(
+          CANVAS_WIDTH - currentW,
+          Math.min(0, proposedLeft),
+        );
+      }
+      newX = clampedLeft - baseX;
+
+      // Calculate Clamped Y
+      const proposedTop = baseY + newY;
+      let clampedTop = proposedTop;
+
+      if (currentH <= CANVAS_HEIGHT) {
+        clampedTop = Math.max(
+          0,
+          Math.min(CANVAS_HEIGHT - currentH, proposedTop),
+        );
+      } else {
+        clampedTop = Math.max(
+          CANVAS_HEIGHT - currentH,
+          Math.min(0, proposedTop),
+        );
+      }
+      newY = clampedTop - baseY;
+
+      const nextTransform: ClipTransform = {
+        ...baseTransform,
+        x: newX,
+        y: newY,
+      };
+
+      pendingTransformRef.current = nextTransform;
+      setClipTransformOverride(selectedClipId, nextTransform);
+
+      if (!state.playing) {
+        void renderFrame(currentTime);
+      }
     },
     [
+      currentTime,
       findSelectedClip,
       getDisplayMapping,
-      onClipTransformChange,
       selectedClipId,
-      seek,
-      state.currentTime,
+      renderFrame,
+      setClipTransformOverride,
+      state.playing,
     ],
   );
+
+  const handleOverlayMoveEnd = useCallback(() => {
+    if (!selectedClipId) return;
+    const nextTransform = pendingTransformRef.current;
+
+    if (nextTransform) {
+      onClipTransformChange?.(selectedClipId, {
+        x: nextTransform.x,
+        y: nextTransform.y,
+      });
+    }
+
+    clearClipTransformOverride(selectedClipId);
+    pendingTransformRef.current = null;
+
+    if (!state.playing) {
+      void renderFrame(currentTime);
+    }
+  }, [
+    clearClipTransformOverride,
+    currentTime,
+    onClipTransformChange,
+    renderFrame,
+    selectedClipId,
+    state.playing,
+  ]);
 
   // Handle play/pause
   const handlePlayPause = useCallback(() => {
@@ -220,21 +371,21 @@ export function TimelinePlayer({
 
   // Skip frames (5 seconds)
   const handleSkipBack = useCallback(() => {
-    seek(Math.max(0, state.currentTime - 5));
-  }, [seek, state.currentTime]);
+    seek(Math.max(0, currentTime - 5));
+  }, [currentTime, seek]);
 
   const handleSkipForward = useCallback(() => {
-    seek(Math.min(state.duration, state.currentTime + 5));
-  }, [seek, state.currentTime, state.duration]);
+    seek(Math.min(state.duration, currentTime + 5));
+  }, [currentTime, seek, state.duration]);
 
   // Frame-by-frame navigation (1/30 second per frame, assuming 30fps)
   const handleFrameBack = useCallback(() => {
-    seek(Math.max(0, state.currentTime - 1 / 30));
-  }, [seek, state.currentTime]);
+    seek(Math.max(0, currentTime - 1 / 30));
+  }, [currentTime, seek]);
 
   const handleFrameForward = useCallback(() => {
-    seek(Math.min(state.duration, state.currentTime + 1 / 30));
-  }, [seek, state.currentTime, state.duration]);
+    seek(Math.min(state.duration, currentTime + 1 / 30));
+  }, [currentTime, seek, state.duration]);
 
   // Fullscreen toggle
   const handleFullscreen = useCallback(() => {
@@ -255,11 +406,11 @@ export function TimelinePlayer({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `frame-${state.currentTime.toFixed(2)}s.png`;
+      a.download = `frame-${currentTime.toFixed(2)}s.png`;
       a.click();
       URL.revokeObjectURL(url);
     }
-  }, [exportFrame, state.currentTime]);
+  }, [currentTime, exportFrame]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -364,9 +515,7 @@ export function TimelinePlayer({
             Preview
           </span>
           <div className="flex items-center gap-2 text-xs font-medium">
-            <span className="text-chart-1">
-              {formatTime(state.currentTime)}
-            </span>
+            <span className="text-chart-1">{formatTime(currentTime)}</span>
             <span className="text-foreground/40">/</span>
             <span className="text-foreground/60">
               {formatTime(state.duration)}
@@ -383,18 +532,22 @@ export function TimelinePlayer({
           <canvas
             key={canvasKey}
             ref={canvasRef}
-            className={cn("aspect-video w-full max-w-full max-h-full")}
+            width={1920}
+            height={1080}
+            className={cn("aspect-video w-full h-full")}
             style={{
               maxHeight: "100%",
+              maxWidth: "100%",
               objectFit: "contain",
             }}
           />
 
           <VideoTransformOverlay
             containerRef={videoAreaRef}
-            rect={overlayRect()}
+            rect={overlayRectState}
             isActive={!isEmpty && !!selectedClipId}
             onMove={handleOverlayMove}
+            onMoveEnd={handleOverlayMoveEnd}
           />
 
           {/* Empty State Overlay */}
@@ -456,7 +609,7 @@ export function TimelinePlayer({
         {/* Seek Bar */}
         <div className="px-3 py-2 border-t border-border bg-muted">
           <Slider
-            value={[state.currentTime]}
+            value={[currentTime]}
             onValueChange={([value]) => seek(value)}
             min={0}
             max={state.duration || 100}

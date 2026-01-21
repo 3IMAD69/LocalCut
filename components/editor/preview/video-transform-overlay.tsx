@@ -22,6 +22,7 @@ interface VideoTransformOverlayProps {
   rect: OverlayRect | null;
   isActive: boolean;
   onMove?: (delta: { dx: number; dy: number }) => void;
+  onMoveEnd?: () => void;
 }
 
 export function VideoTransformOverlay({
@@ -29,9 +30,11 @@ export function VideoTransformOverlay({
   rect,
   isActive,
   onMove,
+  onMoveEnd,
 }: VideoTransformOverlayProps) {
   const [containerBounds, setContainerBounds] = useState<DOMRect | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [localRect, setLocalRect] = useState<OverlayRect | null>(rect);
   const lastPointerRef = useRef({ x: 0, y: 0 });
 
   useLayoutEffect(() => {
@@ -54,43 +57,59 @@ export function VideoTransformOverlay({
     };
   }, [containerRef, isActive]);
 
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
+  useEffect(() => {
+    if (isDragging) return;
+    setLocalRect(rect);
+  }, [isDragging, rect]);
+
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
       e.preventDefault();
       e.stopPropagation();
       if (!rect) return;
 
+      e.currentTarget.setPointerCapture(e.pointerId);
       setIsDragging(true);
       lastPointerRef.current = { x: e.clientX, y: e.clientY };
     },
     [rect],
   );
 
-  useEffect(() => {
-    if (!isDragging) return;
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!isDragging) return;
 
-    const handleMouseMove = (e: MouseEvent) => {
       const dx = e.clientX - lastPointerRef.current.x;
       const dy = e.clientY - lastPointerRef.current.y;
 
       lastPointerRef.current = { x: e.clientX, y: e.clientY };
+
+      setLocalRect((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          x: prev.x + dx,
+          y: prev.y + dy,
+        };
+      });
+
       onMove?.({ dx, dy });
-    };
+    },
+    [isDragging, onMove],
+  );
 
-    const handleMouseUp = () => {
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!isDragging) return;
+
+      e.currentTarget.releasePointerCapture(e.pointerId);
       setIsDragging(false);
-    };
+      onMoveEnd?.();
+    },
+    [isDragging, onMoveEnd],
+  );
 
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-    };
-  }, [isDragging, onMove]);
-
-  if (!isActive || !containerBounds || !rect) return null;
+  if (!isActive || !containerBounds || !localRect) return null;
 
   const handles = ["nw", "n", "ne", "e", "se", "s", "sw", "w"] as const;
 
@@ -106,12 +125,15 @@ export function VideoTransformOverlay({
           isDragging ? "cursor-grabbing" : "cursor-grab",
         )}
         style={{
-          left: rect.x,
-          top: rect.y,
-          width: rect.width,
-          height: rect.height,
+          left: localRect.x,
+          top: localRect.y,
+          width: localRect.width,
+          height: localRect.height,
         }}
-        onMouseDown={handleMouseDown}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
       >
         <div className="absolute -top-9 left-0 flex items-center gap-2 px-2 py-1 border border-border bg-background shadow-md rounded-md text-xs font-medium">
           <Move className="h-3.5 w-3.5" />
