@@ -1,2 +1,6 @@
+import { CardSim } from "lucide-react"
+
 + add audio preview to video too 
-+ chnage the ui in media import (+add - remove button inside the media preview)
++ remove the preview card 
++ preview after 20% of the video ( black image problem)
++ fix the drag and move media recctangle go out of bounds

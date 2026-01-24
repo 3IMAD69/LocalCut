@@ -104,7 +104,7 @@ export function Timeline({
   } = useTimelinePlayer();
 
   const labelWidth = 80;
-  const rowHeight = 36;
+  const rowHeight = 56;
   const timeAreaHeight = 24;
   const rowOffset = 4;
   const scale = 1;
@@ -581,8 +581,9 @@ export function Timeline({
               {tracks.map((track) => (
                 <div
                   key={track.id}
+                  style={{ height: rowHeight }}
                   className={cn(
-                    "h-14 flex items-center justify-center",
+                    "flex items-center justify-center",
                     "text-[11px] font-semibold uppercase tracking-wide",
                     "border-b border-border/30",
                     "bg-background/70",
