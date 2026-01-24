@@ -253,3 +253,23 @@
   .ReactVirtualized__Grid::-webkit-scrollbar-thumb {
   background: color-mix(in oklch, var(--foreground), transparent 70%);
 }
+
+/* Cross-track drag cursor */
+.lc-timeline.is-cross-track-dragging {
+  cursor: grabbing;
+}
+
+.lc-timeline.is-cross-track-dragging * {
+  cursor: grabbing;
+}
+
+/* Clip hover effects for better drag affordance  */
+.lc-timeline .timeline-editor-action:hover {
+  transform: translateY(-1px);
+  transition: transform 0.15s ease;
+}
+
+.lc-timeline .timeline-editor-action:active {
+  transform: scale(0.99);
+  transition: transform 0.05s ease;
+}

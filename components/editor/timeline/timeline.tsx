@@ -41,6 +41,8 @@ import {
   useTimelinePlayer,
 } from "../preview/timeline-player-context";
 import { AudioWaveform } from "./audio-waveform";
+import { GhostTrackOverlay } from "./ghost-track-overlay";
+import { useCrossTrackDrag } from "./hooks/use-cross-track-drag";
 
 interface TimelineProps {
   tracks: TimelineTrackData[];
@@ -94,6 +96,7 @@ export function Timeline({
   const [pixelsPerSecond, setPixelsPerSecond] = useState(50);
   const [rowScrollTop, setRowScrollTop] = useState(0);
   const timelineRef = useRef<TimelineState>(null);
+  const timelineContainerRef = useRef<HTMLDivElement>(null);
 
   const {
     state: playerState,
@@ -105,11 +108,29 @@ export function Timeline({
 
   const labelWidth = 80;
   const rowHeight = 56;
-  const timeAreaHeight = 24;
+  const timeAreaHeight = 40;
   const rowOffset = 4;
   const scale = 1;
   const minScaleCount = Math.max(20, Math.ceil(duration / scale));
   const maxScaleCount = Math.max(minScaleCount, 5000);
+
+  // Cross-track drag and drop hook
+  const {
+    dragState,
+    handlePointerDown,
+    handleDragStart,
+    handleDragMove,
+    handleDragEnd,
+  } = useCrossTrackDrag({
+    tracks,
+    rowHeight,
+    timeAreaHeight,
+    rowOffset,
+    pixelsPerSecond,
+    labelWidth,
+    scrollTop: rowScrollTop,
+    onTracksChange,
+  });
 
   const clipById = useMemo(() => {
     const map = new Map<string, TimelineTrackData["clips"][number]>();
@@ -231,6 +252,30 @@ export function Timeline({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [splitClipAtPlayhead]);
+
+  // Handle global mouse events for cross-track drag
+  useEffect(() => {
+    if (!dragState.isDragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      handleDragMove(e, timelineContainerRef.current);
+    };
+
+    const handleMouseUp = () => {
+      handleDragEnd();
+    };
+
+    // Use capture phase to ensure we get events even if mouse moves fast
+    window.addEventListener("mousemove", handleMouseMove, { capture: true });
+    window.addEventListener("mouseup", handleMouseUp, { capture: true });
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove, {
+        capture: true,
+      });
+      window.removeEventListener("mouseup", handleMouseUp, { capture: true });
+    };
+  }, [dragState.isDragging, handleDragMove, handleDragEnd]);
 
   useEffect(() => {
     timelineRef.current?.setTime(currentTime);
@@ -388,7 +433,30 @@ export function Timeline({
         </div>
       </div>
 
-      <div className="relative flex-1 overflow-hidden lc-timeline">
+      <div
+        ref={timelineContainerRef}
+        role="application"
+        aria-label="Timeline editor"
+        className={cn(
+          "relative flex-1 overflow-hidden lc-timeline",
+          dragState.isDragging &&
+            dragState.sourceTrackId !== dragState.targetTrackId &&
+            "is-cross-track-dragging",
+        )}
+        onMouseMove={(e) => {
+          if (dragState.isDragging) {
+            handleDragMove(e, timelineContainerRef.current);
+          }
+        }}
+        onMouseUp={() => {
+          if (dragState.isDragging) {
+            handleDragEnd();
+          }
+        }}
+        onMouseLeave={() => {
+          // Don't cancel drag on mouse leave - let mouse up handle it
+        }}
+      >
         <ReactTimelineEditor
           ref={timelineRef}
           editorData={editorData}
@@ -403,8 +471,34 @@ export function Timeline({
           dragLine={true}
           autoScroll
           onScroll={({ scrollTop }) => setRowScrollTop(scrollTop)}
+          onActionMoveStart={({ action, row }) => {
+            // Start tracking for potential cross-track drag
+            handleDragStart(action.id, row.id);
+          }}
+          onActionMoveEnd={() => {
+            // End cross-track drag - if we're targeting a different track,
+            // the hook will handle moving the clip
+            if (
+              dragState.isDragging &&
+              dragState.targetTrackId !== dragState.sourceTrackId
+            ) {
+              handleDragEnd();
+            } else {
+              // Same track - reset drag state
+              handleDragEnd();
+            }
+          }}
           onChange={(nextData) => {
             if (!onTracksChange) return;
+
+            // Skip if we're in a cross-track drag to a different track
+            // The useCrossTrackDrag hook will handle the state update
+            if (
+              dragState.isDragging &&
+              dragState.sourceTrackId !== dragState.targetTrackId
+            ) {
+              return;
+            }
 
             const trackMap = new Map(tracks.map((track) => [track.id, track]));
 
@@ -510,13 +604,22 @@ export function Timeline({
                   .join(", ");
 
             return (
-              <div
+              <button
+                type="button"
                 className={cn(
-                  "relative h-full w-full rounded-xl border border-border/50",
+                  "relative h-full w-full rounded-md border border-border/50",
                   "shadow-sm overflow-hidden",
                   "text-[11px] font-medium",
                   action.selected && "ring-2 ring-primary ring-offset-1",
                 )}
+                onMouseDown={(event) =>
+                  handlePointerDown(
+                    action.id,
+                    action.start,
+                    event,
+                    timelineContainerRef.current,
+                  )
+                }
                 style={{
                   backgroundColor: isVideo
                     ? "color-mix(in oklch, var(--card), transparent 10%)"
@@ -555,7 +658,7 @@ export function Timeline({
                     {clip?.name ?? action.id}
                   </span>
                 </div>
-              </div>
+              </button>
             );
           }}
           style={{ width: "100%", height: "100%" }}
@@ -600,6 +703,18 @@ export function Timeline({
         {tracks.every((track) => track.clips.length === 0) && (
           <TimelineEmptyOverlay />
         )}
+
+        {/* Ghost overlay for cross-track drag feedback */}
+        <GhostTrackOverlay
+          dragState={dragState}
+          tracks={tracks}
+          rowHeight={rowHeight}
+          timeAreaHeight={timeAreaHeight}
+          rowOffset={rowOffset}
+          pixelsPerSecond={pixelsPerSecond}
+          labelWidth={labelWidth}
+          scrollTop={rowScrollTop}
+        />
       </div>
     </div>
   );
