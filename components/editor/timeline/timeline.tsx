@@ -7,7 +7,20 @@ import {
   type TimelineRow,
   type TimelineState,
 } from "@xzdarcy/react-timeline-editor";
-import { Film, Minus, Music, Plus, Scissors, Video } from "lucide-react";
+import {
+  Film,
+  Minus,
+  Music,
+  Pause,
+  Play,
+  Plus,
+  Scissors,
+  SkipBack,
+  SkipForward,
+  Video,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,7 +36,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import type { TimelineTrackData } from "../preview/timeline-player-context";
+import {
+  type TimelineTrackData,
+  useTimelinePlayer,
+} from "../preview/timeline-player-context";
 import { AudioWaveform } from "./audio-waveform";
 
 interface TimelineProps {
@@ -78,6 +94,14 @@ export function Timeline({
   const [pixelsPerSecond, setPixelsPerSecond] = useState(50);
   const [rowScrollTop, setRowScrollTop] = useState(0);
   const timelineRef = useRef<TimelineState>(null);
+
+  const {
+    state: playerState,
+    play,
+    pause,
+    seek,
+    setMuted,
+  } = useTimelinePlayer();
 
   const labelWidth = 80;
   const rowHeight = 36;
@@ -214,7 +238,7 @@ export function Timeline({
 
   return (
     <div className={cn("flex flex-col bg-background/50", className)}>
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border/40 bg-muted/30">
+      <div className="relative flex items-center justify-between px-4 py-3 border-b border-border/40 bg-muted/30">
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold uppercase tracking-wider text-foreground/50 bg-foreground/5 px-2 py-1 rounded-md">
             Timeline
@@ -261,7 +285,83 @@ export function Timeline({
           </TooltipProvider>
         </div>
 
-        <div className="flex items-center gap-1">
+        {/* Playback Controls - Centered */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 rounded-full hover:bg-background/80"
+                  onClick={() => seek(Math.max(0, currentTime - 5))}
+                >
+                  <SkipBack className="h-3 w-3" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Skip Back 5s</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "h-8 w-8 rounded-full hover:bg-background/80",
+                    playerState.playing && "bg-primary/20 text-primary",
+                  )}
+                  onClick={() => (playerState.playing ? pause() : play())}
+                >
+                  {playerState.playing ? (
+                    <Pause className="h-4 w-4 fill-current" />
+                  ) : (
+                    <Play className="h-4 w-4 fill-current ml-0.5" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Play/Pause (Space)</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 rounded-full hover:bg-background/80"
+                  onClick={() => seek(Math.min(duration, currentTime + 5))}
+                >
+                  <SkipForward className="h-3 w-3" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Skip Forward 5s</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* Volume Control */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 rounded-full hover:bg-background/80"
+                  onClick={() => setMuted(!playerState.muted)}
+                >
+                  {playerState.muted || playerState.volume === 0 ? (
+                    <VolumeX className="h-3 w-3" />
+                  ) : (
+                    <Volume2 className="h-3 w-3" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Toggle Mute (M)</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <div className="h-4 w-px bg-border/50 mx-1" />
           <Button
             variant="ghost"
             size="icon"

@@ -321,7 +321,7 @@ function EditorContent() {
 
                 {/* Main Content: Preview Area */}
                 <ResizablePanel defaultSize={75} minSize={40}>
-                  <main className="h-full bg-black rounded-2xl border border-border/40 shadow-sm relative overflow-hidden ring-1 ring-white/5">
+                  <main className="h-full bg-zinc-950/50 rounded-2xl border border-border/40 shadow-sm relative overflow-hidden ring-1 ring-white/5 flex flex-col items-center justify-center">
                     <TimelinePlayer
                       className="w-full h-full"
                       selectedClipId={selectedClip?.id ?? null}

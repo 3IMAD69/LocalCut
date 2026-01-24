@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  Maximize,
-  Pause,
-  Play,
-  SkipBack,
-  SkipForward,
-  Volume2,
-  VolumeX,
-} from "lucide-react";
+import { Play } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -16,14 +8,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import {
   type ClipTransform,
@@ -67,7 +51,7 @@ interface TimelinePlayerProps {
 
 export function TimelinePlayer({
   className,
-  onFullscreen,
+  onFullscreen: _onFullscreen,
   selectedClipId,
   onClipTransformChange,
 }: TimelinePlayerProps) {
@@ -89,8 +73,12 @@ export function TimelinePlayer({
   const currentTime = useTimelinePlayerTime();
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const videoAreaWrapperRef = useRef<HTMLDivElement>(null);
   const videoAreaRef = useRef<HTMLDivElement>(null);
-  const [showVolumeSlider, setShowVolumeSlider] = useState(false);
+  const [stageSize, setStageSize] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
   const pendingTransformRef = useRef<ClipTransform | null>(null);
   const lastSelectedClipIdRef = useRef<string | null>(null);
 
@@ -220,6 +208,38 @@ export function TimelinePlayer({
       window.removeEventListener("resize", update);
     };
   }, [computeOverlayRect]);
+
+  useLayoutEffect(() => {
+    if (!videoAreaWrapperRef.current) return;
+
+    const updateSize = () => {
+      const rect = videoAreaWrapperRef.current?.getBoundingClientRect();
+      if (!rect || rect.width === 0 || rect.height === 0) return;
+
+      const aspect = 16 / 9;
+      let width = rect.width;
+      let height = rect.height;
+
+      if (width / height > aspect) {
+        width = height * aspect;
+      } else {
+        height = width / aspect;
+      }
+
+      setStageSize({ width, height });
+    };
+
+    updateSize();
+
+    const resizeObserver = new ResizeObserver(updateSize);
+    resizeObserver.observe(videoAreaWrapperRef.current);
+    window.addEventListener("resize", updateSize);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", updateSize);
+    };
+  }, []);
 
   const handleOverlayMove = useCallback(
     ({ dx, dy }: { dx: number; dy: number }) => {
@@ -369,36 +389,6 @@ export function TimelinePlayer({
     }
   }, [state.playing, play, pause]);
 
-  // Skip frames (5 seconds)
-  const handleSkipBack = useCallback(() => {
-    seek(Math.max(0, currentTime - 5));
-  }, [currentTime, seek]);
-
-  const handleSkipForward = useCallback(() => {
-    seek(Math.min(state.duration, currentTime + 5));
-  }, [currentTime, seek, state.duration]);
-
-  // Frame-by-frame navigation (1/30 second per frame, assuming 30fps)
-  const handleFrameBack = useCallback(() => {
-    seek(Math.max(0, currentTime - 1 / 30));
-  }, [currentTime, seek]);
-
-  const handleFrameForward = useCallback(() => {
-    seek(Math.min(state.duration, currentTime + 1 / 30));
-  }, [currentTime, seek, state.duration]);
-
-  // Fullscreen toggle
-  const handleFullscreen = useCallback(() => {
-    if (containerRef.current) {
-      if (document.fullscreenElement) {
-        document.exitFullscreen();
-      } else {
-        containerRef.current.requestFullscreen();
-      }
-    }
-    onFullscreen?.();
-  }, [onFullscreen]);
-
   // Screenshot
   const handleScreenshot = useCallback(async () => {
     const blob = await exportFrame();
@@ -431,17 +421,17 @@ export function TimelinePlayer({
         case "ArrowLeft":
           e.preventDefault();
           if (e.shiftKey) {
-            handleSkipBack();
+            seek(Math.max(0, currentTime - 5));
           } else {
-            handleFrameBack();
+            seek(Math.max(0, currentTime - 1 / 30));
           }
           break;
         case "ArrowRight":
           e.preventDefault();
           if (e.shiftKey) {
-            handleSkipForward();
+            seek(Math.min(state.duration, currentTime + 5));
           } else {
-            handleFrameForward();
+            seek(Math.min(state.duration, currentTime + 1 / 30));
           }
           break;
         case "ArrowUp":
@@ -456,11 +446,6 @@ export function TimelinePlayer({
         case "M":
           e.preventDefault();
           setMuted(!state.muted);
-          break;
-        case "f":
-        case "F":
-          e.preventDefault();
-          handleFullscreen();
           break;
         case "s":
         case "S":
@@ -486,11 +471,6 @@ export function TimelinePlayer({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
     handlePlayPause,
-    handleSkipBack,
-    handleSkipForward,
-    handleFrameBack,
-    handleFrameForward,
-    handleFullscreen,
     handleScreenshot,
     seek,
     setVolume,
@@ -498,35 +478,47 @@ export function TimelinePlayer({
     state.volume,
     state.muted,
     state.duration,
+    currentTime,
   ]);
 
   // Check if timeline is empty
   const isEmpty = tracks.every((track) => track.clips.length === 0);
 
   return (
-    <TooltipProvider>
-      <div
-        ref={containerRef}
-        className={cn("flex flex-col bg-background/50", className)}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-3 py-2 border-b border-border/40 bg-muted/30">
-          <span className="text-xs font-medium uppercase tracking-wide">
-            Preview
+    <div
+      ref={containerRef}
+      className={cn("flex flex-col bg-background/50", className)}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border/40 bg-muted/30">
+        <span className="text-xs font-medium uppercase tracking-wide">
+          Preview
+        </span>
+        <div className="flex items-center gap-2 text-xs font-medium">
+          <span className="text-chart-1">{formatTime(currentTime)}</span>
+          <span className="text-foreground/40">/</span>
+          <span className="text-foreground/60">
+            {formatTime(state.duration)}
           </span>
-          <div className="flex items-center gap-2 text-xs font-medium">
-            <span className="text-chart-1">{formatTime(currentTime)}</span>
-            <span className="text-foreground/40">/</span>
-            <span className="text-foreground/60">
-              {formatTime(state.duration)}
-            </span>
-          </div>
         </div>
+      </div>
 
-        {/* Video Canvas Area */}
+      {/* Video Canvas Area */}
+      <div
+        ref={videoAreaWrapperRef}
+        className="relative flex-1 min-h-[300px] flex items-center justify-center"
+      >
         <div
           ref={videoAreaRef}
-          className="relative flex-1 bg-black min-h-[300px] flex items-center justify-center"
+          className="relative bg-black"
+          style={
+            stageSize
+              ? {
+                  width: `${stageSize.width}px`,
+                  height: `${stageSize.height}px`,
+                }
+              : undefined
+          }
         >
           {/* Canvas for compositor rendering - key ensures fresh element on remount */}
           <canvas
@@ -534,12 +526,7 @@ export function TimelinePlayer({
             ref={canvasRef}
             width={1920}
             height={1080}
-            className={cn("aspect-video w-full h-full")}
-            style={{
-              maxHeight: "100%",
-              maxWidth: "100%",
-              objectFit: "contain",
-            }}
+            className={cn("w-full h-full block")}
           />
 
           <VideoTransformOverlay
@@ -605,130 +592,7 @@ export function TimelinePlayer({
             </button>
           )}
         </div>
-
-        {/* Seek Bar */}
-        <div className="px-3 py-2 border-t border-border bg-muted">
-          <Slider
-            value={[currentTime]}
-            onValueChange={([value]) => seek(value)}
-            min={0}
-            max={state.duration || 100}
-            step={0.01}
-            className="w-full"
-          />
-        </div>
-
-        {/* Controls */}
-        <div className="flex items-center justify-between px-3 py-2 border-t border-border/40 bg-muted/30">
-          {/* Left: Transport Controls */}
-          <div className="flex items-center gap-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 rounded-full hover:bg-background/80"
-                  onClick={handleSkipBack}
-                >
-                  <SkipBack className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Skip Back 5s (Shift+←)</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="default"
-                  size="icon"
-                  className="h-10 w-10 rounded-full shadow-lg hover:scale-105 transition-transform"
-                  onClick={handlePlayPause}
-                >
-                  {state.playing ? (
-                    <Pause className="h-5 w-5" />
-                  ) : (
-                    <Play className="h-5 w-5 ml-0.5" />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Play/Pause (Space)</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 rounded-full hover:bg-background/80"
-                  onClick={handleSkipForward}
-                >
-                  <SkipForward className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Skip Forward 5s (Shift+→)</TooltipContent>
-            </Tooltip>
-          </div>
-
-          {/* Right: Volume & Fullscreen */}
-          <div className="flex items-center gap-2">
-            {/* Volume Control */}
-            <div className="flex items-center gap-1">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-9 w-9 rounded-full hover:bg-background/80"
-                    onClick={() => setMuted(!state.muted)}
-                    onDoubleClick={() => setShowVolumeSlider(!showVolumeSlider)}
-                  >
-                    {state.muted || state.volume === 0 ? (
-                      <VolumeX className="h-4 w-4" />
-                    ) : (
-                      <Volume2 className="h-4 w-4" />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Toggle Mute (M)</TooltipContent>
-              </Tooltip>
-
-              {showVolumeSlider && (
-                <div className="flex items-center gap-2 px-2">
-                  <Slider
-                    value={[state.muted ? 0 : state.volume * 100]}
-                    onValueChange={([value]) => {
-                      setVolume(value / 100);
-                      if (value > 0 && state.muted) {
-                        setMuted(false);
-                      }
-                    }}
-                    min={0}
-                    max={100}
-                    className="w-20"
-                  />
-                  <span className="text-xs w-8">
-                    {Math.round(state.volume * 100)}%
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 rounded-full hover:bg-background/80"
-                  onClick={handleFullscreen}
-                >
-                  <Maximize className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Fullscreen (F)</TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
       </div>
-    </TooltipProvider>
+    </div>
   );
 }
