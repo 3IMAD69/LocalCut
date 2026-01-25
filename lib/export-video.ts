@@ -42,7 +42,9 @@ export type ExportTimelineOptions = {
 function getTimelineDurationSeconds(tracks: TimelineTrackData[]): number {
   return Math.max(
     ...tracks.flatMap((t) =>
-      t.clips.length > 0 ? t.clips.map((c) => c.startTime + c.duration) : [0],
+      t.hidden || t.clips.length === 0
+        ? [0]
+        : t.clips.map((c) => c.startTime + c.duration),
     ),
     0,
   );
@@ -67,6 +69,7 @@ async function renderMixedAudio(
   let scheduledAnything = false;
 
   for (const track of tracks) {
+    if (track.hidden || track.muted) continue;
     for (const clip of track.clips) {
       const asset = clip.asset;
       if (!asset) continue;
@@ -142,6 +145,7 @@ async function loadExportSources(params: {
 
   const assetsToLoad = new Map<string, ImportedMediaAsset>();
   for (const track of tracks) {
+    if (track.hidden) continue;
     for (const clip of track.clips) {
       if (track.type !== "video") continue;
       const asset = clip.asset;

@@ -6,6 +6,7 @@ import {
   FolderOpen,
   ImageIcon,
   LayoutGrid,
+  Loader2,
   Music,
   Plus,
   Shapes,
@@ -146,8 +147,8 @@ function MediaThumbnail({
 
 export function MediaLibrary({
   assets,
-  isLoading: _isLoading = false,
-  error: _error = null,
+  isLoading = false,
+  error = null,
   onImport,
   onFileDrop,
   onAssetSelect,
@@ -242,9 +243,26 @@ export function MediaLibrary({
         {/* Tab Content */}
         {activeTab === "media" && (
           <ScrollArea className="flex-1">
-            {assets.length === 0 ? (
+            {/* Loading Indicator */}
+            {isLoading && (
+              <div className="flex items-center justify-center gap-2 p-3 m-2 bg-primary/5 rounded-lg border border-primary/20">
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                <span className="text-sm text-muted-foreground">
+                  Importing media...
+                </span>
+              </div>
+            )}
+
+            {/* Error Message */}
+            {error && (
+              <div className="flex items-center gap-2 p-3 m-2 bg-destructive/10 rounded-lg border border-destructive/30">
+                <span className="text-sm text-destructive">{error}</span>
+              </div>
+            )}
+
+            {assets.length === 0 && !isLoading ? (
               <EmptyState onImport={onImport} />
-            ) : (
+            ) : assets.length > 0 ? (
               <div className="grid grid-cols-2 gap-2 p-2">
                 <button
                   type="button"
@@ -312,7 +330,7 @@ export function MediaLibrary({
                   </div>
                 ))}
               </div>
-            )}
+            ) : null}
           </ScrollArea>
         )}
 

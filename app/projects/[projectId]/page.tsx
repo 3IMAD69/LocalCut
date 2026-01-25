@@ -177,6 +177,8 @@ function EditorContent() {
         id: `${type}-${Date.now()}`,
         type,
         label: `${type === "video" ? "Video" : "Audio"} ${existingCount + 1}`,
+        hidden: false,
+        muted: false,
         clips: [],
       };
       return [...prev, newTrack];
@@ -213,6 +215,8 @@ function EditorContent() {
           id: `${asset.type}-${Date.now()}`,
           type: asset.type,
           label: `${asset.type === "video" ? "Video" : "Audio"} ${existingCount + 1}`,
+          hidden: false,
+          muted: false,
           clips: [{ ...newClip }],
         };
 

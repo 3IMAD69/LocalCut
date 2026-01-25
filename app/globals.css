@@ -264,10 +264,10 @@
 }
 
 /* Clip hover effects for better drag affordance  */
-.lc-timeline .timeline-editor-action:hover {
+/* .lc-timeline .timeline-editor-action:hover {
   transform: translateY(-1px);
   transition: transform 0.15s ease;
-}
+} */
 
 .lc-timeline .timeline-editor-action:active {
   transform: scale(0.99);

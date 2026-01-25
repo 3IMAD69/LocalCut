@@ -36,6 +36,8 @@ interface MediaImportContextType {
   assets: ImportedMediaAsset[];
   isImporting: boolean;
   importError: string | null;
+  // Track which assets are still generating thumbnails
+  loadingThumbnails: Set<string>;
 
   // Actions
   importFiles: (files: FileList | File[]) => Promise<void>;
@@ -139,9 +141,70 @@ export function MediaImportProvider({ children }: MediaImportProviderProps) {
   const [assets, setAssets] = useState<ImportedMediaAsset[]>([]);
   const [isImporting, setIsImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [loadingThumbnails, setLoadingThumbnails] = useState<Set<string>>(
+    new Set(),
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Process a single file and extract metadata using MediaBunny
+  // Generate thumbnails for an asset in the background
+  const generateThumbnails = useCallback(
+    async (assetId: string, input: Input, duration: number) => {
+      try {
+        const videoTrack = await input.getPrimaryVideoTrack();
+        if (!videoTrack || !(await videoTrack.canDecode())) {
+          return;
+        }
+
+        const thumbnailEverySeconds = 2;
+        const thumbnailCount = Math.min(
+          12,
+          Math.max(3, Math.ceil(duration / thumbnailEverySeconds)),
+        );
+        const startTimestamp = await videoTrack.getFirstTimestamp();
+        const endTimestamp = await videoTrack.computeDuration();
+        const span = Math.max(0.001, endTimestamp - startTimestamp);
+        const timestamps = Array.from(
+          { length: thumbnailCount },
+          (_, index) =>
+            startTimestamp + (span * index) / Math.max(1, thumbnailCount - 1),
+        );
+
+        const sink = new CanvasSink(videoTrack, {
+          width: 160,
+          height: 90,
+          fit: "cover",
+          poolSize: 1,
+        });
+
+        const thumbnails: string[] = [];
+        for await (const result of sink.canvasesAtTimestamps(timestamps)) {
+          if (result) {
+            const dataUrl = await canvasToDataUrl(result.canvas);
+            thumbnails.push(dataUrl);
+          }
+        }
+
+        if (thumbnails.length > 0) {
+          setAssets((prev) =>
+            prev.map((asset) =>
+              asset.id === assetId ? { ...asset, thumbnails } : asset,
+            ),
+          );
+        }
+      } catch (error) {
+        console.error("Failed to generate thumbnails:", error);
+      } finally {
+        setLoadingThumbnails((prev) => {
+          const next = new Set(prev);
+          next.delete(assetId);
+          return next;
+        });
+      }
+    },
+    [],
+  );
+
+  // Process a single file and extract metadata using MediaBunny (fast - no thumbnails)
   const processFile = useCallback(
     async (file: File): Promise<ImportedMediaAsset | null> => {
       const mediaType = getMediaType(file);
@@ -170,7 +233,7 @@ export function MediaImportProvider({ children }: MediaImportProviderProps) {
           input,
         };
 
-        // Get track-specific metadata
+        // Get track-specific metadata (fast - just reading container metadata)
         if (mediaType === "video") {
           const videoTrack = await input.getPrimaryVideoTrack();
           if (videoTrack) {
@@ -187,47 +250,7 @@ export function MediaImportProvider({ children }: MediaImportProviderProps) {
             asset.audioCodec = audioTrack.codec ?? undefined;
           }
 
-          if (videoTrack && (await videoTrack.canDecode())) {
-            try {
-              const thumbnailEverySeconds = 2;
-              const thumbnailCount = Math.min(
-                12,
-                Math.max(3, Math.ceil(duration / thumbnailEverySeconds)),
-              );
-              const startTimestamp = await videoTrack.getFirstTimestamp();
-              const endTimestamp = await videoTrack.computeDuration();
-              const span = Math.max(0.001, endTimestamp - startTimestamp);
-              const timestamps = Array.from(
-                { length: thumbnailCount },
-                (_, index) =>
-                  startTimestamp +
-                  (span * index) / Math.max(1, thumbnailCount - 1),
-              );
-
-              const sink = new CanvasSink(videoTrack, {
-                width: 160,
-                height: 90,
-                fit: "cover",
-                poolSize: 1,
-              });
-
-              const thumbnails: string[] = [];
-              for await (const result of sink.canvasesAtTimestamps(
-                timestamps,
-              )) {
-                if (result) {
-                  const dataUrl = await canvasToDataUrl(result.canvas);
-                  thumbnails.push(dataUrl);
-                }
-              }
-
-              if (thumbnails.length > 0) {
-                asset.thumbnails = thumbnails;
-              }
-            } catch (error) {
-              console.error("Failed to generate thumbnails:", error);
-            }
-          }
+          // Note: Thumbnails are generated in the background after import
         } else {
           const audioTrack = await input.getPrimaryAudioTrack();
           if (audioTrack) {
@@ -271,6 +294,25 @@ export function MediaImportProvider({ children }: MediaImportProviderProps) {
         } else {
           setAssets((prev) => [...prev, ...successfulImports]);
 
+          // Start generating thumbnails in background for video assets
+          const videoAssets = successfulImports.filter(
+            (asset) => asset.type === "video",
+          );
+          if (videoAssets.length > 0) {
+            setLoadingThumbnails((prev) => {
+              const next = new Set(prev);
+              for (const asset of videoAssets) {
+                next.add(asset.id);
+              }
+              return next;
+            });
+
+            // Fire and forget - thumbnails will be generated in background
+            for (const asset of videoAssets) {
+              generateThumbnails(asset.id, asset.input, asset.duration);
+            }
+          }
+
           if (successfulImports.length < fileArray.length) {
             const skipped = fileArray.length - successfulImports.length;
             console.warn(`${skipped} file(s) could not be imported`);
@@ -283,7 +325,7 @@ export function MediaImportProvider({ children }: MediaImportProviderProps) {
         setIsImporting(false);
       }
     },
-    [processFile],
+    [processFile, generateThumbnails],
   );
 
   // Remove a single asset
@@ -329,6 +371,7 @@ export function MediaImportProvider({ children }: MediaImportProviderProps) {
     assets,
     isImporting,
     importError,
+    loadingThumbnails,
     importFiles,
     removeAsset,
     clearAllAssets,

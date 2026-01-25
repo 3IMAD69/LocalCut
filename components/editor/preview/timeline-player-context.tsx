@@ -72,6 +72,8 @@ export interface TimelineTrackData {
   id: string;
   type: "video" | "audio";
   label: string;
+  hidden?: boolean;
+  muted?: boolean;
   clips: TimelineClipWithAsset[];
 }
 
@@ -603,6 +605,7 @@ export function buildCompositorComposition(params: {
 
   for (let trackIndex = 0; trackIndex < tracks.length; trackIndex++) {
     const track = tracks[trackIndex];
+    if (track.hidden) continue;
 
     for (const clip of track.clips) {
       const clipEnd = clip.startTime + clip.duration;
@@ -630,6 +633,8 @@ export function buildCompositorComposition(params: {
             rotation: 0,
           };
 
+        const zIndex = tracks.length - 1 - trackIndex;
+
         layers.push({
           source: loadedSource.source,
           sourceTime,
@@ -645,7 +650,7 @@ export function buildCompositorComposition(params: {
               | 180
               | 270,
           },
-          zIndex: trackIndex,
+          zIndex,
         });
       }
 
@@ -656,7 +661,7 @@ export function buildCompositorComposition(params: {
           source: loadedSource.source,
           sourceTime,
           volume: 1,
-          muted: false,
+          muted: track.muted ?? false,
         });
       }
     }

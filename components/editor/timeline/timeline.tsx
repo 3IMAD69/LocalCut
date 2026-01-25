@@ -8,7 +8,10 @@ import {
   type TimelineState,
 } from "@xzdarcy/react-timeline-editor";
 import {
+  Eye,
+  EyeOff,
   Film,
+  GripVertical,
   Minus,
   Music,
   Pause,
@@ -17,6 +20,7 @@ import {
   Scissors,
   SkipBack,
   SkipForward,
+  Trash2,
   Video,
   Volume2,
   VolumeX,
@@ -43,6 +47,7 @@ import {
 import { AudioWaveform } from "./audio-waveform";
 import { GhostTrackOverlay } from "./ghost-track-overlay";
 import { useCrossTrackDrag } from "./hooks/use-cross-track-drag";
+import { TrackDragOverlay } from "./track-drag-overlay";
 
 interface TimelineProps {
   tracks: TimelineTrackData[];
@@ -95,6 +100,7 @@ export function Timeline({
 }: TimelineProps) {
   const [pixelsPerSecond, setPixelsPerSecond] = useState(50);
   const [rowScrollTop, setRowScrollTop] = useState(0);
+  const [draggedTrackId, setDraggedTrackId] = useState<string | null>(null);
   const timelineRef = useRef<TimelineState>(null);
   const timelineContainerRef = useRef<HTMLDivElement>(null);
 
@@ -106,7 +112,7 @@ export function Timeline({
     setMuted,
   } = useTimelinePlayer();
 
-  const labelWidth = 80;
+  const labelWidth = 220;
   const rowHeight = 56;
   const timeAreaHeight = 40;
   const rowOffset = 4;
@@ -152,15 +158,17 @@ export function Timeline({
           ? "lc-timeline-row-video"
           : "lc-timeline-row-audio",
       ],
-      actions: track.clips.map<TimelineAction>((clip) => ({
-        id: clip.id,
-        start: clip.startTime,
-        end: clip.startTime + clip.duration,
-        effectId: clip.type,
-        movable: true,
-        flexible: false,
-        selected: clip.id === selectedClipId,
-      })),
+      actions: (track.hidden ? [] : track.clips).map<TimelineAction>(
+        (clip) => ({
+          id: clip.id,
+          start: clip.startTime,
+          end: clip.startTime + clip.duration,
+          effectId: clip.type,
+          movable: true,
+          flexible: false,
+          selected: clip.id === selectedClipId,
+        }),
+      ),
     }));
   }, [selectedClipId, tracks]);
 
@@ -280,6 +288,52 @@ export function Timeline({
   useEffect(() => {
     timelineRef.current?.setTime(currentTime);
   }, [currentTime]);
+
+  const reorderTracks = useCallback(
+    (sourceId: string, targetId: string) => {
+      if (!onTracksChange || sourceId === targetId) return;
+      const sourceIndex = tracks.findIndex((track) => track.id === sourceId);
+      const targetIndex = tracks.findIndex((track) => track.id === targetId);
+      if (sourceIndex < 0 || targetIndex < 0) return;
+
+      const nextTracks = [...tracks];
+      const [moved] = nextTracks.splice(sourceIndex, 1);
+      nextTracks.splice(targetIndex, 0, moved);
+      onTracksChange(nextTracks);
+    },
+    [onTracksChange, tracks],
+  );
+
+  const toggleTrackHidden = useCallback(
+    (trackId: string) => {
+      if (!onTracksChange) return;
+      onTracksChange(
+        tracks.map((track) =>
+          track.id === trackId ? { ...track, hidden: !track.hidden } : track,
+        ),
+      );
+    },
+    [onTracksChange, tracks],
+  );
+
+  const toggleTrackMuted = useCallback(
+    (trackId: string) => {
+      if (!onTracksChange) return;
+      onTracksChange(
+        tracks.map((track) =>
+          track.id === trackId ? { ...track, muted: !track.muted } : track,
+        ),
+      );
+    },
+    [onTracksChange, tracks],
+  );
+
+  const removeTrack = useCallback(
+    (trackId: string) => {
+      _onRemoveTrack?.(trackId);
+    },
+    [_onRemoveTrack],
+  );
 
   return (
     <div className={cn("flex flex-col bg-background/50", className)}>
@@ -506,11 +560,15 @@ export function Timeline({
               const baseTrack = trackMap.get(row.id);
               const type = baseTrack?.type ?? "video";
               const label = baseTrack?.label ?? row.id;
+              const hidden = baseTrack?.hidden ?? false;
+              const muted = baseTrack?.muted ?? false;
 
               return {
                 id: row.id,
                 type,
                 label,
+                hidden,
+                muted,
                 clips: row.actions.map((action) => {
                   const existing = clipById.get(action.id);
                   const start = Math.max(0, action.start);
@@ -667,7 +725,6 @@ export function Timeline({
         <div
           className="absolute left-0 top-0 z-20 h-full"
           style={{ width: `${labelWidth}px` }}
-          aria-hidden
         >
           <div className="h-8 border-b border-border/40 bg-background/70" />
           <div
@@ -682,19 +739,114 @@ export function Timeline({
               style={{ transform: `translateY(-${rowScrollTop}px)` }}
             >
               {tracks.map((track) => (
-                <div
+                <section
                   key={track.id}
                   style={{ height: rowHeight }}
                   className={cn(
-                    "flex items-center justify-center",
+                    "flex items-center gap-2 px-2",
                     "text-[11px] font-semibold uppercase tracking-wide",
                     "border-b border-border/30",
                     "bg-background/70",
-                    track.type === "video" ? "text-chart-2" : "text-chart-3",
+                    track.hidden && "opacity-60",
                   )}
+                  aria-label={`${track.label} track controls`}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => {
+                    const sourceId =
+                      draggedTrackId ??
+                      event.dataTransfer.getData("text/plain");
+                    if (sourceId) {
+                      reorderTracks(sourceId, track.id);
+                    }
+                    setDraggedTrackId(null);
+                  }}
                 >
-                  {track.label}
-                </div>
+                  <button
+                    type="button"
+                    className={cn(
+                      "h-7 w-7 rounded-md border border-border/40",
+                      "bg-background/60 text-foreground/70",
+                      "hover:bg-background hover:text-foreground",
+                      "flex items-center justify-center",
+                      "cursor-grab active:cursor-grabbing",
+                    )}
+                    draggable
+                    aria-label="Reorder track"
+                    onDragStart={(event) => {
+                      setDraggedTrackId(track.id);
+                      event.dataTransfer.effectAllowed = "move";
+                      event.dataTransfer.setData("text/plain", track.id);
+
+                      // Create transparent image to hide default drag ghost
+                      const img = new Image();
+                      img.src =
+                        "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+                      event.dataTransfer.setDragImage(img, 0, 0);
+                    }}
+                    onDragEnd={() => setDraggedTrackId(null)}
+                  >
+                    <GripVertical className="h-4 w-4" />
+                  </button>
+
+                  <span
+                    className={cn(
+                      "flex-1 min-w-0 truncate",
+                      track.type === "video" ? "text-chart-2" : "text-chart-3",
+                    )}
+                  >
+                    {track.label}
+                  </span>
+
+                  <button
+                    type="button"
+                    className={cn(
+                      "h-7 w-7 rounded-md border border-border/40",
+                      "bg-background/60 text-foreground/70",
+                      "hover:bg-background hover:text-foreground",
+                      "flex items-center justify-center",
+                    )}
+                    aria-label={track.hidden ? "Show track" : "Hide track"}
+                    onClick={() => toggleTrackHidden(track.id)}
+                  >
+                    {track.hidden ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    className={cn(
+                      "h-7 w-7 rounded-md border border-border/40",
+                      "bg-background/60 text-foreground/70",
+                      "hover:bg-background hover:text-foreground",
+                      "flex items-center justify-center",
+                    )}
+                    aria-label={track.muted ? "Unmute track" : "Mute track"}
+                    onClick={() => toggleTrackMuted(track.id)}
+                  >
+                    {track.muted ? (
+                      <VolumeX className="h-4 w-4" />
+                    ) : (
+                      <Volume2 className="h-4 w-4" />
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    className={cn(
+                      "h-7 w-7 rounded-md border border-border/40",
+                      "bg-background/60 text-foreground/70",
+                      "hover:bg-background hover:text-foreground",
+                      "flex items-center justify-center",
+                    )}
+                    aria-label="Delete track"
+                    onClick={() => removeTrack(track.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </section>
               ))}
             </div>
           </div>
@@ -714,6 +866,9 @@ export function Timeline({
           pixelsPerSecond={pixelsPerSecond}
           labelWidth={labelWidth}
           scrollTop={rowScrollTop}
+        />
+        <TrackDragOverlay
+          track={tracks.find((t) => t.id === draggedTrackId) || null}
         />
       </div>
     </div>
