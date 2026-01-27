@@ -51,7 +51,7 @@ export function GhostTrackOverlay({
 
   // Find the action being dragged
   let draggedClip: TimelineTrackData["clips"][number] | null = null;
-  let sourceTrackType: "video" | "audio" | null = null;
+  let sourceTrackType: "video" | "audio" | "image" | null = null;
 
   for (const track of tracks) {
     const clip = track.clips.find((c) => c.id === draggedActionId);

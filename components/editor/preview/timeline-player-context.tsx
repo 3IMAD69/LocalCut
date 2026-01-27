@@ -55,7 +55,7 @@ export interface ClipTransform {
 export interface TimelineClipWithAsset {
   id: string;
   name: string;
-  type: "video" | "audio";
+  type: "video" | "audio" | "image";
   startTime: number;
   duration: number;
   color: string;
@@ -70,7 +70,7 @@ export interface TimelineClipWithAsset {
 /** Track data structure */
 export interface TimelineTrackData {
   id: string;
-  type: "video" | "audio";
+  type: "video" | "audio" | "image";
   label: string;
   hidden?: boolean;
   muted?: boolean;
@@ -343,19 +343,24 @@ export function TimelinePlayerProvider({
       try {
         setState((prev) => ({ ...prev, loading: true }));
 
-        // Load source from file
-        const source =
-          asset.type === "audio"
-            ? await compositor.loadAudio(asset.file)
-            : await compositor.loadSource(asset.file);
+        // Load source based on asset type
+        let source: CompositorSource;
+        if (asset.type === "audio") {
+          source = await compositor.loadAudio(asset.file);
+        } else if (asset.type === "image") {
+          source = await compositor.loadImage(asset.file);
+        } else {
+          source = await compositor.loadSource(asset.file);
+        }
+
         console.log(`[TimelinePlayer] Loaded asset: ${asset.name}`, source);
         const loadedSource: LoadedSource = {
           id: `source-${asset.id}`,
           source,
           assetId: asset.id,
-          duration: source.duration,
-          width: source.width ?? 1920,
-          height: source.height ?? 1080,
+          duration: asset.type === "image" ? asset.duration : source.duration,
+          width: source.width ?? asset.width ?? 1920,
+          height: source.height ?? asset.height ?? 1080,
         };
 
         // Update refs and state
@@ -620,7 +625,10 @@ export function buildCompositorComposition(params: {
       const clipLocalTime = time - clip.startTime;
       const sourceTime = clip.trimStart + clipLocalTime;
 
-      if (track.type === "video" && loadedSource.source.type !== "audio") {
+      if (
+        (track.type === "video" || track.type === "image") &&
+        loadedSource.source.type !== "audio"
+      ) {
         const centerX = (width - loadedSource.width) / 2;
         const centerY = (height - loadedSource.height) / 2;
 
@@ -635,9 +643,12 @@ export function buildCompositorComposition(params: {
 
         const zIndex = tracks.length - 1 - trackIndex;
 
+        // For images, sourceTime is always 0 since they don't have temporal duration
+        const effectiveSourceTime = track.type === "image" ? 0 : sourceTime;
+
         layers.push({
           source: loadedSource.source,
-          sourceTime,
+          sourceTime: effectiveSourceTime,
           transform: {
             opacity: 1,
             x: centerX + clipTransform.x,

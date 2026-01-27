@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
-export type ClipType = "video" | "audio";
+export type ClipType = "video" | "audio" | "image";
 
 export interface TimelineClip {
   id: string;

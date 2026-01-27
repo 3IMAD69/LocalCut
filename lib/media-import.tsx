@@ -14,11 +14,11 @@ import {
 export interface ImportedMediaAsset {
   id: string;
   name: string;
-  type: "video" | "audio";
+  type: "video" | "audio" | "image";
   file: File;
   duration: number;
   thumbnails?: string[];
-  // Video-specific metadata
+  // Video/Image-specific metadata
   width?: number;
   height?: number;
   frameRate?: number;
@@ -27,8 +27,8 @@ export interface ImportedMediaAsset {
   sampleRate?: number;
   channels?: number;
   audioCodec?: string;
-  // MediaBunny Input reference for further processing
-  input: Input;
+  // MediaBunny Input reference for further processing (not used for images)
+  input?: Input;
 }
 
 interface MediaImportContextType {
@@ -71,7 +71,21 @@ const ACCEPTED_AUDIO_TYPES = [
   "audio/mp4",
 ];
 
-const ACCEPTED_TYPES = [...ACCEPTED_VIDEO_TYPES, ...ACCEPTED_AUDIO_TYPES];
+const ACCEPTED_IMAGE_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/jpg",
+  "image/gif",
+  "image/webp",
+  "image/bmp",
+  "image/svg+xml",
+];
+
+const ACCEPTED_TYPES = [
+  ...ACCEPTED_VIDEO_TYPES,
+  ...ACCEPTED_AUDIO_TYPES,
+  ...ACCEPTED_IMAGE_TYPES,
+];
 
 // Generate unique ID
 function generateId(): string {
@@ -79,29 +93,20 @@ function generateId(): string {
 }
 
 // Determine media type from file
-function getMediaType(file: File): "video" | "audio" | null {
-  if (
-    ACCEPTED_VIDEO_TYPES.some((type) =>
-      file.type.startsWith(type.split("/")[0]),
-    )
-  ) {
-    if (file.type.startsWith("video/")) return "video";
-  }
-  if (
-    ACCEPTED_AUDIO_TYPES.some((type) =>
-      file.type.startsWith(type.split("/")[0]),
-    )
-  ) {
-    if (file.type.startsWith("audio/")) return "audio";
-  }
+function getMediaType(file: File): "video" | "audio" | "image" | null {
+  if (file.type.startsWith("video/")) return "video";
+  if (file.type.startsWith("audio/")) return "audio";
+  if (file.type.startsWith("image/")) return "image";
 
   // Fallback: check by extension
   const ext = file.name.split(".").pop()?.toLowerCase();
   const videoExtensions = ["mp4", "webm", "mov", "mkv", "avi"];
   const audioExtensions = ["mp3", "wav", "ogg", "aac", "flac", "m4a"];
+  const imageExtensions = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"];
 
   if (ext && videoExtensions.includes(ext)) return "video";
   if (ext && audioExtensions.includes(ext)) return "audio";
+  if (ext && imageExtensions.includes(ext)) return "image";
 
   return null;
 }
@@ -131,6 +136,60 @@ async function canvasToDataUrl(
   }
 
   throw new Error("Unsupported canvas type");
+}
+
+// Get image dimensions from a file
+async function getImageDimensions(
+  file: File,
+): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Failed to load image"));
+    };
+    img.src = url;
+  });
+}
+
+// Generate thumbnail for an image file
+async function generateImageThumbnail(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+
+      // Create thumbnail canvas
+      const maxSize = 160;
+      const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
+      const width = Math.round(img.width * scale);
+      const height = Math.round(img.height * scale);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Failed to get canvas context"));
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/jpeg", 0.75));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Failed to load image for thumbnail"));
+    };
+    img.src = url;
+  });
 }
 
 interface MediaImportProviderProps {
@@ -214,7 +273,26 @@ export function MediaImportProvider({ children }: MediaImportProviderProps) {
       }
 
       try {
-        // Create MediaBunny Input from file
+        // Handle images separately (no MediaBunny needed)
+        if (mediaType === "image") {
+          const { width, height } = await getImageDimensions(file);
+          const thumbnail = await generateImageThumbnail(file);
+
+          const asset: ImportedMediaAsset = {
+            id: generateId(),
+            name: file.name,
+            type: "image",
+            file,
+            duration: 5, // Default 5 seconds for images on timeline
+            width,
+            height,
+            thumbnails: [thumbnail],
+          };
+
+          return asset;
+        }
+
+        // Create MediaBunny Input from file for video/audio
         const input = new Input({
           formats: ALL_FORMATS,
           source: new BlobSource(file),
@@ -289,14 +367,14 @@ export function MediaImportProvider({ children }: MediaImportProviderProps) {
 
         if (successfulImports.length === 0) {
           setImportError(
-            "No valid media files found. Please select video or audio files.",
+            "No valid media files found. Please select video, audio, or image files.",
           );
         } else {
           setAssets((prev) => [...prev, ...successfulImports]);
 
           // Start generating thumbnails in background for video assets
           const videoAssets = successfulImports.filter(
-            (asset) => asset.type === "video",
+            (asset) => asset.type === "video" && asset.input,
           );
           if (videoAssets.length > 0) {
             setLoadingThumbnails((prev) => {
@@ -309,7 +387,9 @@ export function MediaImportProvider({ children }: MediaImportProviderProps) {
 
             // Fire and forget - thumbnails will be generated in background
             for (const asset of videoAssets) {
-              generateThumbnails(asset.id, asset.input, asset.duration);
+              if (asset.input) {
+                generateThumbnails(asset.id, asset.input, asset.duration);
+              }
             }
           }
 
@@ -332,7 +412,7 @@ export function MediaImportProvider({ children }: MediaImportProviderProps) {
   const removeAsset = useCallback((assetId: string) => {
     setAssets((prev) => {
       const asset = prev.find((a) => a.id === assetId);
-      if (asset) {
+      if (asset?.input) {
         // Dispose MediaBunny Input to free resources
         asset.input.dispose();
       }
@@ -344,7 +424,7 @@ export function MediaImportProvider({ children }: MediaImportProviderProps) {
   const clearAllAssets = useCallback(() => {
     // Dispose all MediaBunny Inputs
     for (const asset of assets) {
-      asset.input.dispose();
+      asset.input?.dispose();
     }
     setAssets([]);
   }, [assets]);

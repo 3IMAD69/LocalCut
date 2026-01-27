@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 export interface MediaAsset {
   id: string;
   name: string;
-  type: "video" | "audio";
+  type: "video" | "audio" | "image";
   duration: number;
   thumbnail?: string;
   thumbnails?: string[];
@@ -97,7 +97,7 @@ function EmptyState({ onImport }: { onImport?: () => void }) {
   );
 }
 
-// Media Thumbnail Component - shows actual video/audio preview
+// Media Thumbnail Component - shows actual video/audio/image preview
 function MediaThumbnail({
   asset,
   className,
@@ -114,6 +114,17 @@ function MediaThumbnail({
       return () => URL.revokeObjectURL(url);
     }
   }, [asset.file]);
+
+  if (asset.type === "image" && objectUrl) {
+    return (
+      // biome-ignore lint/performance/noImgElement: Using native img because Next.js Image doesn't support object URLs
+      <img
+        src={objectUrl}
+        alt={asset.name}
+        className={cn("w-full h-full object-cover", className)}
+      />
+    );
+  }
 
   if (asset.type === "video" && objectUrl) {
     return (
@@ -135,6 +146,8 @@ function MediaThumbnail({
       )}
     >
       {asset.type === "video" ? (
+        <ImageIcon className="w-8 h-8" />
+      ) : asset.type === "image" ? (
         <ImageIcon className="w-8 h-8" />
       ) : (
         <Music className="w-8 h-8" />

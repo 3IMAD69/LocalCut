@@ -37,7 +37,7 @@ interface TimelineWithTimeProps {
   onTimeChange: (time: number) => void;
   onClipSelect: (clipId: string) => void;
   onTracksChange: (nextTracks: TimelineTrackData[]) => void;
-  onAddTrack: (type: "video" | "audio") => void;
+  onAddTrack: (type: "video" | "audio" | "image") => void;
   onRemoveTrack: (trackId: string) => void;
 }
 
@@ -170,13 +170,28 @@ function EditorContent() {
   );
 
   // Add new track handler
-  const handleAddTrack = useCallback((type: "video" | "audio") => {
+  const handleAddTrack = useCallback((type: "video" | "audio" | "image") => {
     setTracks((prev) => {
       const existingCount = prev.filter((t) => t.type === type).length;
+
+      const getTrackLabel = (
+        trackType: "video" | "audio" | "image",
+        count: number,
+      ) => {
+        switch (trackType) {
+          case "video":
+            return `Video ${count + 1}`;
+          case "image":
+            return `Image ${count + 1}`;
+          case "audio":
+            return `Audio ${count + 1}`;
+        }
+      };
+
       const newTrack: TimelineTrackData = {
         id: `${type}-${Date.now()}`,
         type,
-        label: `${type === "video" ? "Video" : "Audio"} ${existingCount + 1}`,
+        label: getTrackLabel(type, existingCount),
         hidden: false,
         muted: false,
         clips: [],
@@ -196,13 +211,40 @@ function EditorContent() {
     (asset: MediaAsset) => {
       const fullAsset = assetMap.get(asset.id);
 
+      // Determine the color based on asset type
+      const getClipColor = (type: "video" | "audio" | "image") => {
+        switch (type) {
+          case "video":
+            return "#0099ff";
+          case "image":
+            return "#9b59b6";
+          case "audio":
+            return "#ff7a05";
+        }
+      };
+
+      // Determine the track label based on asset type
+      const getTrackLabel = (
+        type: "video" | "audio" | "image",
+        count: number,
+      ) => {
+        switch (type) {
+          case "video":
+            return `Video ${count + 1}`;
+          case "image":
+            return `Image ${count + 1}`;
+          case "audio":
+            return `Audio ${count + 1}`;
+        }
+      };
+
       const newClip: TimelineClipWithAsset = {
         id: `clip-${Date.now()}`,
         name: asset.name,
         type: asset.type,
         startTime: 0,
         duration: asset.duration,
-        color: asset.type === "video" ? "#0099ff" : "#ff7a05",
+        color: getClipColor(asset.type),
         asset: fullAsset,
         thumbnails: fullAsset?.thumbnails,
         trimStart: 0,
@@ -214,7 +256,7 @@ function EditorContent() {
         const newTrack: TimelineTrackData = {
           id: `${asset.type}-${Date.now()}`,
           type: asset.type,
-          label: `${asset.type === "video" ? "Video" : "Audio"} ${existingCount + 1}`,
+          label: getTrackLabel(asset.type, existingCount),
           hidden: false,
           muted: false,
           clips: [{ ...newClip }],

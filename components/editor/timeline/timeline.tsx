@@ -12,6 +12,7 @@ import {
   EyeOff,
   Film,
   GripVertical,
+  Image as ImageIcon,
   Minus,
   Music,
   Pause,
@@ -57,7 +58,7 @@ interface TimelineProps {
   onTimeChange?: (time: number) => void;
   onClipSelect?: (clipId: string) => void;
   onTracksChange?: (tracks: TimelineTrackData[]) => void;
-  onAddTrack?: (type: "video" | "audio") => void;
+  onAddTrack?: (type: "video" | "audio" | "image") => void;
   onRemoveTrack?: (trackId: string) => void;
   className?: string;
 }
@@ -156,7 +157,9 @@ export function Timeline({
         "lc-timeline-row",
         track.type === "video"
           ? "lc-timeline-row-video"
-          : "lc-timeline-row-audio",
+          : track.type === "image"
+            ? "lc-timeline-row-image"
+            : "lc-timeline-row-audio",
       ],
       actions: (track.hidden ? [] : track.clips).map<TimelineAction>(
         (clip) => ({
@@ -165,7 +168,7 @@ export function Timeline({
           end: clip.startTime + clip.duration,
           effectId: clip.type,
           movable: true,
-          flexible: false,
+          flexible: true,
           selected: clip.id === selectedClipId,
         }),
       ),
@@ -176,6 +179,7 @@ export function Timeline({
     () => ({
       video: { id: "video", name: "Video" },
       audio: { id: "audio", name: "Audio" },
+      image: { id: "image", name: "Image" },
     }),
     [],
   );
@@ -358,6 +362,10 @@ export function Timeline({
                 <Video className="h-4 w-4 mr-2 text-chart-2" />
                 Video Track
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onAddTrack?.("image")}>
+                <ImageIcon className="h-4 w-4 mr-2 text-chart-4" />
+                Image Track
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onAddTrack?.("audio")}>
                 <Music className="h-4 w-4 mr-2 text-chart-3" />
                 Audio Track
@@ -529,6 +537,22 @@ export function Timeline({
             // Start tracking for potential cross-track drag
             handleDragStart(action.id, row.id);
           }}
+          onActionResizing={({ action, start, end, dir }) => {
+            const clip = clipById.get(action.id);
+            if (!clip) return;
+            if (dir === "left") {
+              return false;
+            }
+
+            const maxDuration = Math.max(
+              0,
+              (clip.asset?.duration ?? clip.trimEnd) - clip.trimStart,
+            );
+            const nextDuration = Math.max(0, end - start);
+            if (nextDuration > maxDuration) {
+              return false;
+            }
+          }}
           onActionMoveEnd={() => {
             // End cross-track drag - if we're targeting a different track,
             // the hook will handle moving the clip
@@ -574,12 +598,21 @@ export function Timeline({
                   const start = Math.max(0, action.start);
                   const end = Math.max(start, action.end);
                   const duration = end - start;
+                  const maxDuration = existing
+                    ? Math.max(
+                        0,
+                        (existing.asset?.duration ?? existing.trimEnd) -
+                          existing.trimStart,
+                      )
+                    : duration;
+                  const clampedDuration = Math.min(duration, maxDuration);
 
                   if (existing) {
                     return {
                       ...existing,
                       startTime: start,
-                      duration,
+                      duration: clampedDuration,
+                      trimEnd: existing.trimStart + clampedDuration,
                     };
                   }
 
@@ -588,10 +621,15 @@ export function Timeline({
                     name: action.id,
                     type,
                     startTime: start,
-                    duration,
-                    color: type === "video" ? "#0099ff" : "#ff7a05",
+                    duration: clampedDuration,
+                    color:
+                      type === "video"
+                        ? "#0099ff"
+                        : type === "image"
+                          ? "#9b59b6"
+                          : "#ff7a05",
                     trimStart: 0,
-                    trimEnd: duration,
+                    trimEnd: clampedDuration,
                   };
                 }),
               };
@@ -612,7 +650,10 @@ export function Timeline({
           onClickActionOnly={(_, { action }) => onClipSelect?.(action.id)}
           getActionRender={(action) => {
             const clip = clipById.get(action.id);
-            const isVideo = (clip?.type ?? "video") === "video";
+            const clipType = clip?.type ?? "video";
+            const isVideo = clipType === "video";
+            const isImage = clipType === "image";
+            const isVisual = isVideo || isImage;
             const thumbnails = clip?.thumbnails ?? [];
 
             // Calculate clip's visual pixel width on the timeline
@@ -679,12 +720,12 @@ export function Timeline({
                   )
                 }
                 style={{
-                  backgroundColor: isVideo
+                  backgroundColor: isVisual
                     ? "color-mix(in oklch, var(--card), transparent 10%)"
                     : "color-mix(in oklch, var(--background), transparent 10%)",
                 }}
               >
-                {isVideo ? (
+                {isVisual ? (
                   filmstrip.length > 0 ? (
                     <div
                       className="absolute inset-0 opacity-90"
@@ -791,7 +832,11 @@ export function Timeline({
                   <span
                     className={cn(
                       "flex-1 min-w-0 truncate",
-                      track.type === "video" ? "text-chart-2" : "text-chart-3",
+                      track.type === "video"
+                        ? "text-chart-2"
+                        : track.type === "image"
+                          ? "text-chart-4"
+                          : "text-chart-3",
                     )}
                   >
                     {track.label}

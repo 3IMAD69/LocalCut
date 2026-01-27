@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
 export interface ClipProperties {
   id: string;
   name: string;
-  type: "video" | "audio";
+  type: "video" | "audio" | "image";
   // Transform properties
   positionX: number;
   positionY: number;

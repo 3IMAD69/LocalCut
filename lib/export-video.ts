@@ -72,7 +72,7 @@ async function renderMixedAudio(
     if (track.hidden || track.muted) continue;
     for (const clip of track.clips) {
       const asset = clip.asset;
-      if (!asset) continue;
+      if (!asset || !asset.input) continue;
 
       // Match preview behavior: audio can come from video clips and audio clips.
       const audioTrack = await asset.input.getPrimaryAudioTrack();
@@ -147,22 +147,25 @@ async function loadExportSources(params: {
   for (const track of tracks) {
     if (track.hidden) continue;
     for (const clip of track.clips) {
-      if (track.type !== "video") continue;
+      if (track.type !== "video" && track.type !== "image") continue;
       const asset = clip.asset;
       if (!asset) continue;
-      if (asset.type !== "video") continue;
+      if (asset.type !== "video" && asset.type !== "image") continue;
       assetsToLoad.set(asset.id, asset);
     }
   }
 
   const loaded = new Map<string, LoadedSource>();
   for (const asset of assetsToLoad.values()) {
-    const source = await compositor.loadSource(asset.file);
+    const source =
+      asset.type === "image"
+        ? await compositor.loadImage(asset.file)
+        : await compositor.loadSource(asset.file);
     loaded.set(asset.id, {
       id: `source-${asset.id}`,
       source,
       assetId: asset.id,
-      duration: source.duration,
+      duration: asset.type === "image" ? asset.duration : source.duration,
       width: source.width ?? 1920,
       height: source.height ?? 1080,
     });
