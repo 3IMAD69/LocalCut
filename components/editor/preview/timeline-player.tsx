@@ -128,7 +128,7 @@ export function TimelinePlayer({
     if (!selectedClipId) return null;
 
     for (const track of tracks) {
-      if (track.type !== "video") continue;
+      if (track.type !== "video" && track.type !== "image") continue;
       for (const clip of track.clips) {
         if (clip.id !== selectedClipId) continue;
         if (!clip.asset) return null;

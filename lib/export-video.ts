@@ -37,6 +37,7 @@ export type ExportTimelineOptions = {
   container?: OutputContainer;
   filenameBase?: string;
   onProgress?: (progress: number) => void;
+  abortSignal?: AbortSignal;
 };
 
 function getTimelineDurationSeconds(tracks: TimelineTrackData[]): number {
@@ -304,6 +305,11 @@ export async function exportTimelineToBlob(
     const frameCount = Math.ceil(durationSeconds * fps);
     const keyFrameEvery = Math.max(1, Math.floor(fps * 5));
     for (let i = 0; i < frameCount; i++) {
+      // Check for abort signal before each frame
+      if (options.abortSignal?.aborted) {
+        throw new DOMException("Export cancelled", "AbortError");
+      }
+
       const t = i * frameDuration;
       const composition = buildCompositorComposition({
         time: t,

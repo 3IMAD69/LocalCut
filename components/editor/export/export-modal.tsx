@@ -76,6 +76,7 @@ export function ExportModal({ open, onOpenChange, tracks }: ExportModalProps) {
   const [exportedFileName, setExportedFileName] = useState<string | null>(null);
   const startTimeRef = useRef<number | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Track elapsed time during export
   useEffect(() => {
@@ -140,6 +141,10 @@ export function ExportModal({ open, onOpenChange, tracks }: ExportModalProps) {
     setProgress(0);
     setErrorMessage(null);
 
+    // Create a new AbortController for this export
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     const { width, height } = getResolution();
 
     const options: ExportTimelineOptions = {
@@ -150,6 +155,7 @@ export function ExportModal({ open, onOpenChange, tracks }: ExportModalProps) {
       container: format,
       filenameBase: filename || "localcut-export",
       onProgress: (p) => setProgress(Math.round(p * 100)),
+      abortSignal: abortController.signal,
     };
 
     try {
@@ -166,14 +172,29 @@ export function ExportModal({ open, onOpenChange, tracks }: ExportModalProps) {
 
       setExportState("done");
     } catch (error) {
+      // Check if this was a cancellation
+      if (error instanceof DOMException && error.name === "AbortError") {
+        // User cancelled - reset to idle state
+        setExportState("idle");
+        setProgress(0);
+        return;
+      }
       console.error("Export failed:", error);
       setErrorMessage(error instanceof Error ? error.message : "Export failed");
       setExportState("error");
+    } finally {
+      abortControllerRef.current = null;
     }
   }, [tracks, clipCount, getResolution, fps, format, filename]);
 
   const handleClose = useCallback(() => {
-    if (exportState === "exporting") return; // Prevent closing during export
+    // If exporting, cancel the export and let the abort handler reset state
+    if (exportState === "exporting") {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      return;
+    }
     // Clear blob if exists
     if (exportedBlob) {
       setExportedBlob(null);
