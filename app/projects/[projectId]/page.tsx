@@ -137,6 +137,21 @@ function EditorContent() {
     60,
   );
 
+  const pruneEmptyTracks = useCallback(
+    (prevTracks: TimelineTrackData[], nextTracks: TimelineTrackData[]) => {
+      const prevTrackMap = new Map(
+        prevTracks.map((track) => [track.id, track]),
+      );
+      return nextTracks.filter((track) => {
+        if (track.clips.length > 0) return true;
+        const previous = prevTrackMap.get(track.id);
+        if (!previous) return true;
+        return previous.clips.length === 0;
+      });
+    },
+    [],
+  );
+
   // Handlers
   const handleSeek = useCallback(
     (time: number) => {
@@ -184,16 +199,22 @@ function EditorContent() {
   }, []);
 
   // Delete clip handler
-  const handleDeleteClip = useCallback((clipId: string) => {
-    setTracks((prev) =>
-      prev.map((track) => ({
-        ...track,
-        clips: track.clips.filter((c) => c.id !== clipId),
-      })),
-    );
-    setSelectedClip((prev) => (prev?.id === clipId ? null : prev));
-    setHasUnsavedChanges(true);
-  }, []);
+  const handleDeleteClip = useCallback(
+    (clipId: string) => {
+      setTracks((prev) =>
+        pruneEmptyTracks(
+          prev,
+          prev.map((track) => ({
+            ...track,
+            clips: track.clips.filter((c) => c.id !== clipId),
+          })),
+        ),
+      );
+      setSelectedClip((prev) => (prev?.id === clipId ? null : prev));
+      setHasUnsavedChanges(true);
+    },
+    [pruneEmptyTracks],
+  );
 
   // Duplicate clip handler
   const handleDuplicateClip = useCallback((clipId: string) => {
@@ -504,7 +525,7 @@ function EditorContent() {
                 selectedClipId={selectedClip?.id ?? null}
                 onClipSelect={handleClipSelect}
                 onTracksChange={(nextTracks) => {
-                  setTracks(nextTracks);
+                  setTracks((prev) => pruneEmptyTracks(prev, nextTracks));
                   setHasUnsavedChanges(true);
                 }}
                 onAddTrack={handleAddTrack}
