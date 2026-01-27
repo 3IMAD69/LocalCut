@@ -35,7 +35,7 @@ interface TimelineWithTimeProps {
   duration: number;
   selectedClipId: string | null;
   onTimeChange: (time: number) => void;
-  onClipSelect: (clipId: string) => void;
+  onClipSelect: (clipId: string, nextTracks?: TimelineTrackData[]) => void;
   onTracksChange: (nextTracks: TimelineTrackData[]) => void;
   onAddTrack: (type: "video" | "audio" | "image") => void;
   onRemoveTrack: (trackId: string) => void;
@@ -270,8 +270,11 @@ function EditorContent() {
     [assetMap],
   );
 
-  const handleClipSelect = (clipId: string) => {
-    for (const track of tracks) {
+  const handleClipSelect = (
+    clipId: string,
+    nextTracks: TimelineTrackData[] = tracks,
+  ) => {
+    for (const track of nextTracks) {
       const clip = track.clips.find((c) => c.id === clipId);
       if (clip) {
         const transform: ClipTransform = clip.transform ?? {
@@ -408,7 +411,7 @@ function EditorContent() {
           <ResizableHandle className="my-1 h-1 bg-transparent hover:bg-primary/30 data-[resize-handle-state=drag]:bg-primary/50 transition-all duration-200 rounded-full" />
 
           {/* Bottom Section: Timeline */}
-          <ResizablePanel defaultSize={30} minSize={15} maxSize={60}>
+          <ResizablePanel defaultSize={45} minSize={15} maxSize={60}>
             <div className="h-full bg-background rounded-2xl border border-border/40 shadow-sm z-20 overflow-hidden">
               <TimelineWithTime
                 tracks={tracks}

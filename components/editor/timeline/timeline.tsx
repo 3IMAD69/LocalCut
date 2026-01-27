@@ -56,7 +56,7 @@ interface TimelineProps {
   duration: number;
   selectedClipId?: string | null;
   onTimeChange?: (time: number) => void;
-  onClipSelect?: (clipId: string) => void;
+  onClipSelect?: (clipId: string, nextTracks?: TimelineTrackData[]) => void;
   onTracksChange?: (tracks: TimelineTrackData[]) => void;
   onAddTrack?: (type: "video" | "audio" | "image") => void;
   onRemoveTrack?: (trackId: string) => void;
@@ -206,6 +206,8 @@ export function Timeline({
 
     if (clipsToSplit.length === 0) return;
 
+    let nextSelectedClipId: string | null = null;
+
     // Create new tracks with split clips
     const newTracks = tracks.map((track) => {
       const clipToSplit = clipsToSplit.find((c) => c.trackId === track.id);
@@ -231,6 +233,12 @@ export function Timeline({
         trimStart: clip.trimStart + splitPoint,
       };
 
+      if (!nextSelectedClipId) {
+        if (clip.id === selectedClipId || clipsToSplit.length === 1) {
+          nextSelectedClipId = secondPart.id;
+        }
+      }
+
       // Replace the original clip with the two parts
       return {
         ...track,
@@ -241,7 +249,10 @@ export function Timeline({
     });
 
     onTracksChange(newTracks);
-  }, [tracks, currentTime, onTracksChange]);
+    if (nextSelectedClipId) {
+      onClipSelect?.(nextSelectedClipId, newTracks);
+    }
+  }, [tracks, currentTime, onTracksChange, onClipSelect, selectedClipId]);
 
   // Keyboard shortcut for split (Ctrl+B)
   useEffect(() => {
