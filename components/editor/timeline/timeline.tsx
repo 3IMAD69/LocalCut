@@ -8,6 +8,7 @@ import {
   type TimelineState,
 } from "@xzdarcy/react-timeline-editor";
 import {
+  Copy,
   Eye,
   EyeOff,
   Film,
@@ -28,6 +29,14 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuShortcut,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,6 +69,8 @@ interface TimelineProps {
   onTracksChange?: (tracks: TimelineTrackData[]) => void;
   onAddTrack?: (type: "video" | "audio" | "image") => void;
   onRemoveTrack?: (trackId: string) => void;
+  onDeleteClip?: (clipId: string) => void;
+  onDuplicateClip?: (clipId: string) => void;
   className?: string;
 }
 
@@ -97,6 +108,8 @@ export function Timeline({
   onTracksChange,
   onAddTrack,
   onRemoveTrack: _onRemoveTrack,
+  onDeleteClip,
+  onDuplicateClip,
   className,
 }: TimelineProps) {
   const [pixelsPerSecond, setPixelsPerSecond] = useState(50);
@@ -188,58 +201,60 @@ export function Timeline({
   const splitClipAtPlayhead = useCallback(() => {
     if (!onTracksChange) return;
 
-    // Find clips that the playhead is currently over
-    const clipsToSplit: Array<{
+    const isPlayheadInsideClip = (clip: TimelineTrackData["clips"][number]) => {
+      const clipEnd = clip.startTime + clip.duration;
+      return currentTime > clip.startTime && currentTime < clipEnd;
+    };
+
+    let target: {
       trackId: string;
       clip: TimelineTrackData["clips"][number];
-    }> = [];
+    } | null = null;
 
-    for (const track of tracks) {
-      for (const clip of track.clips) {
-        const clipEnd = clip.startTime + clip.duration;
-        // Check if playhead is within this clip (not at the very edges)
-        if (currentTime > clip.startTime && currentTime < clipEnd) {
-          clipsToSplit.push({ trackId: track.id, clip });
+    if (selectedClipId) {
+      for (const track of tracks) {
+        const clip = track.clips.find((c) => c.id === selectedClipId);
+        if (clip && isPlayheadInsideClip(clip)) {
+          target = { trackId: track.id, clip };
+          break;
+        }
+      }
+    } else {
+      for (const track of tracks) {
+        const clip = track.clips.find(isPlayheadInsideClip);
+        if (clip) {
+          target = { trackId: track.id, clip };
+          break;
         }
       }
     }
 
-    if (clipsToSplit.length === 0) return;
+    if (!target) return;
 
-    let nextSelectedClipId: string | null = null;
+    const { clip } = target;
+    const splitPoint = currentTime - clip.startTime;
+    const timestamp = Date.now();
 
-    // Create new tracks with split clips
+    // First part: from clip start to playhead
+    const firstPart: TimelineTrackData["clips"][number] = {
+      ...clip,
+      id: `${clip.id}-part1-${timestamp}`,
+      duration: splitPoint,
+      trimEnd: clip.trimStart + splitPoint,
+    };
+
+    // Second part: from playhead to clip end
+    const secondPart: TimelineTrackData["clips"][number] = {
+      ...clip,
+      id: `${clip.id}-part2-${timestamp}`,
+      startTime: currentTime,
+      duration: clip.duration - splitPoint,
+      trimStart: clip.trimStart + splitPoint,
+    };
+
+    // Create new tracks with split clip
     const newTracks = tracks.map((track) => {
-      const clipToSplit = clipsToSplit.find((c) => c.trackId === track.id);
-      if (!clipToSplit) return track;
-
-      const { clip } = clipToSplit;
-      const splitPoint = currentTime - clip.startTime; // Time within the clip where we split
-
-      // First part: from clip start to playhead
-      const firstPart: TimelineTrackData["clips"][number] = {
-        ...clip,
-        id: `${clip.id}-part1-${Date.now()}`,
-        duration: splitPoint,
-        trimEnd: clip.trimStart + splitPoint,
-      };
-
-      // Second part: from playhead to clip end
-      const secondPart: TimelineTrackData["clips"][number] = {
-        ...clip,
-        id: `${clip.id}-part2-${Date.now()}`,
-        startTime: currentTime,
-        duration: clip.duration - splitPoint,
-        trimStart: clip.trimStart + splitPoint,
-      };
-
-      if (!nextSelectedClipId) {
-        if (clip.id === selectedClipId || clipsToSplit.length === 1) {
-          nextSelectedClipId = secondPart.id;
-        }
-      }
-
-      // Replace the original clip with the two parts
+      if (track.id !== target?.trackId) return track;
       return {
         ...track,
         clips: track.clips.flatMap((c) =>
@@ -249,9 +264,7 @@ export function Timeline({
     });
 
     onTracksChange(newTracks);
-    if (nextSelectedClipId) {
-      onClipSelect?.(nextSelectedClipId, newTracks);
-    }
+    onClipSelect?.(secondPart.id, newTracks);
   }, [tracks, currentTime, onTracksChange, onClipSelect, selectedClipId]);
 
   // Keyboard shortcut for split (Ctrl+B)
@@ -714,61 +727,81 @@ export function Timeline({
                   .join(", ");
 
             return (
-              <button
-                type="button"
-                className={cn(
-                  "relative h-full w-full rounded-md border border-border/50",
-                  "shadow-sm overflow-hidden",
-                  "text-[11px] font-medium",
-                  action.selected && "ring-2 ring-primary ring-offset-1",
-                )}
-                onMouseDown={(event) =>
-                  handlePointerDown(
-                    action.id,
-                    action.start,
-                    event,
-                    timelineContainerRef.current,
-                  )
-                }
-                style={{
-                  backgroundColor: isVisual
-                    ? "color-mix(in oklch, var(--card), transparent 10%)"
-                    : "color-mix(in oklch, var(--background), transparent 10%)",
-                }}
-              >
-                {isVisual ? (
-                  filmstrip.length > 0 ? (
-                    <div
-                      className="absolute inset-0 opacity-90"
-                      style={{
-                        backgroundImage,
-                        backgroundRepeat: "no-repeat",
-                        backgroundSize,
-                        backgroundPosition,
-                      }}
-                    />
-                  ) : (
-                    <div className="absolute inset-0 bg-gradient-to-r from-card/80 via-card/60 to-card/80" />
-                  )
-                ) : clip?.asset ? (
-                  <AudioWaveform
-                    asset={clip.asset}
-                    trimStart={clip.trimStart}
-                    pixelsPerSecond={pixelsPerSecond}
-                    height={rowHeight}
-                    color="rgb(255, 223, 181)"
-                  />
-                ) : (
-                  <div className="absolute inset-0 bg-gradient-to-r from-muted/80 via-muted/60 to-muted/80" />
-                )}
+              <ContextMenu>
+                <ContextMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className={cn(
+                      "relative h-full w-full rounded-md border border-border/50",
+                      "shadow-sm overflow-hidden",
+                      "text-[11px] font-medium",
+                      action.selected && "ring-2 ring-primary ring-offset-1",
+                    )}
+                    onMouseDown={(event) =>
+                      handlePointerDown(
+                        action.id,
+                        action.start,
+                        event,
+                        timelineContainerRef.current,
+                      )
+                    }
+                    style={{
+                      backgroundColor: isVisual
+                        ? "color-mix(in oklch, var(--card), transparent 10%)"
+                        : "color-mix(in oklch, var(--background), transparent 10%)",
+                    }}
+                  >
+                    {isVisual ? (
+                      filmstrip.length > 0 ? (
+                        <div
+                          className="absolute inset-0 opacity-90"
+                          style={{
+                            backgroundImage,
+                            backgroundRepeat: "no-repeat",
+                            backgroundSize,
+                            backgroundPosition,
+                          }}
+                        />
+                      ) : (
+                        <div className="absolute inset-0 bg-gradient-to-r from-card/80 via-card/60 to-card/80" />
+                      )
+                    ) : clip?.asset ? (
+                      <AudioWaveform
+                        asset={clip.asset}
+                        trimStart={clip.trimStart}
+                        pixelsPerSecond={pixelsPerSecond}
+                        height={rowHeight}
+                        color="rgb(255, 223, 181)"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 bg-gradient-to-r from-muted/80 via-muted/60 to-muted/80" />
+                    )}
 
-                <div className="absolute inset-0 bg-gradient-to-r from-background/70 via-transparent to-background/70 pointer-events-none" />
-                <div className="relative z-10 flex items-center h-full px-2 pointer-events-none">
-                  <span className="text-foreground truncate shadow-sm">
-                    {clip?.name ?? action.id}
-                  </span>
-                </div>
-              </button>
+                    <div className="absolute inset-0 bg-gradient-to-r from-background/70 via-transparent to-background/70 pointer-events-none" />
+                    <div className="relative z-10 flex items-center h-full px-2 pointer-events-none">
+                      <span className="text-foreground truncate shadow-sm">
+                        {clip?.name ?? action.id}
+                      </span>
+                    </div>
+                  </button>
+                </ContextMenuTrigger>
+                <ContextMenuContent>
+                  <ContextMenuItem onClick={() => onDuplicateClip?.(action.id)}>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Duplicate
+                    <ContextMenuShortcut>Ctrl+D</ContextMenuShortcut>
+                  </ContextMenuItem>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem
+                    onClick={() => onDeleteClip?.(action.id)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                    <ContextMenuShortcut>Del</ContextMenuShortcut>
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
             );
           }}
           style={{ width: "100%", height: "100%" }}

@@ -39,6 +39,8 @@ interface TimelineWithTimeProps {
   onTracksChange: (nextTracks: TimelineTrackData[]) => void;
   onAddTrack: (type: "video" | "audio" | "image") => void;
   onRemoveTrack: (trackId: string) => void;
+  onDeleteClip: (clipId: string) => void;
+  onDuplicateClip: (clipId: string) => void;
 }
 
 function TimelineWithTime({
@@ -50,6 +52,8 @@ function TimelineWithTime({
   onTracksChange,
   onAddTrack,
   onRemoveTrack,
+  onDeleteClip,
+  onDuplicateClip,
 }: TimelineWithTimeProps) {
   const currentTime = useTimelinePlayerTime();
 
@@ -64,6 +68,8 @@ function TimelineWithTime({
       onTracksChange={onTracksChange}
       onAddTrack={onAddTrack}
       onRemoveTrack={onRemoveTrack}
+      onDeleteClip={onDeleteClip}
+      onDuplicateClip={onDuplicateClip}
       className="h-full border-none"
     />
   );
@@ -123,36 +129,6 @@ function EditorContent() {
     setPlayerTracks(tracks);
   }, [tracks, setPlayerTracks]);
 
-  // Keyboard shortcuts for clip operations
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if focused on an input
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
-      ) {
-        return;
-      }
-
-      if (e.key === "Delete" || e.key === "Backspace") {
-        if (selectedClip) {
-          e.preventDefault();
-          setTracks((prev) =>
-            prev.map((track) => ({
-              ...track,
-              clips: track.clips.filter((c) => c.id !== selectedClip.id),
-            })),
-          );
-          setSelectedClip(null);
-          setHasUnsavedChanges(true);
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedClip]);
-
   // Calculate total duration from clips (minimum 60s for empty timeline)
   const duration = Math.max(
     ...tracks.flatMap((t) =>
@@ -207,6 +183,75 @@ function EditorContent() {
     setHasUnsavedChanges(true);
   }, []);
 
+  // Delete clip handler
+  const handleDeleteClip = useCallback((clipId: string) => {
+    setTracks((prev) =>
+      prev.map((track) => ({
+        ...track,
+        clips: track.clips.filter((c) => c.id !== clipId),
+      })),
+    );
+    setSelectedClip((prev) => (prev?.id === clipId ? null : prev));
+    setHasUnsavedChanges(true);
+  }, []);
+
+  // Duplicate clip handler
+  const handleDuplicateClip = useCallback((clipId: string) => {
+    setTracks((prev) => {
+      return prev.map((track) => {
+        const clipIndex = track.clips.findIndex((c) => c.id === clipId);
+        if (clipIndex === -1) return track;
+
+        const clip = track.clips[clipIndex];
+        const duplicatedClip = {
+          ...clip,
+          id: `clip-${Date.now()}`,
+          // Position the duplicate right after the original clip
+          startTime: clip.startTime + clip.duration,
+        };
+
+        // Insert after the original clip
+        const newClips = [...track.clips];
+        newClips.splice(clipIndex + 1, 0, duplicatedClip);
+
+        return { ...track, clips: newClips };
+      });
+    });
+    setHasUnsavedChanges(true);
+  }, []);
+
+  // Keyboard shortcuts for clip operations
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if focused on an input
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+
+      // Delete/Backspace to delete selected clip
+      if (e.key === "Delete" || e.key === "Backspace") {
+        if (selectedClip) {
+          e.preventDefault();
+          handleDeleteClip(selectedClip.id);
+        }
+      }
+
+      // Ctrl/Cmd + D to duplicate selected clip
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d") {
+        if (selectedClip) {
+          e.preventDefault();
+          handleDuplicateClip(selectedClip.id);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedClip, handleDeleteClip, handleDuplicateClip]);
+
   const handleAssetAdd = useCallback(
     (asset: MediaAsset) => {
       const fullAsset = assetMap.get(asset.id);
@@ -238,8 +283,10 @@ function EditorContent() {
         }
       };
 
+      const timestamp = Date.now();
+
       const newClip: TimelineClipWithAsset = {
-        id: `clip-${Date.now()}`,
+        id: `clip-${timestamp}`,
         name: asset.name,
         type: asset.type,
         startTime: 0,
@@ -252,17 +299,54 @@ function EditorContent() {
       };
 
       setTracks((prev) => {
+        const newTracks: TimelineTrackData[] = [];
+
+        // Check if this video has audio
+        const videoHasAudio =
+          asset.type === "video" && fullAsset?.audioCodec != null;
+
+        // Create the main track (video/audio/image)
         const existingCount = prev.filter((t) => t.type === asset.type).length;
         const newTrack: TimelineTrackData = {
-          id: `${asset.type}-${Date.now()}`,
+          id: `${asset.type}-${timestamp}`,
           type: asset.type,
           label: getTrackLabel(asset.type, existingCount),
           hidden: false,
-          muted: false,
+          // Mute the video track if we're creating a separate audio track
+          muted: videoHasAudio,
           clips: [{ ...newClip }],
         };
+        newTracks.push(newTrack);
 
-        return [...prev, newTrack];
+        // If video has audio, create a linked audio track
+        if (videoHasAudio) {
+          const audioClip: TimelineClipWithAsset = {
+            id: `clip-audio-${timestamp}`,
+            name: `${asset.name} (Audio)`,
+            type: "audio",
+            startTime: 0,
+            duration: asset.duration,
+            color: getClipColor("audio"),
+            asset: fullAsset,
+            trimStart: 0,
+            trimEnd: asset.duration,
+          };
+
+          const existingAudioCount = prev.filter(
+            (t) => t.type === "audio",
+          ).length;
+          const audioTrack: TimelineTrackData = {
+            id: `audio-${timestamp + 1}`,
+            type: "audio",
+            label: getTrackLabel("audio", existingAudioCount),
+            hidden: false,
+            muted: false,
+            clips: [audioClip],
+          };
+          newTracks.push(audioTrack);
+        }
+
+        return [...prev, ...newTracks];
       });
 
       setHasUnsavedChanges(true);
@@ -425,6 +509,8 @@ function EditorContent() {
                 }}
                 onAddTrack={handleAddTrack}
                 onRemoveTrack={handleRemoveTrack}
+                onDeleteClip={handleDeleteClip}
+                onDuplicateClip={handleDuplicateClip}
               />
             </div>
           </ResizablePanel>

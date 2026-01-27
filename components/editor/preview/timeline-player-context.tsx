@@ -667,12 +667,13 @@ export function buildCompositorComposition(params: {
 
       const isAudioTrack = track.type === "audio";
       const isVideoWithPossibleAudio = track.type === "video";
-      if (isAudioTrack || isVideoWithPossibleAudio) {
+      const isTrackMuted = track.muted ?? false;
+      if ((isAudioTrack || isVideoWithPossibleAudio) && !isTrackMuted) {
         audio.push({
           source: loadedSource.source,
           sourceTime,
           volume: 1,
-          muted: track.muted ?? false,
+          muted: false,
         });
       }
     }
