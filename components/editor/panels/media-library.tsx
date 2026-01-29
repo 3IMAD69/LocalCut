@@ -1,23 +1,174 @@
 "use client";
 
+import {
+  SiInstagram,
+  SiSpotify,
+  SiTiktok,
+  SiYoutube,
+} from "@icons-pack/react-simple-icons";
 import type { LucideIcon } from "lucide-react";
 import {
   FileIcon,
   FolderOpen,
+  Frame,
   ImageIcon,
   LayoutGrid,
   Loader2,
   Music,
   Plus,
   Shapes,
+  Square,
   Trash2,
   Type,
   Upload,
 } from "lucide-react";
+import type { ComponentType, SVGProps } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+
+// Canvas resize presets
+type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
+
+interface CanvasPreset {
+  id: string;
+  label: string;
+  ratio: string;
+  width: number;
+  height: number;
+  icon: IconComponent | null;
+}
+
+const CANVAS_PRESETS: {
+  platforms: CanvasPreset[];
+  standard: CanvasPreset[];
+} = {
+  platforms: [
+    {
+      id: "youtube",
+      label: "YouTube",
+      ratio: "16:9",
+      width: 1920,
+      height: 1080,
+      icon: SiYoutube,
+    },
+    {
+      id: "youtube-shorts",
+      label: "YouTube Shorts",
+      ratio: "9:16",
+      width: 1080,
+      height: 1920,
+      icon: SiYoutube,
+    },
+    {
+      id: "tiktok",
+      label: "TikTok",
+      ratio: "9:16",
+      width: 1080,
+      height: 1920,
+      icon: SiTiktok,
+    },
+    {
+      id: "instagram-story",
+      label: "Instagram Story & Reels",
+      ratio: "9:16",
+      width: 1080,
+      height: 1920,
+      icon: SiInstagram,
+    },
+    {
+      id: "instagram-square",
+      label: "Instagram Post Square",
+      ratio: "1:1",
+      width: 1080,
+      height: 1080,
+      icon: SiInstagram,
+    },
+    {
+      id: "instagram-post",
+      label: "Instagram Post",
+      ratio: "4:5",
+      width: 1080,
+      height: 1350,
+      icon: SiInstagram,
+    },
+    {
+      id: "spotify-canvas",
+      label: "Spotify Canvas",
+      ratio: "9:16",
+      width: 1080,
+      height: 1920,
+      icon: SiSpotify,
+    },
+  ],
+  standard: [
+    {
+      id: "widescreen",
+      label: "Widescreen",
+      ratio: "16:9",
+      width: 1920,
+      height: 1080,
+      icon: null,
+    },
+    {
+      id: "full-portrait",
+      label: "Full Portrait",
+      ratio: "9:16",
+      width: 1080,
+      height: 1920,
+      icon: null,
+    },
+    {
+      id: "square",
+      label: "Square",
+      ratio: "1:1",
+      width: 1080,
+      height: 1080,
+      icon: null,
+    },
+    {
+      id: "landscape",
+      label: "Landscape",
+      ratio: "4:3",
+      width: 1440,
+      height: 1080,
+      icon: null,
+    },
+    {
+      id: "portrait",
+      label: "Portrait",
+      ratio: "4:5",
+      width: 1080,
+      height: 1350,
+      icon: null,
+    },
+    {
+      id: "landscape-post",
+      label: "Landscape Post",
+      ratio: "5:4",
+      width: 1350,
+      height: 1080,
+      icon: null,
+    },
+    {
+      id: "vertical",
+      label: "Vertical",
+      ratio: "2:3",
+      width: 1080,
+      height: 1620,
+      icon: null,
+    },
+  ],
+};
 
 export interface MediaAsset {
   id: string;
@@ -44,6 +195,7 @@ interface MediaLibraryProps {
   onAssetSelect?: (asset: MediaAsset) => void;
   onAssetAdd?: (asset: MediaAsset) => void;
   onAssetRemove?: (assetId: string) => void;
+  onResize?: (width: number, height: number) => void;
   className?: string;
 }
 
@@ -167,12 +319,30 @@ export function MediaLibrary({
   onAssetSelect,
   onAssetAdd,
   onAssetRemove,
+  onResize,
   className,
 }: MediaLibraryProps) {
   const [activeTab, setActiveTab] = useState<
-    "media" | "text" | "shapes" | "transitions"
+    "media" | "text" | "shapes" | "transitions" | "canvas"
   >("media");
   const [isDragOver, setIsDragOver] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState("youtube");
+
+  // Handle preset change and resize
+  const handlePresetChange = useCallback(
+    (presetId: string) => {
+      setSelectedPreset(presetId);
+      const allPresets = [
+        ...CANVAS_PRESETS.platforms,
+        ...CANVAS_PRESETS.standard,
+      ];
+      const preset = allPresets.find((p) => p.id === presetId);
+      if (preset && onResize) {
+        onResize(preset.width, preset.height);
+      }
+    },
+    [onResize],
+  );
 
   // Handle drag and drop
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -224,6 +394,11 @@ export function MediaLibrary({
           icon={LayoutGrid}
           isActive={activeTab === "transitions"}
           onClick={() => setActiveTab("transitions")}
+        />
+        <SidebarTab
+          icon={Frame}
+          isActive={activeTab === "canvas"}
+          onClick={() => setActiveTab("canvas")}
         />
         <div className="flex-1" />
       </div>
@@ -347,7 +522,77 @@ export function MediaLibrary({
           </ScrollArea>
         )}
 
-        {activeTab !== "media" && (
+        {activeTab === "canvas" && (
+          <div className="flex-1 flex flex-col p-4">
+            <h3 className="text-xs text-muted-foreground mb-3 text-center">
+              Resize
+            </h3>
+            <Select value={selectedPreset} onValueChange={handlePresetChange}>
+              <SelectTrigger className="w-full bg-card border-border/50">
+                <SelectValue>
+                  {(() => {
+                    const allPresets = [
+                      ...CANVAS_PRESETS.platforms,
+                      ...CANVAS_PRESETS.standard,
+                    ];
+                    const preset = allPresets.find(
+                      (p) => p.id === selectedPreset,
+                    );
+                    if (!preset) return "Select preset";
+                    const Icon = preset.icon;
+                    return (
+                      <span className="flex items-center gap-2">
+                        {Icon ? (
+                          <Icon className="w-4 h-4" />
+                        ) : (
+                          <Square className="w-4 h-4 text-muted-foreground" />
+                        )}
+                        <span>{preset.label}</span>
+                        <span className="text-muted-foreground">
+                          — {preset.ratio}
+                        </span>
+                      </span>
+                    );
+                  })()}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {/* Platform Presets */}
+                {CANVAS_PRESETS.platforms.map((preset) => {
+                  const Icon = preset.icon;
+                  return (
+                    <SelectItem key={preset.id} value={preset.id}>
+                      <span className="flex items-center gap-2">
+                        <span className="w-5 flex justify-center">
+                          {Icon && <Icon className="w-4 h-4" />}
+                        </span>
+                        <span>{preset.label}</span>
+                        <span className="text-muted-foreground ml-auto">
+                          {preset.ratio}
+                        </span>
+                      </span>
+                    </SelectItem>
+                  );
+                })}
+                <SelectSeparator />
+                {/* Standard Aspect Ratios */}
+                {CANVAS_PRESETS.standard.map((preset) => (
+                  <SelectItem key={preset.id} value={preset.id}>
+                    <span className="flex items-center gap-2">
+                      <Square className="w-4 h-4 text-muted-foreground" />
+                      <span>{preset.label}</span>
+                      <span className="text-muted-foreground ml-auto">
+                        {preset.ratio}
+                      </span>
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {activeTab !== "media" && activeTab !== "canvas" && (
           <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
             Coming Soon
           </div>

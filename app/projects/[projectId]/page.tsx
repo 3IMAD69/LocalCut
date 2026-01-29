@@ -87,7 +87,11 @@ function EditorContent() {
   } = useMediaImport();
 
   // Timeline player context
-  const { setTracks: setPlayerTracks, seek: playerSeek } = useTimelinePlayer();
+  const {
+    setTracks: setPlayerTracks,
+    seek: playerSeek,
+    resize: playerResize,
+  } = useTimelinePlayer();
 
   // Convert imported assets to MediaAsset format for MediaLibrary
   const mediaAssets: MediaAsset[] = importedAssets.map((asset) => ({
@@ -465,6 +469,7 @@ function EditorContent() {
                           }
                           onAssetAdd={handleAssetAdd}
                           onAssetRemove={removeAsset}
+                          onResize={playerResize}
                           className="h-full border-none"
                         />
                       </aside>

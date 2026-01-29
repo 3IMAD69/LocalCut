@@ -51,13 +51,13 @@ interface TimelinePlayerProps {
 
 export function TimelinePlayer({
   className,
-  onFullscreen: _onFullscreen,
   selectedClipId,
   onClipTransformChange,
 }: TimelinePlayerProps) {
   const {
     canvasRef,
     canvasKey,
+    outputSize,
     state,
     tracks,
     play,
@@ -98,8 +98,8 @@ export function TimelinePlayer({
     if (!videoAreaRef.current || !canvasRef.current) return null;
 
     const container = videoAreaRef.current.getBoundingClientRect();
-    const outputWidth = canvasRef.current.width || 1920;
-    const outputHeight = canvasRef.current.height || 1080;
+    const outputWidth = outputSize.width;
+    const outputHeight = outputSize.height;
 
     const scale = Math.min(
       container.width / outputWidth,
@@ -119,7 +119,7 @@ export function TimelinePlayer({
       outputWidth,
       outputHeight,
     };
-  }, [canvasRef]);
+  }, [canvasRef, outputSize.height, outputSize.width]);
 
   const findSelectedClip = useCallback((): {
     clip: TimelineClipWithAsset;
@@ -216,7 +216,7 @@ export function TimelinePlayer({
       const rect = videoAreaWrapperRef.current?.getBoundingClientRect();
       if (!rect || rect.width === 0 || rect.height === 0) return;
 
-      const aspect = 16 / 9;
+      const aspect = outputSize.width / outputSize.height;
       let width = rect.width;
       let height = rect.height;
 
@@ -239,7 +239,7 @@ export function TimelinePlayer({
       resizeObserver.disconnect();
       window.removeEventListener("resize", updateSize);
     };
-  }, []);
+  }, [outputSize.height, outputSize.width]);
 
   const handleOverlayMove = useCallback(
     ({ dx, dy }: { dx: number; dy: number }) => {

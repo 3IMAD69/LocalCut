@@ -115,6 +115,8 @@ interface TimelinePlayerContextValue {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   // Unique key to force fresh canvas element on remount
   canvasKey: number;
+  // Output dimensions for the compositor
+  outputSize: { width: number; height: number };
 
   // Compositor instance
   compositor: Compositor | null;
@@ -188,6 +190,10 @@ export function TimelinePlayerProvider({
   const suppressTimeUpdateRef = useRef(false);
   // Unique key to force fresh canvas on each mount (prevents transferControlToOffscreen errors)
   const [canvasKey] = useState(() => ++canvasKeyCounter);
+  const [outputSize, setOutputSize] = useState(() => ({
+    width,
+    height,
+  }));
 
   const [loadedSources, setLoadedSources] = useState<Map<string, LoadedSource>>(
     new Map(),
@@ -297,8 +303,8 @@ export function TimelinePlayerProvider({
         time,
         tracks,
         loadedSources,
-        width,
-        height,
+        width: outputSize.width,
+        height: outputSize.height,
         transformOverrides: transformOverridesRef.current,
       });
     };
@@ -321,8 +327,8 @@ export function TimelinePlayerProvider({
     state.duration,
     state.loop,
     state.playing,
-    width,
-    height,
+    outputSize.width,
+    outputSize.height,
   ]);
 
   // Load a media source into the compositor
@@ -520,14 +526,35 @@ export function TimelinePlayerProvider({
   // Resize compositor
   const resize = useCallback((newWidth: number, newHeight: number) => {
     const compositor = compositorRef.current;
-    if (compositor) {
-      compositor.resize(newWidth, newHeight);
+    if (!compositor) {
+      setOutputSize({ width: newWidth, height: newHeight });
+      return;
     }
+
+    const anyCompositor = compositor as unknown as {
+      workerClient?: {
+        resize: (width: number, height: number) => Promise<boolean> | boolean;
+      };
+      width?: number;
+      height?: number;
+    };
+
+    if (anyCompositor.workerClient) {
+      anyCompositor.width = newWidth;
+      anyCompositor.height = newHeight;
+      void anyCompositor.workerClient.resize(newWidth, newHeight);
+      setOutputSize({ width: newWidth, height: newHeight });
+      return;
+    }
+
+    compositor.resize(newWidth, newHeight);
+    setOutputSize({ width: newWidth, height: newHeight });
   }, []);
 
   const contextValue: TimelinePlayerContextValue = {
     canvasRef,
     canvasKey,
+    outputSize,
     compositor: compositorRef.current,
     loadedSources,
     state,
