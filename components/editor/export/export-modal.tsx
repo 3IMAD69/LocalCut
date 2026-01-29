@@ -53,18 +53,51 @@ export interface ExportModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   tracks: TimelineTrackData[];
+  /** Canvas size from the editor - used as default export resolution */
+  canvasSize?: { width: number; height: number };
 }
 
 type ExportState = "idle" | "exporting" | "done" | "error";
 
-export function ExportModal({ open, onOpenChange, tracks }: ExportModalProps) {
-  // Settings state
-  const [resolutionPreset, setResolutionPreset] = useState("1920x1080");
-  const [customWidth, setCustomWidth] = useState(1920);
-  const [customHeight, setCustomHeight] = useState(1080);
+export function ExportModal({
+  open,
+  onOpenChange,
+  tracks,
+  canvasSize,
+}: ExportModalProps) {
+  // Compute initial resolution from canvasSize or default to 1920x1080
+  const defaultWidth = canvasSize?.width ?? 1920;
+  const defaultHeight = canvasSize?.height ?? 1080;
+  const defaultPreset = `${defaultWidth}x${defaultHeight}`;
+
+  // Check if default matches a standard preset
+  const matchesStandardPreset = RESOLUTION_PRESETS.some(
+    (p) => p.width === defaultWidth && p.height === defaultHeight,
+  );
+
+  // Settings state - use "custom" if canvas size doesn't match a standard preset
+  const [resolutionPreset, setResolutionPreset] = useState(
+    matchesStandardPreset ? defaultPreset : "custom",
+  );
+  const [customWidth, setCustomWidth] = useState(defaultWidth);
+  const [customHeight, setCustomHeight] = useState(defaultHeight);
   const [fps, setFps] = useState<number>(30);
   const [format, setFormat] = useState<OutputContainer>("mp4");
   const [filename, setFilename] = useState("localcut-export");
+
+  // Sync resolution when modal opens with updated canvas size
+  useEffect(() => {
+    if (open && canvasSize) {
+      const matches = RESOLUTION_PRESETS.some(
+        (p) => p.width === canvasSize.width && p.height === canvasSize.height,
+      );
+      setResolutionPreset(
+        matches ? `${canvasSize.width}x${canvasSize.height}` : "custom",
+      );
+      setCustomWidth(canvasSize.width);
+      setCustomHeight(canvasSize.height);
+    }
+  }, [open, canvasSize]);
 
   // Export state
   const [exportState, setExportState] = useState<ExportState>("idle");

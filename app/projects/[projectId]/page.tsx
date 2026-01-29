@@ -91,6 +91,7 @@ function EditorContent() {
     setTracks: setPlayerTracks,
     seek: playerSeek,
     resize: playerResize,
+    outputSize,
   } = useTimelinePlayer();
 
   // Convert imported assets to MediaAsset format for MediaLibrary
@@ -433,6 +434,7 @@ function EditorContent() {
         open={showExportModal}
         onOpenChange={setShowExportModal}
         tracks={tracks}
+        canvasSize={outputSize}
       />
 
       <EditorHeader
