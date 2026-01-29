@@ -27,7 +27,7 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   ContextMenu,
@@ -61,7 +61,8 @@ import { TrackDragOverlay } from "./track-drag-overlay";
 
 interface TimelineProps {
   tracks: TimelineTrackData[];
-  currentTime: number;
+  /** @deprecated Pass currentTime only for external sync. Internal time subscription is preferred. */
+  currentTime?: number;
   duration: number;
   selectedClipId?: string | null;
   onTimeChange?: (time: number) => void;
@@ -98,7 +99,7 @@ function TimelineEmptyOverlay() {
   );
 }
 
-export function Timeline({
+export const Timeline = memo(function Timeline({
   tracks,
   currentTime,
   duration,
@@ -198,9 +199,12 @@ export function Timeline({
   const splitClipAtPlayhead = useCallback(() => {
     if (!onTracksChange) return;
 
+    // Use ref for current time to avoid dependency on frequently changing prop
+    const playheadTime = currentTimeRef.current;
+
     const isPlayheadInsideClip = (clip: TimelineTrackData["clips"][number]) => {
       const clipEnd = clip.startTime + clip.duration;
-      return currentTime > clip.startTime && currentTime < clipEnd;
+      return playheadTime > clip.startTime && playheadTime < clipEnd;
     };
 
     let target: {
@@ -229,7 +233,7 @@ export function Timeline({
     if (!target) return;
 
     const { clip } = target;
-    const splitPoint = currentTime - clip.startTime;
+    const splitPoint = playheadTime - clip.startTime;
     const timestamp = Date.now();
 
     // First part: from clip start to playhead
@@ -244,7 +248,7 @@ export function Timeline({
     const secondPart: TimelineTrackData["clips"][number] = {
       ...clip,
       id: `${clip.id}-part2-${timestamp}`,
-      startTime: currentTime,
+      startTime: playheadTime,
       duration: clip.duration - splitPoint,
       trimStart: clip.trimStart + splitPoint,
     };
@@ -262,7 +266,7 @@ export function Timeline({
 
     onTracksChange(newTracks);
     onClipSelect?.(secondPart.id, newTracks);
-  }, [tracks, currentTime, onTracksChange, onClipSelect, selectedClipId]);
+  }, [tracks, onTracksChange, onClipSelect, selectedClipId]);
 
   // Keyboard shortcut for split (Ctrl+B)
   useEffect(() => {
@@ -310,8 +314,28 @@ export function Timeline({
     };
   }, [dragState.isDragging, handleDragMove, handleDragEnd]);
 
+  // Get time subscription from context for imperative cursor updates (no re-renders)
+  const { meta } = useTimelinePlayer();
+  const currentTimeRef = useRef(meta.getCurrentTime());
+
+  // Subscribe to time changes and update cursor imperatively
+  // This avoids re-rendering the entire Timeline on every frame
   useEffect(() => {
-    timelineRef.current?.setTime(currentTime);
+    const unsubscribe = meta.subscribeCurrentTime(() => {
+      const time = meta.getCurrentTime();
+      currentTimeRef.current = time;
+      timelineRef.current?.setTime(time);
+    });
+    // Sync initial time
+    timelineRef.current?.setTime(meta.getCurrentTime());
+    return unsubscribe;
+  }, [meta]);
+
+  // Also handle external currentTime prop if provided (for backwards compatibility)
+  useEffect(() => {
+    if (currentTime !== undefined) {
+      timelineRef.current?.setTime(currentTime);
+    }
   }, [currentTime]);
 
   const reorderTracks = useCallback(
@@ -422,7 +446,7 @@ export function Timeline({
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7 rounded-full hover:bg-background/80"
-                  onClick={() => seek(Math.max(0, currentTime - 5))}
+                  onClick={() => seek(Math.max(0, currentTimeRef.current - 5))}
                 >
                   <SkipBack className="h-3 w-3" />
                 </Button>
@@ -457,7 +481,9 @@ export function Timeline({
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7 rounded-full hover:bg-background/80"
-                  onClick={() => seek(Math.min(duration, currentTime + 5))}
+                  onClick={() =>
+                    seek(Math.min(duration, currentTimeRef.current + 5))
+                  }
                 >
                   <SkipForward className="h-3 w-3" />
                 </Button>
@@ -968,4 +994,6 @@ export function Timeline({
       </div>
     </div>
   );
-}
+});
+
+Timeline.displayName = "Timeline";

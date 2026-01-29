@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
   type ClipProperties,
   type ClipTransform,
@@ -15,7 +15,6 @@ import {
 } from "@/components/editor";
 import { ExportModal } from "@/components/editor/export";
 import type { MediaAsset } from "@/components/editor/panels/media-library";
-import { useTimelinePlayerTime } from "@/components/editor/preview/timeline-player-context";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -43,7 +42,9 @@ interface TimelineWithTimeProps {
   onDuplicateClip: (clipId: string) => void;
 }
 
-function TimelineWithTime({
+// Memoized Timeline wrapper to prevent unnecessary re-renders
+// Timeline now subscribes to time updates internally via useTimelinePlayer
+const TimelineWithTime = memo(function TimelineWithTime({
   tracks,
   duration,
   selectedClipId,
@@ -55,12 +56,10 @@ function TimelineWithTime({
   onDeleteClip,
   onDuplicateClip,
 }: TimelineWithTimeProps) {
-  const currentTime = useTimelinePlayerTime();
-
+  // Timeline component now subscribes to time internally - no need to pass currentTime
   return (
     <Timeline
       tracks={tracks}
-      currentTime={currentTime}
       duration={duration}
       onTimeChange={onTimeChange}
       selectedClipId={selectedClipId}
@@ -73,7 +72,7 @@ function TimelineWithTime({
       className="h-full border-none"
     />
   );
-}
+});
 
 function EditorContent() {
   // Media import context

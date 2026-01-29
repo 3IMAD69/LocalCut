@@ -2,18 +2,19 @@
 
 import { Play } from "lucide-react";
 import {
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { cn } from "@/lib/utils";
 import {
   type ClipTransform,
   type TimelineClipWithAsset,
   useTimelinePlayer,
-  useTimelinePlayerTime,
 } from "./timeline-player-context";
 import {
   type OverlayRect,
@@ -32,6 +33,31 @@ function formatTime(seconds: number): string {
 }
 
 // ============================================================================
+// Time Display Component - Only this re-renders on time changes
+// ============================================================================
+
+const TimeDisplay = memo(function TimeDisplay() {
+  const { state, meta } = useTimelinePlayer();
+
+  // Subscribe to current time with useSyncExternalStore for optimal re-rendering
+  const currentTime = useSyncExternalStore(
+    meta.subscribeCurrentTime,
+    meta.getCurrentTime,
+    meta.getCurrentTime,
+  );
+
+  return (
+    <div className="flex items-center gap-2 text-xs font-medium">
+      <span className="text-chart-1">{formatTime(currentTime)}</span>
+      <span className="text-foreground/40">/</span>
+      <span className="text-foreground/60">{formatTime(state.duration)}</span>
+    </div>
+  );
+});
+
+TimeDisplay.displayName = "TimeDisplay";
+
+// ============================================================================
 // Component Props
 // ============================================================================
 
@@ -46,10 +72,10 @@ interface TimelinePlayerProps {
 }
 
 // ============================================================================
-// Main Component
+// Main Component - Memoized to prevent parent re-renders
 // ============================================================================
 
-export function TimelinePlayer({
+export const TimelinePlayer = memo(function TimelinePlayer({
   className,
   selectedClipId,
   onClipTransformChange,
@@ -68,9 +94,25 @@ export function TimelinePlayer({
       setMuted,
       exportFrame,
     },
-    meta: { canvasRef, canvasKey, outputSize },
+    meta: {
+      canvasRef,
+      canvasKey,
+      outputSize,
+      getCurrentTime,
+      subscribeCurrentTime,
+    },
   } = useTimelinePlayer();
-  const currentTime = useTimelinePlayerTime();
+
+  // Use ref for current time to avoid re-renders in callbacks
+  const currentTimeRef = useRef(getCurrentTime());
+
+  // Subscribe to time updates imperatively (no re-renders)
+  useEffect(() => {
+    const unsubscribe = subscribeCurrentTime(() => {
+      currentTimeRef.current = getCurrentTime();
+    });
+    return unsubscribe;
+  }, [getCurrentTime, subscribeCurrentTime]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const videoAreaWrapperRef = useRef<HTMLDivElement>(null);
@@ -163,7 +205,8 @@ export function TimelinePlayer({
 
     // Only show overlay if the clip is currently visible.
     const clipEnd = clip.startTime + clip.duration;
-    if (currentTime < clip.startTime || currentTime >= clipEnd) return null;
+    const time = currentTimeRef.current;
+    if (time < clip.startTime || time >= clipEnd) return null;
 
     // Compute where the video is drawn inside the container (object-contain).
     const { scale, offsetX, offsetY, outputWidth, outputHeight } = mapping;
@@ -188,7 +231,7 @@ export function TimelinePlayer({
       width: rectWidth,
       height: rectHeight,
     };
-  }, [currentTime, findSelectedClip, getDisplayMapping]);
+  }, [findSelectedClip, getDisplayMapping]);
 
   useLayoutEffect(() => {
     if (!videoAreaRef.current) return;
@@ -203,11 +246,15 @@ export function TimelinePlayer({
     resizeObserver.observe(videoAreaRef.current);
     window.addEventListener("resize", update);
 
+    // Subscribe to time updates to refresh overlay visibility
+    const unsubscribeTime = subscribeCurrentTime(update);
+
     return () => {
       resizeObserver.disconnect();
       window.removeEventListener("resize", update);
+      unsubscribeTime();
     };
-  }, [computeOverlayRect]);
+  }, [computeOverlayRect, subscribeCurrentTime]);
 
   useLayoutEffect(() => {
     if (!videoAreaWrapperRef.current) return;
@@ -340,11 +387,10 @@ export function TimelinePlayer({
       setClipTransformOverride(selectedClipId, nextTransform);
 
       if (!state.playing) {
-        void renderFrame(currentTime);
+        void renderFrame(currentTimeRef.current);
       }
     },
     [
-      currentTime,
       findSelectedClip,
       getDisplayMapping,
       selectedClipId,
@@ -369,11 +415,10 @@ export function TimelinePlayer({
     pendingTransformRef.current = null;
 
     if (!state.playing) {
-      void renderFrame(currentTime);
+      void renderFrame(currentTimeRef.current);
     }
   }, [
     clearClipTransformOverride,
-    currentTime,
     onClipTransformChange,
     renderFrame,
     selectedClipId,
@@ -396,11 +441,11 @@ export function TimelinePlayer({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `frame-${currentTime.toFixed(2)}s.png`;
+      a.download = `frame-${currentTimeRef.current.toFixed(2)}s.png`;
       a.click();
       URL.revokeObjectURL(url);
     }
-  }, [currentTime, exportFrame]);
+  }, [exportFrame]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -421,17 +466,17 @@ export function TimelinePlayer({
         case "ArrowLeft":
           e.preventDefault();
           if (e.shiftKey) {
-            seek(Math.max(0, currentTime - 5));
+            seek(Math.max(0, currentTimeRef.current - 5));
           } else {
-            seek(Math.max(0, currentTime - 1 / 30));
+            seek(Math.max(0, currentTimeRef.current - 1 / 30));
           }
           break;
         case "ArrowRight":
           e.preventDefault();
           if (e.shiftKey) {
-            seek(Math.min(state.duration, currentTime + 5));
+            seek(Math.min(state.duration, currentTimeRef.current + 5));
           } else {
-            seek(Math.min(state.duration, currentTime + 1 / 30));
+            seek(Math.min(state.duration, currentTimeRef.current + 1 / 30));
           }
           break;
         case "ArrowUp":
@@ -478,7 +523,6 @@ export function TimelinePlayer({
     state.volume,
     state.muted,
     state.duration,
-    currentTime,
   ]);
 
   // Check if timeline is empty
@@ -494,13 +538,7 @@ export function TimelinePlayer({
         <span className="text-xs font-medium uppercase tracking-wide">
           Preview
         </span>
-        <div className="flex items-center gap-2 text-xs font-medium">
-          <span className="text-chart-1">{formatTime(currentTime)}</span>
-          <span className="text-foreground/40">/</span>
-          <span className="text-foreground/60">
-            {formatTime(state.duration)}
-          </span>
-        </div>
+        <TimeDisplay />
       </div>
 
       {/* Video Canvas Area */}
@@ -595,4 +633,6 @@ export function TimelinePlayer({
       </div>
     </div>
   );
-}
+});
+
+TimelinePlayer.displayName = "TimelinePlayer";
