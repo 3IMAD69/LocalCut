@@ -3,34 +3,42 @@
 import {
   createContext,
   type ReactNode,
+  use,
   useCallback,
-  useContext,
   useMemo,
   useState,
 } from "react";
 import type { CropRect } from "./crop-overlay";
 import { defaultEditingState, type EditingState } from "./editing-panel";
 
-interface EditingContextValue {
-  /** Current editing state */
-  state: EditingState;
-  /** Update the entire editing state */
+// ============================================================================
+// Context Interface (state/actions/meta pattern for dependency injection)
+// ============================================================================
+
+/** Actions for editing context */
+interface EditingActions {
   setState: (state: EditingState) => void;
-  /** Update just the crop rect */
   setCropRect: (rect: CropRect | null) => void;
-  /** Toggle crop mode */
   toggleCrop: (enabled?: boolean) => void;
-  /** Reset all editing state */
   resetState: () => void;
-  /** Get MediaBunny-compatible crop options */
+}
+
+/** Meta helpers for editing context */
+interface EditingMeta {
   getMediabunnyCropOptions: () =>
     | { left: number; top: number; width: number; height: number }
     | undefined;
-  /** Get all MediaBunny conversion video options from editing state */
   getVideoConversionOptions: (videoDimensions?: {
     width: number;
     height: number;
   }) => Record<string, unknown>;
+}
+
+/** Context value following state/actions/meta pattern */
+interface EditingContextValue {
+  state: EditingState;
+  actions: EditingActions;
+  meta: EditingMeta;
 }
 
 const EditingContext = createContext<EditingContextValue | null>(null);
@@ -121,15 +129,20 @@ export function EditingProvider({
     [state.crop, state.rotate],
   );
 
+  // Build context value following state/actions/meta pattern
   const value = useMemo<EditingContextValue>(
     () => ({
       state,
-      setState,
-      setCropRect,
-      toggleCrop,
-      resetState,
-      getMediabunnyCropOptions,
-      getVideoConversionOptions,
+      actions: {
+        setState,
+        setCropRect,
+        toggleCrop,
+        resetState,
+      },
+      meta: {
+        getMediabunnyCropOptions,
+        getVideoConversionOptions,
+      },
     }),
     [
       state,
@@ -141,24 +154,28 @@ export function EditingProvider({
     ],
   );
 
-  return (
-    <EditingContext.Provider value={value}>{children}</EditingContext.Provider>
-  );
+  return <EditingContext value={value}>{children}</EditingContext>;
 }
 
-export function useEditing() {
-  const context = useContext(EditingContext);
+// ============================================================================
+// Hooks - React 19 use() API
+// ============================================================================
+
+/** Hook to access the full editing context */
+export function useEditing(): EditingContextValue {
+  const context = use(EditingContext);
   if (!context) {
     throw new Error("useEditing must be used within an EditingProvider");
   }
   return context;
 }
 
-/**
- * Hook to get just the crop state and controls
- */
+/** Hook to get just the crop state and controls */
 export function useCrop() {
-  const { state, setCropRect, toggleCrop } = useEditing();
+  const {
+    state,
+    actions: { setCropRect, toggleCrop },
+  } = useEditing();
 
   return {
     enabled: state.crop.enabled,

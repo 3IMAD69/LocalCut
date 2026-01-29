@@ -4,8 +4,8 @@ import { ALL_FORMATS, BlobSource, CanvasSink, Input } from "mediabunny";
 import {
   createContext,
   type ReactNode,
+  use,
   useCallback,
-  useContext,
   useRef,
   useState,
 } from "react";
@@ -31,25 +31,39 @@ export interface ImportedMediaAsset {
   input?: Input;
 }
 
-interface MediaImportContextType {
-  // State
+// ============================================================================
+// Context Interface (state/actions/meta pattern for dependency injection)
+// ============================================================================
+
+/** State for media import context */
+export interface MediaImportState {
   assets: ImportedMediaAsset[];
   isImporting: boolean;
   importError: string | null;
-  // Track which assets are still generating thumbnails
   loadingThumbnails: Set<string>;
+}
 
-  // Actions
+/** Actions for media import context */
+export interface MediaImportActions {
   importFiles: (files: FileList | File[]) => Promise<void>;
   removeAsset: (assetId: string) => void;
   clearAllAssets: () => void;
   openFilePicker: () => void;
+}
 
-  // File input ref for triggering file picker
+/** Meta for media import context */
+export interface MediaImportMeta {
   fileInputRef: React.RefObject<HTMLInputElement | null>;
 }
 
-const MediaImportContext = createContext<MediaImportContextType | null>(null);
+/** Context value following state/actions/meta pattern */
+export interface MediaImportContextValue {
+  state: MediaImportState;
+  actions: MediaImportActions;
+  meta: MediaImportMeta;
+}
+
+const MediaImportContext = createContext<MediaImportContextValue | null>(null);
 
 // Accepted file types
 const ACCEPTED_VIDEO_TYPES = [
@@ -447,20 +461,27 @@ export function MediaImportProvider({ children }: MediaImportProviderProps) {
     [importFiles],
   );
 
-  const value: MediaImportContextType = {
-    assets,
-    isImporting,
-    importError,
-    loadingThumbnails,
-    importFiles,
-    removeAsset,
-    clearAllAssets,
-    openFilePicker,
-    fileInputRef,
+  // Build context value following state/actions/meta pattern
+  const value: MediaImportContextValue = {
+    state: {
+      assets,
+      isImporting,
+      importError,
+      loadingThumbnails,
+    },
+    actions: {
+      importFiles,
+      removeAsset,
+      clearAllAssets,
+      openFilePicker,
+    },
+    meta: {
+      fileInputRef,
+    },
   };
 
   return (
-    <MediaImportContext.Provider value={value}>
+    <MediaImportContext value={value}>
       {children}
       {/* Hidden file input for file picker */}
       <input
@@ -472,22 +493,28 @@ export function MediaImportProvider({ children }: MediaImportProviderProps) {
         className="hidden"
         tabIndex={-1}
       />
-    </MediaImportContext.Provider>
+    </MediaImportContext>
   );
 }
 
-// Hook to use media import context
-export function useMediaImport() {
-  const context = useContext(MediaImportContext);
+// ============================================================================
+// Hooks - React 19 use() API
+// ============================================================================
+
+/** Hook to access the full media import context */
+export function useMediaImport(): MediaImportContextValue {
+  const context = use(MediaImportContext);
   if (!context) {
     throw new Error("useMediaImport must be used within a MediaImportProvider");
   }
   return context;
 }
 
-// Helper hook to convert ImportedMediaAsset to the UI MediaAsset type
+/** Helper hook to get just the assets list */
 export function useMediaAssets() {
-  const { assets } = useMediaImport();
+  const {
+    state: { assets },
+  } = useMediaImport();
 
   return assets.map((asset) => ({
     id: asset.id,

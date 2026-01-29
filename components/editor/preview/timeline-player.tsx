@@ -55,20 +55,20 @@ export function TimelinePlayer({
   onClipTransformChange,
 }: TimelinePlayerProps) {
   const {
-    canvasRef,
-    canvasKey,
-    outputSize,
     state,
     tracks,
-    play,
-    pause,
-    seek,
-    renderFrame,
-    setClipTransformOverride,
-    clearClipTransformOverride,
-    setVolume,
-    setMuted,
-    exportFrame,
+    actions: {
+      play,
+      pause,
+      seek,
+      renderFrame,
+      setClipTransformOverride,
+      clearClipTransformOverride,
+      setVolume,
+      setMuted,
+      exportFrame,
+    },
+    meta: { canvasRef, canvasKey, outputSize },
   } = useTimelinePlayer();
   const currentTime = useTimelinePlayerTime();
 

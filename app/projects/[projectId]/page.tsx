@@ -78,20 +78,18 @@ function TimelineWithTime({
 function EditorContent() {
   // Media import context
   const {
-    assets: importedAssets,
-    isImporting,
-    importError,
-    openFilePicker,
-    removeAsset,
-    importFiles,
+    state: { assets: importedAssets, isImporting, importError },
+    actions: { openFilePicker, removeAsset, importFiles },
   } = useMediaImport();
 
   // Timeline player context
   const {
-    setTracks: setPlayerTracks,
-    seek: playerSeek,
-    resize: playerResize,
-    outputSize,
+    actions: {
+      setTracks: setPlayerTracks,
+      seek: playerSeek,
+      resize: playerResize,
+    },
+    meta: { outputSize },
   } = useTimelinePlayer();
 
   // Convert imported assets to MediaAsset format for MediaLibrary

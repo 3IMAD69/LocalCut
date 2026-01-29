@@ -120,10 +120,7 @@ export function Timeline({
 
   const {
     state: playerState,
-    play,
-    pause,
-    seek,
-    setMuted,
+    actions: { play, pause, seek, setMuted },
   } = useTimelinePlayer();
 
   const labelWidth = 220;
@@ -568,6 +565,11 @@ export function Timeline({
               return false;
             }
 
+            // Images can be extended freely (no natural duration limit)
+            if (clip.type === "image") {
+              return;
+            }
+
             const maxDuration = Math.max(
               0,
               (clip.asset?.duration ?? clip.trimEnd) - clip.trimStart,
@@ -622,13 +624,17 @@ export function Timeline({
                   const start = Math.max(0, action.start);
                   const end = Math.max(start, action.end);
                   const duration = end - start;
-                  const maxDuration = existing
-                    ? Math.max(
-                        0,
-                        (existing.asset?.duration ?? existing.trimEnd) -
-                          existing.trimStart,
-                      )
-                    : duration;
+
+                  // Images can be extended freely (no natural duration limit)
+                  const isImage = existing?.type === "image";
+                  const maxDuration =
+                    existing && !isImage
+                      ? Math.max(
+                          0,
+                          (existing.asset?.duration ?? existing.trimEnd) -
+                            existing.trimStart,
+                        )
+                      : duration;
                   const clampedDuration = Math.min(duration, maxDuration);
 
                   if (existing) {

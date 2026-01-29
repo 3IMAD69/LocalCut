@@ -9,8 +9,8 @@ import type {
 import {
   createContext,
   type ReactNode,
+  use,
   useCallback,
-  useContext,
   useEffect,
   useRef,
   useState,
@@ -109,32 +109,12 @@ export interface TimelinePlaybackState {
   error: Error | null;
 }
 
-/** Context value for timeline player */
-interface TimelinePlayerContextValue {
-  // Canvas ref for rendering
-  canvasRef: React.RefObject<HTMLCanvasElement | null>;
-  // Unique key to force fresh canvas element on remount
-  canvasKey: number;
-  // Output dimensions for the compositor
-  outputSize: { width: number; height: number };
+// ============================================================================
+// Context Interface (state/actions/meta pattern for dependency injection)
+// ============================================================================
 
-  // Compositor instance
-  compositor: Compositor | null;
-
-  // Loaded sources map (assetId -> LoadedSource)
-  loadedSources: Map<string, LoadedSource>;
-
-  // Playback state
-  state: TimelinePlaybackState;
-
-  // Current time store (avoids rerendering all consumers on playback)
-  getCurrentTime: () => number;
-  subscribeCurrentTime: (listener: () => void) => () => void;
-
-  // Track data
-  tracks: TimelineTrackData[];
-
-  // Actions
+/** Actions for controlling the timeline player */
+export interface TimelinePlayerActions {
   setTracks: (tracks: TimelineTrackData[]) => void;
   setClipTransformOverride: (clipId: string, transform: ClipTransform) => void;
   clearClipTransformOverride: (clipId: string) => void;
@@ -149,6 +129,25 @@ interface TimelinePlayerContextValue {
   setLoop: (loop: boolean) => void;
   exportFrame: (time?: number) => Promise<Blob | null>;
   resize: (width: number, height: number) => void;
+}
+
+/** Meta information for the timeline player (refs, subscriptions, etc.) */
+export interface TimelinePlayerMeta {
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  canvasKey: number;
+  outputSize: { width: number; height: number };
+  compositor: Compositor | null;
+  getCurrentTime: () => number;
+  subscribeCurrentTime: (listener: () => void) => () => void;
+}
+
+/** Context value for timeline player - follows state/actions/meta pattern */
+export interface TimelinePlayerContextValue {
+  state: TimelinePlaybackState;
+  tracks: TimelineTrackData[];
+  loadedSources: Map<string, LoadedSource>;
+  actions: TimelinePlayerActions;
+  meta: TimelinePlayerMeta;
 }
 
 // ============================================================================
@@ -551,50 +550,55 @@ export function TimelinePlayerProvider({
     setOutputSize({ width: newWidth, height: newHeight });
   }, []);
 
+  // Build context value following state/actions/meta pattern
   const contextValue: TimelinePlayerContextValue = {
-    canvasRef,
-    canvasKey,
-    outputSize,
-    compositor: compositorRef.current,
-    loadedSources,
     state,
-    getCurrentTime: () => currentTimeRef.current,
-    subscribeCurrentTime: (listener) => {
-      currentTimeListenersRef.current.add(listener);
-      return () => {
-        currentTimeListenersRef.current.delete(listener);
-      };
-    },
     tracks,
-    setTracks,
-    setClipTransformOverride,
-    clearClipTransformOverride,
-    loadSource,
-    unloadSource,
-    play,
-    pause,
-    seek,
-    renderFrame,
-    setVolume,
-    setMuted,
-    setLoop,
-    exportFrame,
-    resize,
+    loadedSources,
+    actions: {
+      setTracks,
+      setClipTransformOverride,
+      clearClipTransformOverride,
+      loadSource,
+      unloadSource,
+      play,
+      pause,
+      seek,
+      renderFrame,
+      setVolume,
+      setMuted,
+      setLoop,
+      exportFrame,
+      resize,
+    },
+    meta: {
+      canvasRef,
+      canvasKey,
+      outputSize,
+      compositor: compositorRef.current,
+      getCurrentTime: () => currentTimeRef.current,
+      subscribeCurrentTime: (listener) => {
+        currentTimeListenersRef.current.add(listener);
+        return () => {
+          currentTimeListenersRef.current.delete(listener);
+        };
+      },
+    },
   };
 
   return (
-    <TimelinePlayerContext.Provider value={contextValue}>
+    <TimelinePlayerContext value={contextValue}>
       {children}
-    </TimelinePlayerContext.Provider>
+    </TimelinePlayerContext>
   );
 }
 
 // ============================================================================
-// Hook
+// Hooks - React 19 use() API
 // ============================================================================
 
 export function useTimelinePlayer(): TimelinePlayerContextValue {
-  const context = useContext(TimelinePlayerContext);
+  const context = use(TimelinePlayerContext);
 
   if (!context) {
     throw new Error(
@@ -606,7 +610,7 @@ export function useTimelinePlayer(): TimelinePlayerContextValue {
 }
 
 export function useTimelinePlayerTime(): number {
-  const context = useContext(TimelinePlayerContext);
+  const context = use(TimelinePlayerContext);
 
   if (!context) {
     throw new Error(
@@ -615,9 +619,9 @@ export function useTimelinePlayerTime(): number {
   }
 
   return useSyncExternalStore(
-    context.subscribeCurrentTime,
-    context.getCurrentTime,
-    context.getCurrentTime,
+    context.meta.subscribeCurrentTime,
+    context.meta.getCurrentTime,
+    context.meta.getCurrentTime,
   );
 }
 
