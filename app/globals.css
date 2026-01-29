@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "@xzdarcy/react-timeline-editor/dist/react-timeline-editor.css";
 
 @custom-variant dark (&:is(.dark *));
 
