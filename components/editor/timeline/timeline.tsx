@@ -2,11 +2,13 @@
 
 import {
   Timeline as ReactTimelineEditor,
-  type TimelineAction,
-  type TimelineEffect,
-  type TimelineRow,
   type TimelineState,
 } from "@xzdarcy/react-timeline-editor";
+import type {
+  TimelineAction,
+  TimelineEffect,
+  TimelineRow,
+} from "@xzdarcy/timeline-engine";
 import {
   Copy,
   Eye,
