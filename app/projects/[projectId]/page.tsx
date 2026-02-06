@@ -434,6 +434,7 @@ function EditorContent() {
         onOpenChange={setShowExportModal}
         tracks={tracks}
         canvasSize={outputSize}
+        fitMode={fitMode}
       />
 
       <EditorHeader

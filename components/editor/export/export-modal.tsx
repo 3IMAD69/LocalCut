@@ -2,7 +2,10 @@
 
 import { Download, Loader2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { TimelineTrackData } from "@/components/editor/preview/timeline-player-context";
+import type {
+  FitMode,
+  TimelineTrackData,
+} from "@/components/editor/preview/timeline-player-context";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -55,6 +58,7 @@ export interface ExportModalProps {
   tracks: TimelineTrackData[];
   /** Canvas size from the editor - used as default export resolution */
   canvasSize?: { width: number; height: number };
+  fitMode?: FitMode;
 }
 
 type ExportState = "idle" | "exporting" | "done" | "error";
@@ -64,6 +68,7 @@ export function ExportModal({
   onOpenChange,
   tracks,
   canvasSize,
+  fitMode,
 }: ExportModalProps) {
   // Compute initial resolution from canvasSize or default to 1920x1080
   const defaultWidth = canvasSize?.width ?? 1920;
@@ -185,6 +190,7 @@ export function ExportModal({
       width,
       height,
       fps,
+      fitMode,
       container: format,
       filenameBase: filename || "localcut-export",
       onProgress: (p) => setProgress(Math.round(p * 100)),
@@ -218,7 +224,7 @@ export function ExportModal({
     } finally {
       abortControllerRef.current = null;
     }
-  }, [tracks, clipCount, getResolution, fps, format, filename]);
+  }, [tracks, clipCount, getResolution, fps, format, filename, fitMode]);
 
   const handleClose = useCallback(() => {
     // If exporting, cancel the export and let the abort handler reset state

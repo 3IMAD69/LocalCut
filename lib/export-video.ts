@@ -16,6 +16,7 @@ import {
 
 import {
   buildCompositorComposition,
+  type FitMode,
   type LoadedSource,
   type TimelineTrackData,
 } from "@/components/editor/preview/timeline-player-context";
@@ -34,6 +35,7 @@ export type ExportTimelineOptions = {
   height?: number;
   fps?: number;
   backgroundColor?: string;
+  fitMode?: FitMode;
   container?: OutputContainer;
   filenameBase?: string;
   onProgress?: (progress: number) => void;
@@ -115,8 +117,9 @@ async function createExportCompositor(params: {
   width: number;
   height: number;
   backgroundColor: string;
+  fitMode?: FitMode;
 }): Promise<{ compositor: Compositor; canvas: HTMLCanvasElement }> {
-  const { width, height, backgroundColor } = params;
+  const { width, height, backgroundColor, fitMode } = params;
 
   const canvas = document.createElement("canvas");
   canvas.width = width;
@@ -134,6 +137,10 @@ async function createExportCompositor(params: {
       type: "module",
     },
   });
+
+  if (fitMode) {
+    compositor.setFitMode(fitMode);
+  }
 
   return { compositor, canvas };
 }
@@ -266,6 +273,7 @@ export async function exportTimelineToBlob(
     width,
     height,
     backgroundColor,
+    fitMode: options.fitMode,
   });
 
   try {
