@@ -633,8 +633,7 @@ export function buildCompositorComposition(params: {
   height: number;
   transformOverrides?: Map<string, ClipTransform>;
 }): { time: number; layers: CompositorLayer[]; audio?: AudioLayer[] } {
-  const { time, tracks, loadedSources, width, height, transformOverrides } =
-    params;
+  const { time, tracks, loadedSources, transformOverrides } = params;
 
   const layers: CompositorLayer[] = [];
   const audio: AudioLayer[] = [];
@@ -660,9 +659,6 @@ export function buildCompositorComposition(params: {
         (track.type === "video" || track.type === "image") &&
         loadedSource.source.type !== "audio"
       ) {
-        const centerX = (width - loadedSource.width) / 2;
-        const centerY = (height - loadedSource.height) / 2;
-
         const clipTransform = transformOverrides?.get(clip.id) ??
           clip.transform ?? {
             x: 0,
@@ -682,8 +678,8 @@ export function buildCompositorComposition(params: {
           sourceTime: effectiveSourceTime,
           transform: {
             opacity: 1,
-            x: centerX + clipTransform.x,
-            y: centerY + clipTransform.y,
+            x: clipTransform.x,
+            y: clipTransform.y,
             scaleX: clipTransform.scaleX,
             scaleY: clipTransform.scaleY,
             rotation: (Math.round(clipTransform.rotation / 90) * 90) as
@@ -692,6 +688,7 @@ export function buildCompositorComposition(params: {
               | 180
               | 270,
           },
+          fitMode: "none",
           zIndex,
         });
       }

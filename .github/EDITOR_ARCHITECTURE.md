@@ -1,72 +1,137 @@
-# Video Editor Architecture
+# Editor Architecture
 
-This document provides a high-level overview of the video editor architecture in LocalCut to assist LLMs in navigating and understanding the codebase.
+## Overview
+The LocalCut editor is a professional-grade, browser-based video editing environment built on **Next.js 16** (React 19). It orchestrates a high-performance rendering engine with a reactive React UI to provide a seamless editing experience.
 
-## Directory Structure & Component Map
+The system is designed around a **unidirectional data flow** where the React state acts as the source of truth, fueling a dedicated "Compositor" engine that handles the heavy lifting of video processing and canvas rendering.
 
+---
+
+## Technology Stack & Libraries
+
+The editor relies on a curated set of libraries to handle complex video operations and UI interactions.
+
+### Core Framework
+*   **Next.js 16**: The backbone of the application, providing the React framework, routing, and SSR capabilities.
+*   **React 19**: Leverages modern features like `use()` and `useSyncExternalStore` for optimized state management.
+
+### Video & Audio Engine
+*   **@mediafox/core**: The low-level video processing engine. It handles loading assets, compositing layers, and rendering frames to a canvas.
+*   **@mediafox/react**: React bindings for the MediaFox engine.
+*   **@wavesurfer/react**: Visualizes audio waveforms on the timeline for precise audio editing.
+*   **@mediabunny/mp3-encoder**: Client-side audio encoding for exports.
+
+### Timeline & Interaction
+*   **@xzdarcy/react-timeline-editor**: Provides the complex timeline UI grid, enabling drag-and-drop, resizing, and virtualized rendering of tracks and clips.
+*   **@dnd-kit** (Core/Modifiers): Used implicitly for complex drag interactions (check `useCrossTrackDrag`).
+
+### UI & Styling
+*   **Tailwind CSS v4**: Utility-first styling engine.
+*   **Radix UI / Shadcn**: Accessible, unstyled primitive components used for dropdowns, context menus, sliders, and dialogs.
+*   **Lucide React**: The comprehensive icon set used throughout the interface.
+*   **Motion**: Handles smooth UI transitions and micro-interactions.
+
+### State & Utilities
+*   **Zod**: Schema validation for project data and safe typing.
+*   **React Hook Form**: Manages form state for property panels and settings.
+*   **Nanoid**: Generates unique, URL-safe IDs for tracks and clips.
+
+---
+
+## Architecture Design
+
+### 1. State Management (The Brain)
+The editor's state is bifurcated between the high-level React application state and the low-level Compositor engine state.
+
+#### **TimelinePlayerProvider** (`components/editor/preview/timeline-player-context.tsx`)
+This component is the heart of the editor. It bridges the gap between React and the MediaFox Compositor.
+*   **Single Source of Truth**: Manages `currentTime`, `playing` status, `volume`, and the registry of `loadedSources`.
+*   **Compositor Owner**: Instantiates and controls the `@mediafox/core` Compositor instance.
+*   **Performance Optimization**: Uses `useSyncExternalStore` to broadcast high-frequency time updates (60fps) to subscribers without triggering full React re-renders.
+
+#### **Page Level State** (`app/projects/[id]/page.tsx`)
+*   Holds the persistent **Project Data** (tracks, clips, metadata).
+*    Passes state down:
+    *   To **`Timeline`** for UI visualization.
+    *   To **`TimelinePlayerProvider`** for rendering.
+
+### 2. Directory Structure
+
+```text
+components/editor/
+├── preview/
+│   ├── timeline-player-context.tsx   # CORE: Context, Compositor lifecycle, and Hook exports.
+│   ├── timeline-player.tsx           # Wrapper for the canvas/preview area.
+│   └── video-preview.tsx             # Visual presentation layer.
+│
+├── timeline/
+│   ├── timeline.tsx                  # Main entry point for the Timeline UI.
+│   ├── timeline-track.tsx            # Custom track rendering logic.
+│   ├── audio-waveform.tsx            # Waveform visualizer using @wavesurfer.
+│   ├── ghost-track-overlay.tsx       # Visual feedback during drag operations.
+│   └── hooks/
+│       └── use-cross-track-drag.ts   # Complex logic for dragging clips between tracks.
+│
+├── panels/
+│   ├── media-library.tsx             # Asset browser and importer.
+│   └── properties-panel.tsx          # Inspector for selected clips.
+│
+└── editor-header.tsx                 # Global controls (Export, Settings).
 ```
-app/
-└── editor/
-    └── page.tsx                # MAIN ENTRY POINT. Holds core state (tracks, selection, history). Orchestrates layout.
 
-components/
-├── editor/                     # Core Editor UI Components
-│   ├── header/
-│   │   └── editor-header.tsx   # Top navigation bar (Project name, Save, Export buttons)
-│   ├── panels/
-│   │   ├── media-library.tsx   # Left sidebar. Handles file imports and lists imported assets.
-│   │   └── properties-panel.tsx# Right sidebar. Shows/edits properties of selected clips (Transform, Speed, etc).
-│   ├── preview/
-│   │   ├── timeline-player-context.tsx # Context provider for playback state (playing, time, seek).
-│   │   ├── timeline-player.tsx # Container for the video preview area.
-│   │   └── video-preview.tsx   # Actual rendering component (Canvas/Video). Handles visual output.
-│   ├── timeline/
-│   │   ├── timeline.tsx        # Main timeline container. Handles scrolling and zooming.
-│   │   ├── timeline-track.tsx  # Renders a single track (Video/Audio) and its clips.
-│   │   ├── timeline-ruler.tsx  # Time scale ruler at the top of the timeline.
-│   │   └── playhead.tsx        # vertical line indicating current playback position.
-│   └── toolbar/
-│       └── toolbar.tsx         # Action bar above timeline (Split, Delete, Zoom controls).
-├── editing/                    # Editor Interaction Logic
-│   ├── crop-overlay.tsx        # Visual overlay for cropping video directly in preview.
-│   ├── editing-panel.tsx       # (Legacy/Auxiliary) Additional editing controls.
-│   └── use-editing.tsx         # Hook encapsulating complex editing logic.
-└── player/                     # Shared Player Components (used by Editor & Preview)
-    ├── media-player.tsx        # Base player component.
-    └── ... (various player controls like scrubbers, volume)
+### 3. Rendering Pipeline
+The application implements a "Compositor Pattern" to decouple logic from rendering:
 
-lib/
-├── media-import.tsx            # Utilities and Context for importing media files.
-└── mediabunny.ts               # (and mediabunny-video.ts) Core media processing/FFmpeg wrappers.
+1.  **Loading**: Media assets are imported and loaded asynchronously into the Compositor as `CompositorSource` objects.
+2.  **Composition Construction**: The `buildCompositorComposition` function acts as a translator. It takes the React `tracks` array and maps it into a flattened list of `CompositorLayer` objects that the engine understands.
+3.  **Visual Output**: The Compositor executes the render loop, drawing these layers onto a `<canvas>` element.
+    *   *Note*: The Compositor runs on a dedicated Web Worker (where supported) to prevent UI blocking.
+
+---
+
+## Vital Hooks
+
+The `TimelinePlayerProvider` exposes two specialized hooks to ensure performance.
+
+### `useTimelinePlayer()`
+**Purpose**: General controls, logic, and state.
+*   **Returns**: `play`, `pause`, `seek`, `state` (playing/paused), `actions`.
+*   **Behavior**: Triggers re-renders only on coarse state changes (e.g., play/pause).
+
+```tsx
+const { play, pause, state } = useTimelinePlayer();
 ```
 
-## Key State Flows
+### `useTimelinePlayerTime()`
+**Purpose**: High-frequency time synchronization.
+*   **Returns**: The precise current time of the playhead (number).
+*   **Behavior**: Bypasses standard React state to update components at 60fps without re-rendering the entire tree. Perfect for scrubbers, time codes, and progress bars.
 
-### 1. Source of Truth
-- **`app/editor/page.tsx`** is the primary source of truth for the **Timeline State** (`tracks`, `clips`).
-- It passes this state down to `Timeline` for rendering and `TimelinePlayer` for playback synchronization.
+```tsx
+const currentTime = useTimelinePlayerTime();
+return <span>{formatTime(currentTime)}</span>;
+```
 
-### 2. Playback State
-- Managed by `TimelinePlayerProvider` in `components/editor/preview/timeline-player-context.tsx`.
-- exposes `currentTime`, `isPlaying`, `seek()`, `play()`, `pause()`.
-- The Timeline interacts with this context to sync the playhead position.
+---
 
-### 3. Media Assets
-- Managed by `MediaImportProvider` in `lib/media-import.tsx`.
-- Handles file selection, loading metadata, and maintaining the list of available raw assets in the `MediaLibrary`.
+## Synchronization Flow
 
-## Common Tasks & File Locations
+The system ensures the UI and the Canvas are always in sync:
 
-- **Modify Timeline Logic (Drag/Drop/Move):**
-  - Check `app/editor/page.tsx` (handlers like `handleClipMove`) and `components/editor/timeline/timeline.tsx`.
-- **Update Rendering/Playback:**
-  - `components/editor/preview/video-preview.tsx` or `timeline-player.tsx`.
-- **Change Clip Properties Interface:**
-  - `components/editor/panels/properties-panel.tsx`.
-- **Add Toolbar Action:**
-  - `components/editor/toolbar/toolbar.tsx` (UI) and `app/editor/page.tsx` (Implementation).
+1.  **Time Loop (Engine -> UI)**:
+    *   Compositor emits `timeupdate`.
+    *   `TimelinePlayerProvider` catches this and notifies `useTimelinePlayerTime` consumers.
+    *   UI components (playhead, timecode) update instantly.
 
-## Terminology
-- **Track**: A horizontal layer in the timeline containing multiple clips.
-- **Clip**: An instance of a media asset placed on a track with a specific start time and duration.
-- **Asset**: The source media file imported into the project.
+2.  **User Seeks (UI -> Engine)**:
+    *   User drags the playhead in `Timeline`.
+    *   `Timeline` calls `onTimeChange`.
+    *   Provider calls `compositor.seek(time)`.
+    *   Compositor updates the canvas immediately.
+
+3.  **Editing (UI -> React State -> Engine)**:
+    *   User moves a clip.
+    *   `Timeline` propagates `onTracksChange` up to the page state.
+    *   New `tracks` props are passed to `TimelinePlayerProvider`.
+    *   Effect hook detects change -> calls `compositor.preview()` with new structure.
+    *   Visual output updates instantly to reflect the new edit.
