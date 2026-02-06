@@ -107,7 +107,10 @@ export interface TimelinePlaybackState {
   loop: boolean;
   loading: boolean;
   error: Error | null;
+  fitMode: FitMode;
 }
+
+export type FitMode = "contain" | "cover" | "fill";
 
 // ============================================================================
 // Context Interface (state/actions/meta pattern for dependency injection)
@@ -129,6 +132,7 @@ export interface TimelinePlayerActions {
   setLoop: (loop: boolean) => void;
   exportFrame: (time?: number) => Promise<Blob | null>;
   resize: (width: number, height: number) => void;
+  setFitMode: (fitMode: FitMode) => void;
 }
 
 /** Meta information for the timeline player (refs, subscriptions, etc.) */
@@ -184,6 +188,7 @@ export function TimelinePlayerProvider({
   const transformOverridesRef = useRef<Map<string, ClipTransform>>(new Map());
   const volumeRef = useRef(1);
   const mutedRef = useRef(false);
+  const fitModeRef = useRef<FitMode>("contain");
   const currentTimeRef = useRef(0);
   const currentTimeListenersRef = useRef(new Set<() => void>());
   const suppressTimeUpdateRef = useRef(false);
@@ -207,6 +212,7 @@ export function TimelinePlayerProvider({
     loop: true,
     loading: false,
     error: null,
+    fitMode: "contain",
   });
 
   // Initialize compositor when canvas is ready
@@ -231,6 +237,8 @@ export function TimelinePlayerProvider({
             type: "module",
           },
         });
+
+        compositor.setFitMode(fitModeRef.current);
 
         compositorRef.current = compositor;
 
@@ -502,6 +510,22 @@ export function TimelinePlayerProvider({
     setState((prev) => ({ ...prev, loop }));
   }, []);
 
+  const setFitMode = useCallback(
+    (fitMode: FitMode) => {
+      fitModeRef.current = fitMode;
+      setState((prev) => ({ ...prev, fitMode }));
+
+      const compositor = compositorRef.current;
+      if (compositor) {
+        compositor.setFitMode(fitMode);
+        if (!state.playing) {
+          void renderFrame(currentTimeRef.current);
+        }
+      }
+    },
+    [renderFrame, state.playing],
+  );
+
   // Export current frame as image
   const exportFrame = useCallback(
     async (time?: number): Promise<Blob | null> => {
@@ -523,32 +547,22 @@ export function TimelinePlayerProvider({
   );
 
   // Resize compositor
-  const resize = useCallback((newWidth: number, newHeight: number) => {
-    const compositor = compositorRef.current;
-    if (!compositor) {
+  const resize = useCallback(
+    (newWidth: number, newHeight: number) => {
+      const compositor = compositorRef.current;
+      if (!compositor) {
+        setOutputSize({ width: newWidth, height: newHeight });
+        return;
+      }
+
+      compositor.resize(newWidth, newHeight);
       setOutputSize({ width: newWidth, height: newHeight });
-      return;
-    }
-
-    const anyCompositor = compositor as unknown as {
-      workerClient?: {
-        resize: (width: number, height: number) => Promise<boolean> | boolean;
-      };
-      width?: number;
-      height?: number;
-    };
-
-    if (anyCompositor.workerClient) {
-      anyCompositor.width = newWidth;
-      anyCompositor.height = newHeight;
-      void anyCompositor.workerClient.resize(newWidth, newHeight);
-      setOutputSize({ width: newWidth, height: newHeight });
-      return;
-    }
-
-    compositor.resize(newWidth, newHeight);
-    setOutputSize({ width: newWidth, height: newHeight });
-  }, []);
+      if (!state.playing) {
+        void renderFrame(currentTimeRef.current);
+      }
+    },
+    [renderFrame, state.playing],
+  );
 
   // Build context value following state/actions/meta pattern
   const contextValue: TimelinePlayerContextValue = {
@@ -570,6 +584,7 @@ export function TimelinePlayerProvider({
       setLoop,
       exportFrame,
       resize,
+      setFitMode,
     },
     meta: {
       canvasRef,
@@ -688,7 +703,6 @@ export function buildCompositorComposition(params: {
               | 180
               | 270,
           },
-          fitMode: "none",
           zIndex,
         });
       }

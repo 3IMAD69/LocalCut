@@ -83,10 +83,12 @@ function EditorContent() {
 
   // Timeline player context
   const {
+    state: { fitMode },
     actions: {
       setTracks: setPlayerTracks,
       seek: playerSeek,
       resize: playerResize,
+      setFitMode: setPlayerFitMode,
     },
     meta: { outputSize },
   } = useTimelinePlayer();
@@ -469,6 +471,8 @@ function EditorContent() {
                           onAssetAdd={handleAssetAdd}
                           onAssetRemove={removeAsset}
                           onResize={playerResize}
+                          fitMode={fitMode}
+                          onFitModeChange={setPlayerFitMode}
                           className="h-full border-none"
                         />
                       </aside>

@@ -14,6 +14,7 @@ import {
   ImageIcon,
   LayoutGrid,
   Loader2,
+  Maximize2,
   Music,
   Plus,
   Shapes,
@@ -24,6 +25,7 @@ import {
 } from "lucide-react";
 import type { ComponentType, SVGProps } from "react";
 import { useCallback, useEffect, useState } from "react";
+import type { FitMode } from "@/components/editor/preview/timeline-player-context";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -196,6 +198,8 @@ interface MediaLibraryProps {
   onAssetAdd?: (asset: MediaAsset) => void;
   onAssetRemove?: (assetId: string) => void;
   onResize?: (width: number, height: number) => void;
+  fitMode?: FitMode;
+  onFitModeChange?: (fitMode: FitMode) => void;
   className?: string;
 }
 
@@ -320,6 +324,8 @@ export function MediaLibrary({
   onAssetAdd,
   onAssetRemove,
   onResize,
+  fitMode,
+  onFitModeChange,
   className,
 }: MediaLibraryProps) {
   const [activeTab, setActiveTab] = useState<
@@ -327,6 +333,7 @@ export function MediaLibrary({
   >("media");
   const [isDragOver, setIsDragOver] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState("youtube");
+  const activeFitMode = fitMode ?? "contain";
 
   // Handle preset change and resize
   const handlePresetChange = useCallback(
@@ -589,6 +596,33 @@ export function MediaLibrary({
                 ))}
               </SelectContent>
             </Select>
+            <div className="mt-4">
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { label: "Fill", mode: "fill" as FitMode, icon: Square },
+                  { label: "Fit", mode: "contain" as FitMode, icon: Frame },
+                  { label: "Cover", mode: "cover" as FitMode, icon: Maximize2 },
+                ].map((option) => (
+                  <button
+                    key={option.mode}
+                    type="button"
+                    className={cn(
+                      "flex flex-col items-center gap-2 rounded-xl py-3",
+                      "transition-colors",
+                      activeFitMode === option.mode
+                        ? "bg-muted ring-1 ring-foreground/20"
+                        : "bg-muted/40 hover:bg-muted/70",
+                    )}
+                    onClick={() => onFitModeChange?.(option.mode)}
+                  >
+                    <option.icon className="size-5 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">
+                      {option.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
