@@ -703,6 +703,7 @@ export function buildCompositorComposition(params: {
               | 180
               | 270,
           },
+          fitMode: "none",
           zIndex,
         });
       }
