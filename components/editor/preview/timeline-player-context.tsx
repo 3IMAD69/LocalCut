@@ -65,6 +65,7 @@ export interface TimelineClipWithAsset {
   trimStart: number;
   trimEnd: number;
   transform?: ClipTransform;
+  fitMode?: FitMode;
 }
 
 /** Track data structure */
@@ -703,7 +704,7 @@ export function buildCompositorComposition(params: {
               | 180
               | 270,
           },
-          fitMode: "none",
+          fitMode: clip.fitMode ?? "none",
           zIndex,
         });
       }

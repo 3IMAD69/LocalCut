@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { ScissorsIcon } from "@/components/animate-ui/icons/scissors";
+import type { FitMode } from "@/components/editor/preview/timeline-player-context";
 import { Button } from "@/components/ui/button";
 import {
   Collapsible,
@@ -24,6 +25,7 @@ export interface ClipProperties {
   id: string;
   name: string;
   type: "video" | "audio" | "image";
+  fitMode?: FitMode;
   // Transform properties
   positionX: number;
   positionY: number;

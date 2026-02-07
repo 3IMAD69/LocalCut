@@ -5,7 +5,11 @@
 export { EditorHeader } from "./header/editor-header";
 
 // Panel components
-export { type MediaAsset, MediaLibrary } from "./panels/media-library";
+export {
+  type MediaAsset,
+  MediaLibrary,
+  type MediaLibraryTab,
+} from "./panels/media-library";
 export {
   type ClipProperties,
   PropertiesPanel,
@@ -16,6 +20,7 @@ export { TimelinePlayer } from "./preview/timeline-player";
 export {
   type ActiveClip,
   type ClipTransform,
+  type FitMode,
   type LoadedSource,
   type TimelineClipWithAsset,
   type TimelinePlaybackState,

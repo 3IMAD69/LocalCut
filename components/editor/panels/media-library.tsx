@@ -18,6 +18,7 @@ import {
   Music,
   Plus,
   Shapes,
+  SlidersHorizontal,
   Square,
   Trash2,
   Type,
@@ -27,6 +28,7 @@ import type { ComponentType, SVGProps } from "react";
 import { useCallback, useEffect, useState } from "react";
 import type { FitMode } from "@/components/editor/preview/timeline-player-context";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
@@ -200,8 +202,25 @@ interface MediaLibraryProps {
   onResize?: (width: number, height: number) => void;
   fitMode?: FitMode;
   onFitModeChange?: (fitMode: FitMode) => void;
+  activeTab?: MediaLibraryTab;
+  onTabChange?: (tab: MediaLibraryTab) => void;
+  selectedClip?: {
+    id: string;
+    name: string;
+    type: "video" | "image";
+    fitMode?: FitMode;
+  } | null;
+  onClipFitModeChange?: (clipId: string, fitMode: FitMode | "none") => void;
   className?: string;
 }
+
+export type MediaLibraryTab =
+  | "media"
+  | "text"
+  | "shapes"
+  | "transitions"
+  | "canvas"
+  | "media-editor";
 
 // Sidebar Tab Item
 function SidebarTab({
@@ -326,14 +345,31 @@ export function MediaLibrary({
   onResize,
   fitMode,
   onFitModeChange,
+  activeTab,
+  onTabChange,
+  selectedClip,
+  onClipFitModeChange,
   className,
 }: MediaLibraryProps) {
-  const [activeTab, setActiveTab] = useState<
-    "media" | "text" | "shapes" | "transitions" | "canvas"
-  >("media");
+  const [internalTab, setInternalTab] = useState<MediaLibraryTab>("media");
+  const resolvedTab = activeTab ?? internalTab;
+  const showMediaEditorTab =
+    resolvedTab === "media-editor" ||
+    selectedClip?.type === "video" ||
+    selectedClip?.type === "image";
   const [isDragOver, setIsDragOver] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState("youtube");
   const activeFitMode = fitMode ?? "contain";
+
+  const handleTabChange = useCallback(
+    (tab: MediaLibraryTab) => {
+      onTabChange?.(tab);
+      if (activeTab == null) {
+        setInternalTab(tab);
+      }
+    },
+    [activeTab, onTabChange],
+  );
 
   // Handle preset change and resize
   const handlePresetChange = useCallback(
@@ -384,28 +420,35 @@ export function MediaLibrary({
       <div className="flex items-center gap-1 p-2 border-b border-border">
         <SidebarTab
           icon={FolderOpen}
-          isActive={activeTab === "media"}
-          onClick={() => setActiveTab("media")}
+          isActive={resolvedTab === "media"}
+          onClick={() => handleTabChange("media")}
         />
+        {showMediaEditorTab && (
+          <SidebarTab
+            icon={SlidersHorizontal}
+            isActive={resolvedTab === "media-editor"}
+            onClick={() => handleTabChange("media-editor")}
+          />
+        )}
         <SidebarTab
           icon={Type}
-          isActive={activeTab === "text"}
-          onClick={() => setActiveTab("text")}
+          isActive={resolvedTab === "text"}
+          onClick={() => handleTabChange("text")}
         />
         <SidebarTab
           icon={Shapes}
-          isActive={activeTab === "shapes"}
-          onClick={() => setActiveTab("shapes")}
+          isActive={resolvedTab === "shapes"}
+          onClick={() => handleTabChange("shapes")}
         />
         <SidebarTab
           icon={LayoutGrid}
-          isActive={activeTab === "transitions"}
-          onClick={() => setActiveTab("transitions")}
+          isActive={resolvedTab === "transitions"}
+          onClick={() => handleTabChange("transitions")}
         />
         <SidebarTab
           icon={Frame}
-          isActive={activeTab === "canvas"}
-          onClick={() => setActiveTab("canvas")}
+          isActive={resolvedTab === "canvas"}
+          onClick={() => handleTabChange("canvas")}
         />
         <div className="flex-1" />
       </div>
@@ -436,7 +479,7 @@ export function MediaLibrary({
         )}
 
         {/* Tab Content */}
-        {activeTab === "media" && (
+        {resolvedTab === "media" && (
           <ScrollArea className="flex-1">
             {/* Loading Indicator */}
             {isLoading && (
@@ -529,7 +572,7 @@ export function MediaLibrary({
           </ScrollArea>
         )}
 
-        {activeTab === "canvas" && (
+        {resolvedTab === "canvas" && (
           <div className="flex-1 flex flex-col p-4">
             <h3 className="text-xs text-muted-foreground mb-3 text-center">
               Resize
@@ -626,11 +669,57 @@ export function MediaLibrary({
           </div>
         )}
 
-        {activeTab !== "media" && activeTab !== "canvas" && (
-          <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
-            Coming Soon
+        {resolvedTab === "media-editor" && (
+          <div className="flex-1 flex flex-col p-4 gap-4">
+            <h3 className="text-xs text-muted-foreground text-center">
+              Media Editor
+            </h3>
+            {selectedClip ? (
+              <div className="space-y-3">
+                <div className="rounded-lg border border-border/50 bg-muted/40 p-3">
+                  <p className="text-xs text-muted-foreground">Selected</p>
+                  <p className="text-sm font-medium text-foreground truncate">
+                    {selectedClip.name}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs text-foreground/70">Fit mode</Label>
+                  <Select
+                    value={selectedClip.fitMode ?? "none"}
+                    onValueChange={(value) =>
+                      onClipFitModeChange?.(
+                        selectedClip.id,
+                        value as FitMode | "none",
+                      )
+                    }
+                  >
+                    <SelectTrigger className="w-full bg-card border-border/50">
+                      <SelectValue placeholder="Select fit mode" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      <SelectItem value="contain">Fit (contain)</SelectItem>
+                      <SelectItem value="cover">Cover</SelectItem>
+                      <SelectItem value="fill">Fill</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm text-center">
+                Select a video or image clip to edit its fit mode.
+              </div>
+            )}
           </div>
         )}
+
+        {resolvedTab !== "media" &&
+          resolvedTab !== "canvas" &&
+          resolvedTab !== "media-editor" && (
+            <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
+              Coming Soon
+            </div>
+          )}
       </div>
     </div>
   );

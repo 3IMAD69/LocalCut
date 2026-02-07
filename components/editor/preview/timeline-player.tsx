@@ -315,8 +315,6 @@ export const TimelinePlayer = memo(function TimelinePlayer({
       let newY = baseTransform.y + normalizedDy;
 
       // Clamping Logic (1920x1080)
-      const CANVAS_WIDTH = 1920;
-      const CANVAS_HEIGHT = 1080;
       const { width: sourceW, height: sourceH } = selected.sourceSize;
 
       const currentW = sourceW * Math.abs(baseTransform.scaleX);
@@ -336,25 +334,25 @@ export const TimelinePlayer = memo(function TimelinePlayer({
       // This implies the visual box starts at `baseX`.
       // So `ActualLeft = (CANVAS_WIDTH - sourceW) / 2 + transform.x`.
 
-      const baseX = (CANVAS_WIDTH - sourceW) / 2;
-      const baseY = (CANVAS_HEIGHT - sourceH) / 2;
+      const baseX = (outputSize.width - sourceW) / 2;
+      const baseY = (outputSize.height - sourceH) / 2;
 
       // Calculate Clamped X
       const proposedLeft = baseX + newX;
       let clampedLeft = proposedLeft;
 
-      if (currentW <= CANVAS_WIDTH) {
+      if (currentW <= outputSize.width) {
         // Must be fully contained [0, CANVAS_WIDTH - currentW]
         clampedLeft = Math.max(
           0,
-          Math.min(CANVAS_WIDTH - currentW, proposedLeft),
+          Math.min(outputSize.width - currentW, proposedLeft),
         );
       } else {
         // Must cover the canvas (no empty space)
         // Left must be <= 0, and Right (Left + W) must be >= CANVAS_WIDTH
         // So Left must be >= CANVAS_WIDTH - currentW
         clampedLeft = Math.max(
-          CANVAS_WIDTH - currentW,
+          outputSize.width - currentW,
           Math.min(0, proposedLeft),
         );
       }
@@ -364,14 +362,14 @@ export const TimelinePlayer = memo(function TimelinePlayer({
       const proposedTop = baseY + newY;
       let clampedTop = proposedTop;
 
-      if (currentH <= CANVAS_HEIGHT) {
+      if (currentH <= outputSize.height) {
         clampedTop = Math.max(
           0,
-          Math.min(CANVAS_HEIGHT - currentH, proposedTop),
+          Math.min(outputSize.height - currentH, proposedTop),
         );
       } else {
         clampedTop = Math.max(
-          CANVAS_HEIGHT - currentH,
+          outputSize.height - currentH,
           Math.min(0, proposedTop),
         );
       }
@@ -393,6 +391,8 @@ export const TimelinePlayer = memo(function TimelinePlayer({
     [
       findSelectedClip,
       getDisplayMapping,
+      outputSize.height,
+      outputSize.width,
       selectedClipId,
       renderFrame,
       setClipTransformOverride,

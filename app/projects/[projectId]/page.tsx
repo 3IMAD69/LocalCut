@@ -5,7 +5,9 @@ import {
   type ClipProperties,
   type ClipTransform,
   EditorHeader,
+  type FitMode,
   MediaLibrary,
+  type MediaLibraryTab,
   Timeline,
   type TimelineClipWithAsset,
   TimelinePlayer,
@@ -123,6 +125,7 @@ function EditorContent() {
   const [, setHasUnsavedChanges] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [isMediaPanelOpen, setIsMediaPanelOpen] = useState(true);
+  const [mediaPanelTab, setMediaPanelTab] = useState<MediaLibraryTab>("media");
 
   // History state for Undo/Redo (placeholder)
   const [canUndo] = useState(false);
@@ -280,6 +283,7 @@ function EditorContent() {
   const handleAssetAdd = useCallback(
     (asset: MediaAsset) => {
       const fullAsset = assetMap.get(asset.id);
+      const clipFitMode: FitMode | undefined = undefined;
 
       // Determine the color based on asset type
       const getClipColor = (type: "video" | "audio" | "image") => {
@@ -309,7 +313,6 @@ function EditorContent() {
       };
 
       const timestamp = Date.now();
-
       const newClip: TimelineClipWithAsset = {
         id: `clip-${timestamp}`,
         name: asset.name,
@@ -321,6 +324,7 @@ function EditorContent() {
         thumbnails: fullAsset?.thumbnails,
         trimStart: 0,
         trimEnd: asset.duration,
+        fitMode: clipFitMode,
       };
 
       setTracks((prev) => {
@@ -374,50 +378,136 @@ function EditorContent() {
         return [...prev, ...newTracks];
       });
 
+      if (asset.type === "video" || asset.type === "image") {
+        setSelectedClip({
+          id: newClip.id,
+          name: newClip.name,
+          type: newClip.type,
+          positionX: 0,
+          positionY: 0,
+          scaleX: 1,
+          scaleY: 1,
+          rotation: 0,
+          cropTop: 0,
+          cropBottom: 0,
+          cropLeft: 0,
+          cropRight: 0,
+          trimStart: newClip.trimStart,
+          trimEnd: newClip.trimEnd,
+          duration: newClip.duration,
+          speed: 1,
+          fitMode: newClip.fitMode,
+        });
+        setMediaPanelTab("media-editor");
+      }
+
       setHasUnsavedChanges(true);
     },
     [assetMap],
   );
 
-  const handleClipSelect = (
-    clipId: string,
-    nextTracks: TimelineTrackData[] = tracks,
-  ) => {
-    for (const track of nextTracks) {
-      const clip = track.clips.find((c) => c.id === clipId);
-      if (clip) {
-        const transform: ClipTransform = clip.transform ?? {
-          x: 0,
-          y: 0,
-          scaleX: 1,
-          scaleY: 1,
-          rotation: 0,
-        };
-
-        setSelectedClip({
-          id: clip.id,
-          name: clip.name,
-          type: clip.type,
-          positionX: transform.x,
-          positionY: transform.y,
-          scaleX: transform.scaleX,
-          scaleY: transform.scaleY,
-          rotation: transform.rotation,
-          cropTop: 0,
-          cropBottom: 0,
-          cropLeft: 0,
-          cropRight: 0,
-          trimStart: clip.trimStart,
-          trimEnd: clip.trimEnd,
-          duration: clip.duration,
-          speed: 1,
-        });
-        return;
-      }
+  const selectedMediaClip = useMemo(() => {
+    if (!selectedClip) return null;
+    if (selectedClip.type !== "video" && selectedClip.type !== "image") {
+      return null;
     }
-    // Deselect if not found (clicked empty space usually handles this too)
-    setSelectedClip(null);
-  };
+
+    return {
+      id: selectedClip.id,
+      name: selectedClip.name,
+      type: selectedClip.type,
+      fitMode: selectedClip.fitMode,
+    };
+  }, [selectedClip]);
+
+  const handleClipFitModeChange = useCallback(
+    (clipId: string, nextFitMode: FitMode | "none") => {
+      const normalizedFitMode =
+        nextFitMode === "none" ? undefined : nextFitMode;
+
+      setTracks((prev) =>
+        prev.map((track) => ({
+          ...track,
+          clips: track.clips.map((clip) =>
+            clip.id === clipId ? { ...clip, fitMode: normalizedFitMode } : clip,
+          ),
+        })),
+      );
+
+      setSelectedClip((prev) =>
+        prev?.id === clipId ? { ...prev, fitMode: normalizedFitMode } : prev,
+      );
+      setHasUnsavedChanges(true);
+    },
+    [],
+  );
+
+  const handleClipSelect = useCallback(
+    (clipId: string, nextTracks: TimelineTrackData[] = tracks) => {
+      for (const track of nextTracks) {
+        const clip = track.clips.find((c) => c.id === clipId);
+        if (clip) {
+          const transform: ClipTransform = clip.transform ?? {
+            x: 0,
+            y: 0,
+            scaleX: 1,
+            scaleY: 1,
+            rotation: 0,
+          };
+
+          setSelectedClip({
+            id: clip.id,
+            name: clip.name,
+            type: clip.type,
+            positionX: transform.x,
+            positionY: transform.y,
+            scaleX: transform.scaleX,
+            scaleY: transform.scaleY,
+            rotation: transform.rotation,
+            cropTop: 0,
+            cropBottom: 0,
+            cropLeft: 0,
+            cropRight: 0,
+            trimStart: clip.trimStart,
+            trimEnd: clip.trimEnd,
+            duration: clip.duration,
+            speed: 1,
+            fitMode: clip.fitMode,
+          });
+
+          if (clip.type === "video" || clip.type === "image") {
+            setMediaPanelTab("media-editor");
+          }
+
+          return;
+        }
+      }
+      // Deselect if not found (clicked empty space usually handles this too)
+      setSelectedClip(null);
+    },
+    [tracks],
+  );
+
+  const handleAssetSelect = useCallback(
+    (asset: MediaAsset) => {
+      if (asset.type === "audio") return;
+
+      for (const track of tracks) {
+        const matchingClip = track.clips.find(
+          (clip) => clip.asset?.id === asset.id,
+        );
+        if (matchingClip) {
+          handleClipSelect(matchingClip.id, tracks);
+          setMediaPanelTab("media-editor");
+          return;
+        }
+      }
+
+      setSelectedClip(null);
+      setMediaPanelTab("media-editor");
+    },
+    [handleClipSelect, tracks],
+  );
 
   const handleFileDrop = (files: FileList) => {
     importFiles(Array.from(files));
@@ -466,14 +556,16 @@ function EditorContent() {
                           error={importError}
                           onImport={openFilePicker}
                           onFileDrop={handleFileDrop}
-                          onAssetSelect={(asset) =>
-                            console.log("Selected asset", asset)
-                          }
+                          onAssetSelect={handleAssetSelect}
                           onAssetAdd={handleAssetAdd}
                           onAssetRemove={removeAsset}
                           onResize={playerResize}
                           fitMode={fitMode}
                           onFitModeChange={setPlayerFitMode}
+                          activeTab={mediaPanelTab}
+                          onTabChange={setMediaPanelTab}
+                          selectedClip={selectedMediaClip}
+                          onClipFitModeChange={handleClipFitModeChange}
                           className="h-full border-none"
                         />
                       </aside>
