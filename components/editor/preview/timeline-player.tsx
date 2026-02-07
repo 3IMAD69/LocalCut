@@ -32,6 +32,35 @@ function formatTime(seconds: number): string {
   return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}.${ms.toString().padStart(2, "0")}`;
 }
 
+function getFittedSize(params: {
+  sourceWidth: number;
+  sourceHeight: number;
+  outputWidth: number;
+  outputHeight: number;
+  fitMode: "contain" | "cover" | "fill" | "none";
+}): { width: number; height: number } {
+  const { sourceWidth, sourceHeight, outputWidth, outputHeight, fitMode } =
+    params;
+
+  if (fitMode === "fill") {
+    return { width: outputWidth, height: outputHeight };
+  }
+
+  if (fitMode === "contain" || fitMode === "cover") {
+    const scale =
+      fitMode === "contain"
+        ? Math.min(outputWidth / sourceWidth, outputHeight / sourceHeight)
+        : Math.max(outputWidth / sourceWidth, outputHeight / sourceHeight);
+
+    return {
+      width: sourceWidth * scale,
+      height: sourceHeight * scale,
+    };
+  }
+
+  return { width: sourceWidth, height: sourceHeight };
+}
+
 // ============================================================================
 // Time Display Component - Only this re-renders on time changes
 // ============================================================================
@@ -83,6 +112,7 @@ export const TimelinePlayer = memo(function TimelinePlayer({
   const {
     state,
     tracks,
+    loadedSources,
     actions: {
       play,
       pause,
@@ -175,18 +205,25 @@ export const TimelinePlayer = memo(function TimelinePlayer({
         if (clip.id !== selectedClipId) continue;
         if (!clip.asset) return null;
 
+        const assetId = clip.asset?.id;
+        const loaded = assetId ? loadedSources.get(assetId) : undefined;
+        const width =
+          loaded?.width ?? clip.asset.width ?? clip.asset.height ?? 1920;
+        const height =
+          loaded?.height ?? clip.asset.height ?? clip.asset.width ?? 1080;
+
         return {
           clip,
           sourceSize: {
-            width: clip.asset.width ?? 1920,
-            height: clip.asset.height ?? 1080,
+            width,
+            height,
           },
         };
       }
     }
 
     return null;
-  }, [selectedClipId, tracks]);
+  }, [loadedSources, selectedClipId, tracks]);
 
   const [overlayRectState, setOverlayRectState] = useState<OverlayRect | null>(
     null,
@@ -219,11 +256,20 @@ export const TimelinePlayer = memo(function TimelinePlayer({
       rotation: 0,
     };
 
-    const rectWidth = sourceSize.width * transform.scaleX * scale;
-    const rectHeight = sourceSize.height * transform.scaleY * scale;
+    const fitMode = clip.fitMode ?? "none";
+    const baseSize = getFittedSize({
+      sourceWidth: sourceSize.width,
+      sourceHeight: sourceSize.height,
+      outputWidth,
+      outputHeight,
+      fitMode,
+    });
 
-    const baseX = (outputWidth - sourceSize.width) / 2 + transform.x;
-    const baseY = (outputHeight - sourceSize.height) / 2 + transform.y;
+    const rectWidth = baseSize.width * Math.abs(transform.scaleX) * scale;
+    const rectHeight = baseSize.height * Math.abs(transform.scaleY) * scale;
+
+    const baseX = (outputWidth - baseSize.width) / 2 + transform.x;
+    const baseY = (outputHeight - baseSize.height) / 2 + transform.y;
 
     return {
       x: offsetX + baseX * scale,
@@ -316,9 +362,17 @@ export const TimelinePlayer = memo(function TimelinePlayer({
 
       // Clamping Logic (1920x1080)
       const { width: sourceW, height: sourceH } = selected.sourceSize;
+      const fitMode = selected.clip.fitMode ?? "none";
+      const baseSize = getFittedSize({
+        sourceWidth: sourceW,
+        sourceHeight: sourceH,
+        outputWidth: outputSize.width,
+        outputHeight: outputSize.height,
+        fitMode,
+      });
 
-      const currentW = sourceW * Math.abs(baseTransform.scaleX);
-      const currentH = sourceH * Math.abs(baseTransform.scaleY);
+      const currentW = baseSize.width * Math.abs(baseTransform.scaleX);
+      const currentH = baseSize.height * Math.abs(baseTransform.scaleY);
 
       // The compositor centers the source, then adds offset (transform.x/y)
       // So AbsoluteLeft = (CanvasW - SourceW)/2 + transform.x
@@ -334,8 +388,8 @@ export const TimelinePlayer = memo(function TimelinePlayer({
       // This implies the visual box starts at `baseX`.
       // So `ActualLeft = (CANVAS_WIDTH - sourceW) / 2 + transform.x`.
 
-      const baseX = (outputSize.width - sourceW) / 2;
-      const baseY = (outputSize.height - sourceH) / 2;
+      const baseX = (outputSize.width - baseSize.width) / 2;
+      const baseY = (outputSize.height - baseSize.height) / 2;
 
       // Calculate Clamped X
       const proposedLeft = baseX + newX;

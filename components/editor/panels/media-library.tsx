@@ -353,10 +353,7 @@ export function MediaLibrary({
 }: MediaLibraryProps) {
   const [internalTab, setInternalTab] = useState<MediaLibraryTab>("media");
   const resolvedTab = activeTab ?? internalTab;
-  const showMediaEditorTab =
-    resolvedTab === "media-editor" ||
-    selectedClip?.type === "video" ||
-    selectedClip?.type === "image";
+  const showMediaEditorTab = true;
   const [isDragOver, setIsDragOver] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState("youtube");
   const activeFitMode = fitMode ?? "contain";
@@ -707,7 +704,7 @@ export function MediaLibrary({
               </div>
             ) : (
               <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm text-center">
-                Select a video or image clip to edit its fit mode.
+                Please select a media clip to edit its settings.
               </div>
             )}
           </div>
