@@ -16,6 +16,7 @@ interface FilterControlProps {
   min: number;
   max: number;
   onChange: (value: number) => void;
+  onCommit: (value: number) => void;
   /** Custom track color gradient (CSS linear-gradient string) */
   trackGradient?: string;
   /** Display format for the value */
@@ -28,6 +29,7 @@ const FilterControl = memo(function FilterControl({
   min,
   max,
   onChange,
+  onCommit,
   trackGradient,
   formatValue = (v) => String(Math.round(v)),
 }: FilterControlProps) {
@@ -52,6 +54,7 @@ const FilterControl = memo(function FilterControl({
           max={max}
           step={1}
           onValueChange={([v]) => onChange(v)}
+          onValueCommit={([v]) => onCommit(v)}
           className={cn(
             "relative",
             trackGradient &&
@@ -63,82 +66,67 @@ const FilterControl = memo(function FilterControl({
   );
 });
 
-/** Throttle interval in ms – balances visual preview responsiveness with render cost */
-const THROTTLE_MS = 1000 / 30; // ~30 fps
-
 interface FilterControlsProps {
   filters: ClipFilters;
-  onChange: (filters: ClipFilters) => void;
+  /** Called on every slider tick for live preview (ref-based, cheap). */
+  onPreview: (filters: ClipFilters) => void;
+  /** Called once when the slider is released to commit the final value. */
+  onCommit: (filters: ClipFilters) => void;
   className?: string;
 }
 
 export const FilterControls = memo(function FilterControls({
   filters,
-  onChange,
+  onPreview,
+  onCommit,
   className,
 }: FilterControlsProps) {
   // Local state for instant slider feedback without propagating to the whole tree
   const [localFilters, setLocalFilters] = useState(filters);
 
-  // Keep a ref to the latest onChange so the throttle callback never goes stale
-  const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
+  // Keep refs to the latest callbacks so we never go stale
+  const onPreviewRef = useRef(onPreview);
+  onPreviewRef.current = onPreview;
+  const onCommitRef = useRef(onCommit);
+  onCommitRef.current = onCommit;
 
-  // Throttle handle ref
-  const throttleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingRef = useRef<ClipFilters | null>(null);
+  // Track whether a drag is in progress so we don't sync from parent mid-drag
+  const isDraggingRef = useRef(false);
 
   // Sync local state when parent filters change (e.g. reset, clip selection change)
+  // but only when we're NOT in the middle of a drag
   useEffect(() => {
-    setLocalFilters(filters);
+    if (!isDraggingRef.current) {
+      setLocalFilters(filters);
+    }
   }, [filters]);
 
-  // Flush any pending update on unmount
-  useEffect(() => {
-    return () => {
-      if (throttleRef.current) {
-        clearTimeout(throttleRef.current);
-        if (pendingRef.current) {
-          onChangeRef.current(pendingRef.current);
-        }
-      }
-    };
-  }, []);
-
+  // Called on every slider tick — cheap ref-based preview, no React state tree update
   const handleFilterChange = useCallback(
     (key: keyof ClipFilters, value: number) => {
+      isDraggingRef.current = true;
       const next = { ...localFilters, [key]: value };
-      // Update local state immediately for responsive UI
       setLocalFilters(next);
+      onPreviewRef.current(next);
+    },
+    [localFilters],
+  );
 
-      // Throttle the expensive upstream update
-      pendingRef.current = next;
-      if (!throttleRef.current) {
-        // Fire immediately on the leading edge
-        onChangeRef.current(next);
-        pendingRef.current = null;
-        throttleRef.current = setTimeout(() => {
-          throttleRef.current = null;
-          // Flush trailing update if there's a pending value
-          if (pendingRef.current) {
-            onChangeRef.current(pendingRef.current);
-            pendingRef.current = null;
-          }
-        }, THROTTLE_MS);
-      }
+  // Called once when the slider is released — commits to the real tracks state
+  const handleFilterCommit = useCallback(
+    (key: keyof ClipFilters, value: number) => {
+      isDraggingRef.current = false;
+      const next = { ...localFilters, [key]: value };
+      setLocalFilters(next);
+      onCommitRef.current(next);
     },
     [localFilters],
   );
 
   const handleReset = useCallback(() => {
-    // Clear any pending throttled update
-    if (throttleRef.current) {
-      clearTimeout(throttleRef.current);
-      throttleRef.current = null;
-      pendingRef.current = null;
-    }
+    isDraggingRef.current = false;
     setLocalFilters(DEFAULT_CLIP_FILTERS);
-    onChangeRef.current(DEFAULT_CLIP_FILTERS);
+    onCommitRef.current(DEFAULT_CLIP_FILTERS);
   }, []);
 
   const isDefault =
@@ -158,6 +146,7 @@ export const FilterControls = memo(function FilterControls({
         min={0}
         max={100}
         onChange={(v) => handleFilterChange("opacity", v)}
+        onCommit={(v) => handleFilterCommit("opacity", v)}
         formatValue={(v) => `${Math.round(v)}%`}
         trackGradient="linear-gradient(to right, transparent, #3b82f6)"
       />
@@ -169,6 +158,7 @@ export const FilterControls = memo(function FilterControls({
         min={-100}
         max={100}
         onChange={(v) => handleFilterChange("brightness", v)}
+        onCommit={(v) => handleFilterCommit("brightness", v)}
         trackGradient="linear-gradient(to right, #1a1a1a, #666666, #ffffff)"
       />
 
@@ -179,6 +169,7 @@ export const FilterControls = memo(function FilterControls({
         min={-100}
         max={100}
         onChange={(v) => handleFilterChange("contrast", v)}
+        onCommit={(v) => handleFilterCommit("contrast", v)}
         trackGradient="linear-gradient(to right, #4a4a4a, #666666, #ffffff)"
       />
 
@@ -189,6 +180,7 @@ export const FilterControls = memo(function FilterControls({
         min={-100}
         max={100}
         onChange={(v) => handleFilterChange("saturation", v)}
+        onCommit={(v) => handleFilterCommit("saturation", v)}
         trackGradient="linear-gradient(to right, #666666, #f97316)"
       />
 
@@ -199,6 +191,7 @@ export const FilterControls = memo(function FilterControls({
         min={-180}
         max={180}
         onChange={(v) => handleFilterChange("hue", v)}
+        onCommit={(v) => handleFilterCommit("hue", v)}
         formatValue={(v) => `${Math.round(v)}°`}
         trackGradient="linear-gradient(to right, #f97316, #eab308, #22c55e, #06b6d4, #3b82f6, #a855f7, #f97316)"
       />
@@ -210,6 +203,7 @@ export const FilterControls = memo(function FilterControls({
         min={0}
         max={100}
         onChange={(v) => handleFilterChange("blur", v)}
+        onCommit={(v) => handleFilterCommit("blur", v)}
         trackGradient="linear-gradient(to right, #1a1a1a, #3a3a3a)"
       />
 

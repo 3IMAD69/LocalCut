@@ -92,8 +92,11 @@ function EditorContent() {
       seek: playerSeek,
       resize: playerResize,
       setFitMode: setPlayerFitMode,
+      setClipFiltersOverride,
+      clearClipFiltersOverride,
+      renderFrame,
     },
-    meta: { outputSize },
+    meta: { outputSize, getCurrentTime },
   } = useTimelinePlayer();
 
   // Convert imported assets to MediaAsset format for MediaLibrary
@@ -454,8 +457,19 @@ function EditorContent() {
     [],
   );
 
+  // Preview filter changes via ref-based override — no React state update, no re-render
+  const handleClipFiltersPreview = useCallback(
+    (clipId: string, filters: ClipFilters) => {
+      setClipFiltersOverride(clipId, filters);
+      void renderFrame(getCurrentTime());
+    },
+    [setClipFiltersOverride, renderFrame, getCurrentTime],
+  );
+
+  // Commit filter changes to the real tracks state (only on slider release)
   const handleClipFiltersChange = useCallback(
     (clipId: string, filters: ClipFilters) => {
+      clearClipFiltersOverride(clipId);
       setTracks((prev) =>
         prev.map((track) => ({
           ...track,
@@ -466,7 +480,7 @@ function EditorContent() {
       );
       setHasUnsavedChanges(true);
     },
-    [],
+    [clearClipFiltersOverride],
   );
 
   const handleClipSelect = useCallback(
@@ -639,6 +653,7 @@ function EditorContent() {
                           selectedClip={selectedMediaClip}
                           onClipFitModeChange={handleClipFitModeChange}
                           onClipFiltersChange={handleClipFiltersChange}
+                          onClipFiltersPreview={handleClipFiltersPreview}
                           className="h-full border-none"
                         />
                       </aside>

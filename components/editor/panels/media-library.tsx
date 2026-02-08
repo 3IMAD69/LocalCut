@@ -218,6 +218,7 @@ interface MediaLibraryProps {
   } | null;
   onClipFitModeChange?: (clipId: string, fitMode: FitMode | "none") => void;
   onClipFiltersChange?: (clipId: string, filters: ClipFilters) => void;
+  onClipFiltersPreview?: (clipId: string, filters: ClipFilters) => void;
   className?: string;
 }
 
@@ -357,6 +358,7 @@ export const MediaLibrary = memo(function MediaLibrary({
   selectedClip,
   onClipFitModeChange,
   onClipFiltersChange,
+  onClipFiltersPreview,
   className,
 }: MediaLibraryProps) {
   const [internalTab, setInternalTab] = useState<MediaLibraryTab>("media");
@@ -368,7 +370,16 @@ export const MediaLibrary = memo(function MediaLibrary({
 
   // Stable callback for filter changes - avoids new closure on every render
   const selectedClipId = selectedClip?.id;
-  const handleFiltersChange = useCallback(
+  const handleFiltersPreview = useCallback(
+    (filters: ClipFilters) => {
+      if (selectedClipId) {
+        onClipFiltersPreview?.(selectedClipId, filters);
+      }
+    },
+    [selectedClipId, onClipFiltersPreview],
+  );
+
+  const handleFiltersCommit = useCallback(
     (filters: ClipFilters) => {
       if (selectedClipId) {
         onClipFiltersChange?.(selectedClipId, filters);
@@ -703,7 +714,8 @@ export const MediaLibrary = memo(function MediaLibrary({
                   {/* Filter Controls */}
                   <FilterControls
                     filters={selectedClip.filters ?? DEFAULT_CLIP_FILTERS}
-                    onChange={handleFiltersChange}
+                    onPreview={handleFiltersPreview}
+                    onCommit={handleFiltersCommit}
                   />
 
                   {/* Fit Mode - moved below filters */}

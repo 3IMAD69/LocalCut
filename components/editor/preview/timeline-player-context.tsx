@@ -192,6 +192,8 @@ export interface TimelinePlayerActions {
   setTracks: (tracks: TimelineTrackData[]) => void;
   setClipTransformOverride: (clipId: string, transform: ClipTransform) => void;
   clearClipTransformOverride: (clipId: string) => void;
+  setClipFiltersOverride: (clipId: string, filters: ClipFilters) => void;
+  clearClipFiltersOverride: (clipId: string) => void;
   loadSource: (asset: ImportedMediaAsset) => Promise<LoadedSource | null>;
   unloadSource: (assetId: string) => void;
   play: () => Promise<void>;
@@ -257,6 +259,7 @@ export function TimelinePlayerProvider({
   const compositorRef = useRef<Compositor | null>(null);
   const loadedSourcesRef = useRef<Map<string, LoadedSource>>(new Map());
   const transformOverridesRef = useRef<Map<string, ClipTransform>>(new Map());
+  const filterOverridesRef = useRef<Map<string, ClipFilters>>(new Map());
   const volumeRef = useRef(1);
   const mutedRef = useRef(false);
   const fitModeRef = useRef<FitMode>("contain");
@@ -384,6 +387,7 @@ export function TimelinePlayerProvider({
         width: outputSize.width,
         height: outputSize.height,
         transformOverrides: transformOverridesRef.current,
+        filterOverrides: filterOverridesRef.current,
       });
     };
 
@@ -511,6 +515,17 @@ export function TimelinePlayerProvider({
 
   const clearClipTransformOverride = useCallback((clipId: string) => {
     transformOverridesRef.current.delete(clipId);
+  }, []);
+
+  const setClipFiltersOverride = useCallback(
+    (clipId: string, filters: ClipFilters) => {
+      filterOverridesRef.current.set(clipId, filters);
+    },
+    [],
+  );
+
+  const clearClipFiltersOverride = useCallback((clipId: string) => {
+    filterOverridesRef.current.delete(clipId);
   }, []);
 
   // Playback controls
@@ -641,6 +656,8 @@ export function TimelinePlayerProvider({
       setTracks,
       setClipTransformOverride,
       clearClipTransformOverride,
+      setClipFiltersOverride,
+      clearClipFiltersOverride,
       loadSource,
       unloadSource,
       play,
@@ -658,6 +675,8 @@ export function TimelinePlayerProvider({
       setTracks,
       setClipTransformOverride,
       clearClipTransformOverride,
+      setClipFiltersOverride,
+      clearClipFiltersOverride,
       loadSource,
       unloadSource,
       play,
@@ -754,8 +773,10 @@ export function buildCompositorComposition(params: {
   width: number;
   height: number;
   transformOverrides?: Map<string, ClipTransform>;
+  filterOverrides?: Map<string, ClipFilters>;
 }): { time: number; layers: CompositorLayer[]; audio?: AudioLayer[] } {
-  const { time, tracks, loadedSources, transformOverrides } = params;
+  const { time, tracks, loadedSources, transformOverrides, filterOverrides } =
+    params;
 
   const layers: CompositorLayer[] = [];
   const audio: AudioLayer[] = [];
@@ -796,7 +817,8 @@ export function buildCompositorComposition(params: {
         const effectiveSourceTime = track.type === "image" ? 0 : sourceTime;
 
         // Apply clip filters to get CSS filter string and opacity
-        const clipFilters = clip.filters ?? DEFAULT_CLIP_FILTERS;
+        const clipFilters =
+          filterOverrides?.get(clip.id) ?? clip.filters ?? DEFAULT_CLIP_FILTERS;
         const { filter, opacity } = clipFiltersToCSS(clipFilters);
 
         layers.push({
