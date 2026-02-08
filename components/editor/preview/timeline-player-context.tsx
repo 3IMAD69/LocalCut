@@ -12,6 +12,7 @@ import {
   use,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -51,6 +52,74 @@ export interface ClipTransform {
   rotation: number;
 }
 
+/** Filter settings applied to a clip */
+export interface ClipFilters {
+  /** Opacity 0-100 (default: 100) */
+  opacity: number;
+  /** Brightness adjustment -100 to +100 (default: 0) */
+  brightness: number;
+  /** Contrast adjustment -100 to +100 (default: 0) */
+  contrast: number;
+  /** Saturation adjustment -100 to +100 (default: 0) */
+  saturation: number;
+  /** Hue rotation -180 to +180 degrees (default: 0) */
+  hue: number;
+  /** Blur amount 0-100 (default: 0) */
+  blur: number;
+}
+
+/** Default filter values */
+export const DEFAULT_CLIP_FILTERS: ClipFilters = {
+  opacity: 100,
+  brightness: 0,
+  contrast: 0,
+  saturation: 0,
+  hue: 0,
+  blur: 0,
+};
+
+/** Convert ClipFilters to CSS filter string and opacity value */
+export function clipFiltersToCSS(filters: ClipFilters): {
+  filter: string;
+  opacity: number;
+} {
+  const parts: string[] = [];
+
+  // Brightness: -100 to +100 maps to 0 to 2 (0 = black, 1 = normal, 2 = 2x bright)
+  if (filters.brightness !== 0) {
+    const brightnessValue = 1 + filters.brightness / 100;
+    parts.push(`brightness(${brightnessValue})`);
+  }
+
+  // Contrast: -100 to +100 maps to 0 to 2 (0 = gray, 1 = normal, 2 = 2x contrast)
+  if (filters.contrast !== 0) {
+    const contrastValue = 1 + filters.contrast / 100;
+    parts.push(`contrast(${contrastValue})`);
+  }
+
+  // Saturation: -100 to +100 maps to 0 to 2 (0 = grayscale, 1 = normal, 2 = 2x saturated)
+  if (filters.saturation !== 0) {
+    const saturationValue = 1 + filters.saturation / 100;
+    parts.push(`saturate(${saturationValue})`);
+  }
+
+  // Hue: -180 to +180 degrees rotation
+  if (filters.hue !== 0) {
+    parts.push(`hue-rotate(${filters.hue}deg)`);
+  }
+
+  // Blur: 0-100 maps to 0-20px blur
+  if (filters.blur !== 0) {
+    const blurPx = (filters.blur / 100) * 20;
+    parts.push(`blur(${blurPx}px)`);
+  }
+
+  return {
+    filter: parts.length > 0 ? parts.join(" ") : "",
+    opacity: filters.opacity / 100,
+  };
+}
+
 /** Timeline clip with associated asset reference */
 export interface TimelineClipWithAsset {
   id: string;
@@ -65,6 +134,7 @@ export interface TimelineClipWithAsset {
   trimStart: number;
   trimEnd: number;
   transform?: ClipTransform;
+  filters?: ClipFilters;
   fitMode?: FitMode;
 }
 
@@ -565,12 +635,9 @@ export function TimelinePlayerProvider({
     [renderFrame, state.playing],
   );
 
-  // Build context value following state/actions/meta pattern
-  const contextValue: TimelinePlayerContextValue = {
-    state,
-    tracks,
-    loadedSources,
-    actions: {
+  // Memoize actions to avoid re-creating on every render
+  const actions = useMemo<TimelinePlayerActions>(
+    () => ({
       setTracks,
       setClipTransformOverride,
       clearClipTransformOverride,
@@ -586,21 +653,60 @@ export function TimelinePlayerProvider({
       exportFrame,
       resize,
       setFitMode,
-    },
-    meta: {
+    }),
+    [
+      setTracks,
+      setClipTransformOverride,
+      clearClipTransformOverride,
+      loadSource,
+      unloadSource,
+      play,
+      pause,
+      seek,
+      renderFrame,
+      setVolume,
+      setMuted,
+      setLoop,
+      exportFrame,
+      resize,
+      setFitMode,
+    ],
+  );
+
+  // Stable subscribe/getCurrentTime refs (never change identity)
+  const subscribeCurrentTime = useCallback((listener: () => void) => {
+    currentTimeListenersRef.current.add(listener);
+    return () => {
+      currentTimeListenersRef.current.delete(listener);
+    };
+  }, []);
+
+  const getCurrentTime = useCallback(() => currentTimeRef.current, []);
+
+  // Memoize meta to avoid re-creating on every render
+  const meta = useMemo<TimelinePlayerMeta>(
+    () => ({
       canvasRef,
       canvasKey,
       outputSize,
       compositor: compositorRef.current,
-      getCurrentTime: () => currentTimeRef.current,
-      subscribeCurrentTime: (listener) => {
-        currentTimeListenersRef.current.add(listener);
-        return () => {
-          currentTimeListenersRef.current.delete(listener);
-        };
-      },
-    },
-  };
+      getCurrentTime,
+      subscribeCurrentTime,
+    }),
+    [canvasKey, outputSize, getCurrentTime, subscribeCurrentTime],
+  );
+
+  // Memoize the full context value
+  const contextValue = useMemo<TimelinePlayerContextValue>(
+    () => ({
+      state,
+      tracks,
+      loadedSources,
+      actions,
+      meta,
+    }),
+    [state, tracks, loadedSources, actions, meta],
+  );
 
   return (
     <TimelinePlayerContext value={contextValue}>
@@ -689,11 +795,15 @@ export function buildCompositorComposition(params: {
         // For images, sourceTime is always 0 since they don't have temporal duration
         const effectiveSourceTime = track.type === "image" ? 0 : sourceTime;
 
+        // Apply clip filters to get CSS filter string and opacity
+        const clipFilters = clip.filters ?? DEFAULT_CLIP_FILTERS;
+        const { filter, opacity } = clipFiltersToCSS(clipFilters);
+
         layers.push({
           source: loadedSource.source,
           sourceTime: effectiveSourceTime,
           transform: {
-            opacity: 1,
+            opacity,
             x: clipTransform.x,
             y: clipTransform.y,
             scaleX: clipTransform.scaleX,
@@ -703,6 +813,7 @@ export function buildCompositorComposition(params: {
               | 90
               | 180
               | 270,
+            filter: filter || undefined,
           },
           fitMode: clip.fitMode ?? "none",
           zIndex,

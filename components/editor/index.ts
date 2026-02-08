@@ -19,7 +19,9 @@ export {
 export { TimelinePlayer } from "./preview/timeline-player";
 export {
   type ActiveClip,
+  type ClipFilters,
   type ClipTransform,
+  DEFAULT_CLIP_FILTERS,
   type FitMode,
   type LoadedSource,
   type TimelineClipWithAsset,

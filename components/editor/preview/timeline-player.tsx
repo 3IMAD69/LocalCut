@@ -136,6 +136,16 @@ export const TimelinePlayer = memo(function TimelinePlayer({
   // Use ref for current time to avoid re-renders in callbacks
   const currentTimeRef = useRef(getCurrentTime());
 
+  // Refs for stable callback access (avoids recreating callbacks when these change)
+  const tracksRef = useRef(tracks);
+  tracksRef.current = tracks;
+  const loadedSourcesRef = useRef(loadedSources);
+  loadedSourcesRef.current = loadedSources;
+  const onClipTransformChangeRef = useRef(onClipTransformChange);
+  onClipTransformChangeRef.current = onClipTransformChange;
+  const playingRef = useRef(state.playing);
+  playingRef.current = state.playing;
+
   // Subscribe to time updates imperatively (no re-renders)
   useEffect(() => {
     const unsubscribe = subscribeCurrentTime(() => {
@@ -199,14 +209,16 @@ export const TimelinePlayer = memo(function TimelinePlayer({
   } | null => {
     if (!selectedClipId) return null;
 
-    for (const track of tracks) {
+    for (const track of tracksRef.current) {
       if (track.type !== "video" && track.type !== "image") continue;
       for (const clip of track.clips) {
         if (clip.id !== selectedClipId) continue;
         if (!clip.asset) return null;
 
         const assetId = clip.asset?.id;
-        const loaded = assetId ? loadedSources.get(assetId) : undefined;
+        const loaded = assetId
+          ? loadedSourcesRef.current.get(assetId)
+          : undefined;
         const width =
           loaded?.width ?? clip.asset.width ?? clip.asset.height ?? 1920;
         const height =
@@ -223,7 +235,9 @@ export const TimelinePlayer = memo(function TimelinePlayer({
     }
 
     return null;
-  }, [loadedSources, selectedClipId, tracks]);
+  }, [selectedClipId]);
+
+  const overlayRectRef = useRef<OverlayRect | null>(null);
 
   const [overlayRectState, setOverlayRectState] = useState<OverlayRect | null>(
     null,
@@ -283,7 +297,22 @@ export const TimelinePlayer = memo(function TimelinePlayer({
     if (!videoAreaRef.current) return;
 
     const update = () => {
-      setOverlayRectState(computeOverlayRect());
+      const next = computeOverlayRect();
+      const prev = overlayRectRef.current;
+      // Skip setState if values haven't changed (avoids re-renders)
+      if (
+        prev === next ||
+        (prev &&
+          next &&
+          prev.x === next.x &&
+          prev.y === next.y &&
+          prev.width === next.width &&
+          prev.height === next.height)
+      ) {
+        return;
+      }
+      overlayRectRef.current = next;
+      setOverlayRectState(next);
     };
 
     update();
@@ -438,7 +467,7 @@ export const TimelinePlayer = memo(function TimelinePlayer({
       pendingTransformRef.current = nextTransform;
       setClipTransformOverride(selectedClipId, nextTransform);
 
-      if (!state.playing) {
+      if (!playingRef.current) {
         void renderFrame(currentTimeRef.current);
       }
     },
@@ -450,7 +479,6 @@ export const TimelinePlayer = memo(function TimelinePlayer({
       selectedClipId,
       renderFrame,
       setClipTransformOverride,
-      state.playing,
     ],
   );
 
@@ -459,7 +487,7 @@ export const TimelinePlayer = memo(function TimelinePlayer({
     const nextTransform = pendingTransformRef.current;
 
     if (nextTransform) {
-      onClipTransformChange?.(selectedClipId, {
+      onClipTransformChangeRef.current?.(selectedClipId, {
         x: nextTransform.x,
         y: nextTransform.y,
       });
@@ -468,16 +496,10 @@ export const TimelinePlayer = memo(function TimelinePlayer({
     clearClipTransformOverride(selectedClipId);
     pendingTransformRef.current = null;
 
-    if (!state.playing) {
+    if (!playingRef.current) {
       void renderFrame(currentTimeRef.current);
     }
-  }, [
-    clearClipTransformOverride,
-    onClipTransformChange,
-    renderFrame,
-    selectedClipId,
-    state.playing,
-  ]);
+  }, [clearClipTransformOverride, renderFrame, selectedClipId]);
 
   // Handle play/pause
   const handlePlayPause = useCallback(() => {

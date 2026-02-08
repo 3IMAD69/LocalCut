@@ -25,8 +25,13 @@ import {
   Upload,
 } from "lucide-react";
 import type { ComponentType, SVGProps } from "react";
-import { useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
+import { FilterControls } from "@/components/editor/panels/filter-controls";
 import type { FitMode } from "@/components/editor/preview/timeline-player-context";
+import {
+  type ClipFilters,
+  DEFAULT_CLIP_FILTERS,
+} from "@/components/editor/preview/timeline-player-context";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -209,8 +214,10 @@ interface MediaLibraryProps {
     name: string;
     type: "video" | "image";
     fitMode?: FitMode;
+    filters?: ClipFilters;
   } | null;
   onClipFitModeChange?: (clipId: string, fitMode: FitMode | "none") => void;
+  onClipFiltersChange?: (clipId: string, filters: ClipFilters) => void;
   className?: string;
 }
 
@@ -333,7 +340,7 @@ function MediaThumbnail({
 
 // Context Menu Component
 
-export function MediaLibrary({
+export const MediaLibrary = memo(function MediaLibrary({
   assets,
   isLoading = false,
   error = null,
@@ -349,6 +356,7 @@ export function MediaLibrary({
   onTabChange,
   selectedClip,
   onClipFitModeChange,
+  onClipFiltersChange,
   className,
 }: MediaLibraryProps) {
   const [internalTab, setInternalTab] = useState<MediaLibraryTab>("media");
@@ -357,6 +365,17 @@ export function MediaLibrary({
   const [isDragOver, setIsDragOver] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState("youtube");
   const activeFitMode = fitMode ?? "contain";
+
+  // Stable callback for filter changes - avoids new closure on every render
+  const selectedClipId = selectedClip?.id;
+  const handleFiltersChange = useCallback(
+    (filters: ClipFilters) => {
+      if (selectedClipId) {
+        onClipFiltersChange?.(selectedClipId, filters);
+      }
+    },
+    [selectedClipId, onClipFiltersChange],
+  );
 
   const handleTabChange = useCallback(
     (tab: MediaLibraryTab) => {
@@ -667,47 +686,59 @@ export function MediaLibrary({
         )}
 
         {resolvedTab === "media-editor" && (
-          <div className="flex-1 flex flex-col p-4 gap-4">
-            <h3 className="text-xs text-muted-foreground text-center">
-              Media Editor
-            </h3>
-            {selectedClip ? (
-              <div className="space-y-3">
-                <div className="rounded-lg border border-border/50 bg-muted/40 p-3">
-                  <p className="text-xs text-muted-foreground">Selected</p>
-                  <p className="text-sm font-medium text-foreground truncate">
-                    {selectedClip.name}
-                  </p>
+          <ScrollArea className="flex-1">
+            <div className="p-4 space-y-4">
+              <h3 className="text-xs text-muted-foreground text-center">
+                Media Editor
+              </h3>
+              {selectedClip ? (
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-border/50 bg-muted/40 p-3">
+                    <p className="text-xs text-muted-foreground">Selected</p>
+                    <p className="text-sm font-medium text-foreground truncate">
+                      {selectedClip.name}
+                    </p>
+                  </div>
+
+                  {/* Filter Controls */}
+                  <FilterControls
+                    filters={selectedClip.filters ?? DEFAULT_CLIP_FILTERS}
+                    onChange={handleFiltersChange}
+                  />
+
+                  {/* Fit Mode - moved below filters */}
+                  <div className="space-y-2 pt-2 border-t border-border/30">
+                    <Label className="text-xs text-foreground/70">
+                      Fit mode
+                    </Label>
+                    <Select
+                      value={selectedClip.fitMode ?? "none"}
+                      onValueChange={(value) =>
+                        onClipFitModeChange?.(
+                          selectedClip.id,
+                          value as FitMode | "none",
+                        )
+                      }
+                    >
+                      <SelectTrigger className="w-full bg-card border-border/50">
+                        <SelectValue placeholder="Select fit mode" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        <SelectItem value="contain">Fit (contain)</SelectItem>
+                        <SelectItem value="cover">Cover</SelectItem>
+                        <SelectItem value="fill">Fill</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-xs text-foreground/70">Fit mode</Label>
-                  <Select
-                    value={selectedClip.fitMode ?? "none"}
-                    onValueChange={(value) =>
-                      onClipFitModeChange?.(
-                        selectedClip.id,
-                        value as FitMode | "none",
-                      )
-                    }
-                  >
-                    <SelectTrigger className="w-full bg-card border-border/50">
-                      <SelectValue placeholder="Select fit mode" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      <SelectItem value="contain">Fit (contain)</SelectItem>
-                      <SelectItem value="cover">Cover</SelectItem>
-                      <SelectItem value="fill">Fill</SelectItem>
-                    </SelectContent>
-                  </Select>
+              ) : (
+                <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm text-center py-8">
+                  Please select a media clip to edit its settings.
                 </div>
-              </div>
-            ) : (
-              <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm text-center">
-                Please select a media clip to edit its settings.
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          </ScrollArea>
         )}
 
         {resolvedTab !== "media" &&
@@ -720,4 +751,4 @@ export function MediaLibrary({
       </div>
     </div>
   );
-}
+});

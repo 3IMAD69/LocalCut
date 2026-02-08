@@ -1,13 +1,7 @@
 "use client";
 
 import { Move } from "lucide-react";
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export interface OverlayRect {
@@ -33,8 +27,10 @@ export function VideoTransformOverlay({
   onMoveEnd,
 }: VideoTransformOverlayProps) {
   const [containerBounds, setContainerBounds] = useState<DOMRect | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [localRect, setLocalRect] = useState<OverlayRect | null>(rect);
+  const isDraggingRef = useRef(false);
+  // Accumulated drag offset in screen pixels (only meaningful during drag)
+  const dragOffsetRef = useRef({ x: 0, y: 0 });
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const lastPointerRef = useRef({ x: 0, y: 0 });
 
   useLayoutEffect(() => {
@@ -57,10 +53,11 @@ export function VideoTransformOverlay({
     };
   }, [containerRef, isActive]);
 
-  useEffect(() => {
-    if (isDragging) return;
-    setLocalRect(rect);
-  }, [isDragging, rect]);
+  // Derive displayed rect synchronously: external rect + drag offset during drag
+  const displayRect =
+    rect && isDraggingRef.current
+      ? { ...rect, x: rect.x + dragOffset.x, y: rect.y + dragOffset.y }
+      : rect;
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -69,7 +66,9 @@ export function VideoTransformOverlay({
       if (!rect) return;
 
       e.currentTarget.setPointerCapture(e.pointerId);
-      setIsDragging(true);
+      isDraggingRef.current = true;
+      dragOffsetRef.current = { x: 0, y: 0 };
+      setDragOffset({ x: 0, y: 0 });
       lastPointerRef.current = { x: e.clientX, y: e.clientY };
     },
     [rect],
@@ -77,39 +76,38 @@ export function VideoTransformOverlay({
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!isDragging) return;
+      if (!isDraggingRef.current) return;
 
       const dx = e.clientX - lastPointerRef.current.x;
       const dy = e.clientY - lastPointerRef.current.y;
 
       lastPointerRef.current = { x: e.clientX, y: e.clientY };
 
-      setLocalRect((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          x: prev.x + dx,
-          y: prev.y + dy,
-        };
-      });
+      dragOffsetRef.current = {
+        x: dragOffsetRef.current.x + dx,
+        y: dragOffsetRef.current.y + dy,
+      };
+      setDragOffset({ ...dragOffsetRef.current });
 
       onMove?.({ dx, dy });
     },
-    [isDragging, onMove],
+    [onMove],
   );
 
   const handlePointerUp = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!isDragging) return;
+      if (!isDraggingRef.current) return;
 
       e.currentTarget.releasePointerCapture(e.pointerId);
-      setIsDragging(false);
+      isDraggingRef.current = false;
+      dragOffsetRef.current = { x: 0, y: 0 };
+      setDragOffset({ x: 0, y: 0 });
       onMoveEnd?.();
     },
-    [isDragging, onMoveEnd],
+    [onMoveEnd],
   );
 
-  if (!isActive || !containerBounds || !localRect) return null;
+  if (!isActive || !containerBounds || !displayRect) return null;
 
   const handles = ["nw", "n", "ne", "e", "se", "s", "sw", "w"] as const;
 
@@ -122,13 +120,13 @@ export function VideoTransformOverlay({
           "absolute pointer-events-auto",
           "border-2 border-primary",
           "shadow-[0_0_0_2px_rgba(0,0,0,0.35)]",
-          isDragging ? "cursor-grabbing" : "cursor-grab",
+          isDraggingRef.current ? "cursor-grabbing" : "cursor-grab",
         )}
         style={{
-          left: localRect.x,
-          top: localRect.y,
-          width: localRect.width,
-          height: localRect.height,
+          left: displayRect.x,
+          top: displayRect.y,
+          width: displayRect.width,
+          height: displayRect.height,
         }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}

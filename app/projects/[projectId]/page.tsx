@@ -2,6 +2,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
+  type ClipFilters,
   type ClipProperties,
   type ClipTransform,
   EditorHeader,
@@ -412,13 +413,24 @@ function EditorContent() {
       return null;
     }
 
+    // Find the clip in tracks to get its current filters
+    let clipFilters: ClipFilters | undefined;
+    for (const track of tracks) {
+      const clip = track.clips.find((c) => c.id === selectedClip.id);
+      if (clip) {
+        clipFilters = clip.filters;
+        break;
+      }
+    }
+
     return {
       id: selectedClip.id,
       name: selectedClip.name,
       type: selectedClip.type,
       fitMode: selectedClip.fitMode,
+      filters: clipFilters,
     };
-  }, [selectedClip]);
+  }, [selectedClip, tracks]);
 
   const handleClipFitModeChange = useCallback(
     (clipId: string, nextFitMode: FitMode | "none") => {
@@ -436,6 +448,21 @@ function EditorContent() {
 
       setSelectedClip((prev) =>
         prev?.id === clipId ? { ...prev, fitMode: normalizedFitMode } : prev,
+      );
+      setHasUnsavedChanges(true);
+    },
+    [],
+  );
+
+  const handleClipFiltersChange = useCallback(
+    (clipId: string, filters: ClipFilters) => {
+      setTracks((prev) =>
+        prev.map((track) => ({
+          ...track,
+          clips: track.clips.map((clip) =>
+            clip.id === clipId ? { ...clip, filters } : clip,
+          ),
+        })),
       );
       setHasUnsavedChanges(true);
     },
@@ -509,9 +536,54 @@ function EditorContent() {
     [handleClipSelect, tracks],
   );
 
-  const handleFileDrop = (files: FileList) => {
-    importFiles(Array.from(files));
-  };
+  const handleToggleMediaPanel = useCallback(() => {
+    setIsMediaPanelOpen((prev) => !prev);
+  }, []);
+
+  const handleTracksChange = useCallback(
+    (nextTracks: TimelineTrackData[]) => {
+      setTracks((prev) => pruneEmptyTracks(prev, nextTracks));
+      setHasUnsavedChanges(true);
+    },
+    [pruneEmptyTracks],
+  );
+
+  const handleFileDrop = useCallback(
+    (files: FileList) => {
+      importFiles(Array.from(files));
+    },
+    [importFiles],
+  );
+
+  const handleClipTransformChange = useCallback(
+    (clipId: string, transform: { x: number; y: number }) => {
+      setTracks((prev) =>
+        prev.map((track) => ({
+          ...track,
+          clips: track.clips.map((clip) => {
+            if (clip.id !== clipId) return clip;
+            const existing: ClipTransform = clip.transform ?? {
+              x: 0,
+              y: 0,
+              scaleX: 1,
+              scaleY: 1,
+              rotation: 0,
+            };
+            return {
+              ...clip,
+              transform: {
+                ...existing,
+                x: transform.x,
+                y: transform.y,
+              },
+            };
+          }),
+        })),
+      );
+      setHasUnsavedChanges(true);
+    },
+    [],
+  );
 
   const handleExport = useCallback(() => {
     setShowExportModal(true);
@@ -535,7 +607,7 @@ function EditorContent() {
         canRedo={canRedo}
         onExport={handleExport}
         isMediaPanelOpen={isMediaPanelOpen}
-        onToggleMediaPanel={() => setIsMediaPanelOpen((prev) => !prev)}
+        onToggleMediaPanel={handleToggleMediaPanel}
         className="h-16 px-6 bg-background/50 backdrop-blur-sm border-b-0"
       />
 
@@ -566,6 +638,7 @@ function EditorContent() {
                           onTabChange={setMediaPanelTab}
                           selectedClip={selectedMediaClip}
                           onClipFitModeChange={handleClipFitModeChange}
+                          onClipFiltersChange={handleClipFiltersChange}
                           className="h-full border-none"
                         />
                       </aside>
@@ -580,32 +653,7 @@ function EditorContent() {
                     <TimelinePlayer
                       className="w-full h-full"
                       selectedClipId={selectedClip?.id ?? null}
-                      onClipTransformChange={(clipId, transform) => {
-                        setTracks((prev) =>
-                          prev.map((track) => ({
-                            ...track,
-                            clips: track.clips.map((clip) => {
-                              if (clip.id !== clipId) return clip;
-                              const existing: ClipTransform =
-                                clip.transform ?? {
-                                  x: 0,
-                                  y: 0,
-                                  scaleX: 1,
-                                  scaleY: 1,
-                                  rotation: 0,
-                                };
-                              return {
-                                ...clip,
-                                transform: {
-                                  ...existing,
-                                  x: transform.x,
-                                  y: transform.y,
-                                },
-                              };
-                            }),
-                          })),
-                        );
-                      }}
+                      onClipTransformChange={handleClipTransformChange}
                       onFullscreen={() => console.log("Fullscreen")}
                     />
                   </main>
@@ -625,10 +673,7 @@ function EditorContent() {
                 onTimeChange={handleSeek}
                 selectedClipId={selectedClip?.id ?? null}
                 onClipSelect={handleClipSelect}
-                onTracksChange={(nextTracks) => {
-                  setTracks((prev) => pruneEmptyTracks(prev, nextTracks));
-                  setHasUnsavedChanges(true);
-                }}
+                onTracksChange={handleTracksChange}
                 onAddTrack={handleAddTrack}
                 onRemoveTrack={handleRemoveTrack}
                 onDeleteClip={handleDeleteClip}
