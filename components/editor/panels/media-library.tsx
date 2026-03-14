@@ -27,7 +27,13 @@ import {
 import type { ComponentType, SVGProps } from "react";
 import { memo, useCallback, useEffect, useState } from "react";
 import { FilterControls } from "@/components/editor/panels/filter-controls";
-import type { FitMode } from "@/components/editor/preview/timeline-player-context";
+import { ZoomEffectProperties } from "@/components/editor/panels/zoom-effect-properties";
+import { ZoomKeyframeEditor } from "@/components/editor/panels/zoom-keyframe-editor";
+import type {
+  FitMode,
+  ZoomEffect,
+  ZoomKeyframe,
+} from "@/components/editor/preview/timeline-player-context";
 import {
   type ClipFilters,
   DEFAULT_CLIP_FILTERS,
@@ -215,10 +221,25 @@ interface MediaLibraryProps {
     type: "video" | "image";
     fitMode?: FitMode;
     filters?: ClipFilters;
+    zoomKeyframes?: ZoomKeyframe[];
+    /** Clip duration in seconds */
+    clipDuration?: number;
+    /** Clip start time on the timeline (used to compute clipLocalTime internally) */
+    clipStartTime?: number;
   } | null;
   onClipFitModeChange?: (clipId: string, fitMode: FitMode | "none") => void;
   onClipFiltersChange?: (clipId: string, filters: ClipFilters) => void;
   onClipFiltersPreview?: (clipId: string, filters: ClipFilters) => void;
+  onClipZoomKeyframesChange?: (
+    clipId: string,
+    keyframes: ZoomKeyframe[],
+  ) => void;
+  onClipZoomKeyframesPreview?: (
+    clipId: string,
+    keyframes: ZoomKeyframe[],
+  ) => void;
+  selectedZoomEffect?: ZoomEffect | null;
+  onZoomEffectChange?: (effect: ZoomEffect) => void;
   className?: string;
 }
 
@@ -359,6 +380,10 @@ export const MediaLibrary = memo(function MediaLibrary({
   onClipFitModeChange,
   onClipFiltersChange,
   onClipFiltersPreview,
+  onClipZoomKeyframesChange,
+  onClipZoomKeyframesPreview,
+  selectedZoomEffect,
+  onZoomEffectChange,
   className,
 }: MediaLibraryProps) {
   const [internalTab, setInternalTab] = useState<MediaLibraryTab>("media");
@@ -386,6 +411,24 @@ export const MediaLibrary = memo(function MediaLibrary({
       }
     },
     [selectedClipId, onClipFiltersChange],
+  );
+
+  const handleZoomKeyframesChange = useCallback(
+    (keyframes: ZoomKeyframe[]) => {
+      if (selectedClipId) {
+        onClipZoomKeyframesChange?.(selectedClipId, keyframes);
+      }
+    },
+    [selectedClipId, onClipZoomKeyframesChange],
+  );
+
+  const handleZoomKeyframesPreview = useCallback(
+    (keyframes: ZoomKeyframe[]) => {
+      if (selectedClipId) {
+        onClipZoomKeyframesPreview?.(selectedClipId, keyframes);
+      }
+    },
+    [selectedClipId, onClipZoomKeyframesPreview],
   );
 
   const handleTabChange = useCallback(
@@ -485,7 +528,7 @@ export const MediaLibrary = memo(function MediaLibrary({
       <div
         role="region"
         aria-label="Media drop zone"
-        className="flex-1 flex flex-col relative"
+        className="flex-1 flex flex-col relative min-h-0"
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -702,7 +745,21 @@ export const MediaLibrary = memo(function MediaLibrary({
               <h3 className="text-xs text-muted-foreground text-center">
                 Media Editor
               </h3>
-              {selectedClip ? (
+              {selectedZoomEffect ? (
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-purple-500/30 bg-purple-500/10 p-3">
+                    <p className="text-xs text-purple-400/70">Zoom Effect</p>
+                    <p className="text-sm font-medium text-purple-300 truncate">
+                      {selectedZoomEffect.scale}x Zoom
+                    </p>
+                  </div>
+
+                  <ZoomEffectProperties
+                    effect={selectedZoomEffect}
+                    onChange={(fx) => onZoomEffectChange?.(fx)}
+                  />
+                </div>
+              ) : selectedClip ? (
                 <div className="space-y-4">
                   <div className="rounded-lg border border-border/50 bg-muted/40 p-3">
                     <p className="text-xs text-muted-foreground">Selected</p>
@@ -717,6 +774,17 @@ export const MediaLibrary = memo(function MediaLibrary({
                     onPreview={handleFiltersPreview}
                     onCommit={handleFiltersCommit}
                   />
+
+                  {/* Zoom & Pan Keyframes */}
+                  <div className="pt-2 border-t border-border/30">
+                    <ZoomKeyframeEditor
+                      keyframes={selectedClip.zoomKeyframes ?? []}
+                      clipDuration={selectedClip.clipDuration ?? 10}
+                      clipStartTime={selectedClip.clipStartTime ?? 0}
+                      onChange={handleZoomKeyframesChange}
+                      onPreview={handleZoomKeyframesPreview}
+                    />
+                  </div>
 
                   {/* Fit Mode - moved below filters */}
                   <div className="space-y-2 pt-2 border-t border-border/30">
@@ -746,7 +814,8 @@ export const MediaLibrary = memo(function MediaLibrary({
                 </div>
               ) : (
                 <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm text-center py-8">
-                  Please select a media clip to edit its settings.
+                  Please select a media clip or zoom effect to edit its
+                  settings.
                 </div>
               )}
             </div>

@@ -22,6 +22,7 @@ import {
   Play,
   Plus,
   Scissors,
+  Search,
   SkipBack,
   SkipForward,
   Trash2,
@@ -55,6 +56,7 @@ import { cn } from "@/lib/utils";
 import {
   type TimelineTrackData,
   useTimelinePlayer,
+  type ZoomEffect,
 } from "../preview/timeline-player-context";
 import { AudioWaveform } from "./audio-waveform";
 import { GhostTrackOverlay } from "./ghost-track-overlay";
@@ -67,13 +69,17 @@ interface TimelineProps {
   currentTime?: number;
   duration: number;
   selectedClipId?: string | null;
+  selectedZoomEffectId?: string | null;
   onTimeChange?: (time: number) => void;
   onClipSelect?: (clipId: string, nextTracks?: TimelineTrackData[]) => void;
+  onZoomEffectSelect?: (effectId: string | null) => void;
   onTracksChange?: (tracks: TimelineTrackData[]) => void;
   onAddTrack?: (type: "video" | "audio" | "image") => void;
   onRemoveTrack?: (trackId: string) => void;
   onDeleteClip?: (clipId: string) => void;
   onDuplicateClip?: (clipId: string) => void;
+  onAddZoomEffect?: () => void;
+  onDeleteZoomEffect?: (effectId: string) => void;
   className?: string;
 }
 
@@ -106,13 +112,17 @@ export const Timeline = memo(function Timeline({
   currentTime,
   duration,
   selectedClipId,
+  selectedZoomEffectId,
   onTimeChange,
   onClipSelect,
+  onZoomEffectSelect,
   onTracksChange,
   onAddTrack,
   onRemoveTrack: _onRemoveTrack,
   onDeleteClip,
   onDuplicateClip,
+  onAddZoomEffect,
+  onDeleteZoomEffect,
   className,
 }: TimelineProps) {
   const [pixelsPerSecond, setPixelsPerSecond] = useState(50);
@@ -155,6 +165,7 @@ export const Timeline = memo(function Timeline({
   const clipById = useMemo(() => {
     const map = new Map<string, TimelineTrackData["clips"][number]>();
     for (const track of tracks) {
+      if (track.type === "zoom") continue;
       for (const clip of track.clips) {
         map.set(clip.id, clip);
       }
@@ -162,37 +173,72 @@ export const Timeline = memo(function Timeline({
     return map;
   }, [tracks]);
 
+  const zoomEffectById = useMemo(() => {
+    const map = new Map<string, ZoomEffect>();
+    for (const track of tracks) {
+      if (track.type !== "zoom") continue;
+      for (const fx of track.zoomEffects ?? []) {
+        map.set(fx.id, fx);
+      }
+    }
+    return map;
+  }, [tracks]);
+
   const editorData = useMemo<TimelineRow[]>(() => {
-    return tracks.map((track) => ({
-      id: track.id,
-      rowHeight,
-      classNames: [
-        "lc-timeline-row",
-        track.type === "video"
-          ? "lc-timeline-row-video"
-          : track.type === "image"
-            ? "lc-timeline-row-image"
-            : "lc-timeline-row-audio",
-      ],
-      actions: (track.hidden ? [] : track.clips).map<TimelineAction>(
-        (clip) => ({
-          id: clip.id,
-          start: clip.startTime,
-          end: clip.startTime + clip.duration,
-          effectId: clip.type,
-          movable: true,
-          flexible: true,
-          selected: clip.id === selectedClipId,
-        }),
-      ),
-    }));
-  }, [selectedClipId, tracks]);
+    return tracks.map((track) => {
+      if (track.type === "zoom") {
+        // Zoom tracks render zoom effects as actions
+        return {
+          id: track.id,
+          rowHeight,
+          classNames: ["lc-timeline-row", "lc-timeline-row-zoom"],
+          actions: (track.hidden
+            ? []
+            : (track.zoomEffects ?? [])
+          ).map<TimelineAction>((fx) => ({
+            id: fx.id,
+            start: fx.startTime,
+            end: fx.startTime + fx.duration,
+            effectId: "zoom",
+            movable: true,
+            flexible: true,
+            selected: fx.id === selectedZoomEffectId,
+          })),
+        };
+      }
+
+      return {
+        id: track.id,
+        rowHeight,
+        classNames: [
+          "lc-timeline-row",
+          track.type === "video"
+            ? "lc-timeline-row-video"
+            : track.type === "image"
+              ? "lc-timeline-row-image"
+              : "lc-timeline-row-audio",
+        ],
+        actions: (track.hidden ? [] : track.clips).map<TimelineAction>(
+          (clip) => ({
+            id: clip.id,
+            start: clip.startTime,
+            end: clip.startTime + clip.duration,
+            effectId: clip.type,
+            movable: true,
+            flexible: true,
+            selected: clip.id === selectedClipId,
+          }),
+        ),
+      };
+    });
+  }, [selectedClipId, selectedZoomEffectId, tracks]);
 
   const effects = useMemo<Record<string, TimelineEffect>>(
     () => ({
       video: { id: "video", name: "Video" },
       audio: { id: "audio", name: "Audio" },
       image: { id: "image", name: "Image" },
+      zoom: { id: "zoom", name: "Zoom" },
     }),
     [],
   );
@@ -417,6 +463,10 @@ export const Timeline = memo(function Timeline({
                 <Music className="h-4 w-4 mr-2 text-chart-3" />
                 Audio Track
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onAddZoomEffect?.()}>
+                <Search className="h-4 w-4 mr-2 text-purple-400" />
+                Zoom Effect
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <TooltipProvider>
@@ -587,6 +637,9 @@ export const Timeline = memo(function Timeline({
             handleDragStart(action.id, row.id);
           }}
           onActionResizing={({ action, start, end, dir }) => {
+            // Zoom effects can be resized freely
+            if (zoomEffectById.has(action.id)) return;
+
             const clip = clipById.get(action.id);
             if (!clip) return;
             if (dir === "left") {
@@ -634,16 +687,58 @@ export const Timeline = memo(function Timeline({
 
             const trackMap = new Map(tracks.map((track) => [track.id, track]));
 
-            const nextTracks = nextData.map((row) => {
+            const nextTracks: TimelineTrackData[] = nextData.map((row) => {
               const baseTrack = trackMap.get(row.id);
               const type = baseTrack?.type ?? "video";
               const label = baseTrack?.label ?? row.id;
               const hidden = baseTrack?.hidden ?? false;
               const muted = baseTrack?.muted ?? false;
 
+              // Zoom tracks: reconstruct zoomEffects from actions
+              if (type === "zoom") {
+                return {
+                  id: row.id,
+                  type: "zoom" as const,
+                  label,
+                  hidden,
+                  muted,
+                  clips: [],
+                  zoomEffects: row.actions.map((action) => {
+                    const existing = zoomEffectById.get(action.id);
+                    const start = Math.max(0, action.start);
+                    const end = Math.max(start, action.end);
+                    const duration = end - start;
+
+                    if (existing) {
+                      return {
+                        ...existing,
+                        startTime: start,
+                        duration,
+                      };
+                    }
+
+                    // Fallback — should not happen in normal flow
+                    return {
+                      id: action.id,
+                      startTime: start,
+                      duration,
+                      scale: 2,
+                      x: 0.5,
+                      y: 0.5,
+                      easeIn: "screen-studio" as const,
+                      easeOut: "screen-studio" as const,
+                      motionBlur: false,
+                      motionBlurAmount: 0.5,
+                    };
+                  }),
+                };
+              }
+
+              // Non-zoom tracks: reconstruct clips from actions
+              const clipType = type as "video" | "audio" | "image";
               return {
                 id: row.id,
-                type,
+                type: clipType,
                 label,
                 hidden,
                 muted,
@@ -677,13 +772,13 @@ export const Timeline = memo(function Timeline({
                   return {
                     id: action.id,
                     name: action.id,
-                    type,
+                    type: clipType,
                     startTime: start,
                     duration: clampedDuration,
                     color:
-                      type === "video"
+                      clipType === "video"
                         ? "#0099ff"
-                        : type === "image"
+                        : clipType === "image"
                           ? "#9b59b6"
                           : "#ff7a05",
                     trimStart: 0,
@@ -705,8 +800,60 @@ export const Timeline = memo(function Timeline({
           onCursorDragEnd={(time) => {
             onTimeChange?.(Math.max(0, Math.min(time, duration)));
           }}
-          onClickActionOnly={(_, { action }) => onClipSelect?.(action.id)}
+          onClickActionOnly={(_, { action }) => {
+            if (zoomEffectById.has(action.id)) {
+              onZoomEffectSelect?.(action.id);
+            } else {
+              onZoomEffectSelect?.(null);
+              onClipSelect?.(action.id);
+            }
+          }}
           getActionRender={(action) => {
+            // ── Zoom effect block ──────────────────────────────
+            const zoomFx = zoomEffectById.get(action.id);
+            if (zoomFx) {
+              return (
+                <ContextMenu>
+                  <ContextMenuTrigger asChild>
+                    {/* biome-ignore lint/a11y/useKeyWithClickEvents: timeline drag interaction */}
+                    {/* biome-ignore lint/a11y/noStaticElementInteractions: timeline drag interaction */}
+                    <div
+                      className={cn(
+                        "relative h-full w-full rounded-md border",
+                        "shadow-sm overflow-hidden cursor-grab active:cursor-grabbing",
+                        "text-[11px] font-medium",
+                        "bg-purple-600/20 border-purple-500/50",
+                        action.selected &&
+                          "ring-2 ring-purple-400 ring-offset-1",
+                      )}
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-purple-500/30 via-purple-600/20 to-purple-500/30" />
+                      <div className="relative z-10 flex items-center gap-1.5 h-full px-2 pointer-events-none">
+                        <Search className="h-3 w-3 text-purple-300 flex-shrink-0" />
+                        <span className="text-purple-200 truncate">
+                          {zoomFx.scale}x
+                        </span>
+                        <span className="text-purple-400/60 text-[10px]">
+                          Auto
+                        </span>
+                      </div>
+                    </div>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
+                    <ContextMenuItem
+                      onClick={() => onDeleteZoomEffect?.(action.id)}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Zoom Effect
+                      <ContextMenuShortcut>Del</ContextMenuShortcut>
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
+              );
+            }
+
+            // ── Regular clip block ─────────────────────────────
             const clip = clipById.get(action.id);
             const clipType = clip?.type ?? "video";
             const isVideo = clipType === "video";
@@ -914,7 +1061,9 @@ export const Timeline = memo(function Timeline({
                         ? "text-chart-2"
                         : track.type === "image"
                           ? "text-chart-4"
-                          : "text-chart-3",
+                          : track.type === "zoom"
+                            ? "text-purple-400"
+                            : "text-chart-3",
                     )}
                   >
                     {track.label}
@@ -975,9 +1124,10 @@ export const Timeline = memo(function Timeline({
           </div>
         </div>
 
-        {tracks.every((track) => track.clips.length === 0) && (
-          <TimelineEmptyOverlay />
-        )}
+        {tracks.every(
+          (track) =>
+            track.clips.length === 0 && (track.zoomEffects?.length ?? 0) === 0,
+        ) && <TimelineEmptyOverlay />}
 
         {/* Ghost overlay for cross-track drag feedback */}
         <GhostTrackOverlay

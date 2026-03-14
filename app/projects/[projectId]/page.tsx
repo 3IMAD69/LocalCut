@@ -15,6 +15,8 @@ import {
   TimelinePlayerProvider,
   type TimelineTrackData,
   useTimelinePlayer,
+  type ZoomEffect,
+  type ZoomKeyframe,
 } from "@/components/editor";
 import { ExportModal } from "@/components/editor/export";
 import type { MediaAsset } from "@/components/editor/panels/media-library";
@@ -36,13 +38,17 @@ interface TimelineWithTimeProps {
   tracks: TimelineTrackData[];
   duration: number;
   selectedClipId: string | null;
+  selectedZoomEffectId: string | null;
   onTimeChange: (time: number) => void;
   onClipSelect: (clipId: string, nextTracks?: TimelineTrackData[]) => void;
+  onZoomEffectSelect: (effectId: string | null) => void;
   onTracksChange: (nextTracks: TimelineTrackData[]) => void;
   onAddTrack: (type: "video" | "audio" | "image") => void;
   onRemoveTrack: (trackId: string) => void;
   onDeleteClip: (clipId: string) => void;
   onDuplicateClip: (clipId: string) => void;
+  onAddZoomEffect: () => void;
+  onDeleteZoomEffect: (effectId: string) => void;
 }
 
 // Memoized Timeline wrapper to prevent unnecessary re-renders
@@ -51,13 +57,17 @@ const TimelineWithTime = memo(function TimelineWithTime({
   tracks,
   duration,
   selectedClipId,
+  selectedZoomEffectId,
   onTimeChange,
   onClipSelect,
+  onZoomEffectSelect,
   onTracksChange,
   onAddTrack,
   onRemoveTrack,
   onDeleteClip,
   onDuplicateClip,
+  onAddZoomEffect,
+  onDeleteZoomEffect,
 }: TimelineWithTimeProps) {
   // Timeline component now subscribes to time internally - no need to pass currentTime
   return (
@@ -66,12 +76,16 @@ const TimelineWithTime = memo(function TimelineWithTime({
       duration={duration}
       onTimeChange={onTimeChange}
       selectedClipId={selectedClipId}
+      selectedZoomEffectId={selectedZoomEffectId}
       onClipSelect={onClipSelect}
+      onZoomEffectSelect={onZoomEffectSelect}
       onTracksChange={onTracksChange}
       onAddTrack={onAddTrack}
       onRemoveTrack={onRemoveTrack}
       onDeleteClip={onDeleteClip}
       onDuplicateClip={onDuplicateClip}
+      onAddZoomEffect={onAddZoomEffect}
+      onDeleteZoomEffect={onDeleteZoomEffect}
       className="h-full border-none"
     />
   );
@@ -126,6 +140,9 @@ function EditorContent() {
   // State
   const [tracks, setTracks] = useState<TimelineTrackData[]>(emptyTracks);
   const [selectedClip, setSelectedClip] = useState<ClipProperties | null>(null);
+  const [selectedZoomEffectId, setSelectedZoomEffectId] = useState<
+    string | null
+  >(null);
   const [, setHasUnsavedChanges] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [isMediaPanelOpen, setIsMediaPanelOpen] = useState(true);
@@ -251,6 +268,135 @@ function EditorContent() {
     });
     setHasUnsavedChanges(true);
   }, []);
+
+  // ── Zoom effect handlers ───────────────────────────────────────────────
+  const handleAddZoomEffect = useCallback(() => {
+    const playheadTime = getCurrentTime();
+    const effectId = `zoom-fx-${Date.now()}`;
+    const defaultDuration = 3;
+
+    setTracks((prev) => {
+      // Find existing zoom track or create one
+      const existingZoom = prev.find((t) => t.type === "zoom");
+      if (existingZoom) {
+        return prev.map((t) =>
+          t.id === existingZoom.id
+            ? {
+                ...t,
+                zoomEffects: [
+                  ...(t.zoomEffects ?? []),
+                  {
+                    id: effectId,
+                    startTime: playheadTime,
+                    duration: defaultDuration,
+                    scale: 2,
+                    x: 0.5,
+                    y: 0.5,
+                    easeIn: "screen-studio" as const,
+                    easeOut: "screen-studio" as const,
+                    motionBlur: false,
+                    motionBlurAmount: 0.5,
+                  },
+                ],
+              }
+            : t,
+        );
+      }
+
+      // Create new zoom track
+      const zoomTrack: TimelineTrackData = {
+        id: `zoom-${Date.now()}`,
+        type: "zoom",
+        label: "Zoom",
+        hidden: false,
+        muted: false,
+        clips: [],
+        zoomEffects: [
+          {
+            id: effectId,
+            startTime: playheadTime,
+            duration: defaultDuration,
+            scale: 2,
+            x: 0.5,
+            y: 0.5,
+            easeIn: "screen-studio",
+            easeOut: "screen-studio",
+            motionBlur: false,
+            motionBlurAmount: 0.5,
+          },
+        ],
+      };
+      return [...prev, zoomTrack];
+    });
+
+    setSelectedZoomEffectId(effectId);
+    setSelectedClip(null);
+    setMediaPanelTab("media-editor");
+    setHasUnsavedChanges(true);
+  }, [getCurrentTime]);
+
+  const handleDeleteZoomEffect = useCallback(
+    (effectId: string) => {
+      setTracks((prev) =>
+        prev
+          .map((track) => {
+            if (track.type !== "zoom") return track;
+            return {
+              ...track,
+              zoomEffects: (track.zoomEffects ?? []).filter(
+                (fx) => fx.id !== effectId,
+              ),
+            };
+          })
+          // Remove empty zoom tracks
+          .filter(
+            (track) =>
+              track.type !== "zoom" || (track.zoomEffects?.length ?? 0) > 0,
+          ),
+      );
+      if (selectedZoomEffectId === effectId) {
+        setSelectedZoomEffectId(null);
+      }
+      setHasUnsavedChanges(true);
+    },
+    [selectedZoomEffectId],
+  );
+
+  const handleZoomEffectSelect = useCallback((effectId: string | null) => {
+    setSelectedZoomEffectId(effectId);
+    if (effectId) {
+      setSelectedClip(null);
+      setMediaPanelTab("media-editor");
+    }
+  }, []);
+
+  const handleZoomEffectChange = useCallback((effect: ZoomEffect) => {
+    setTracks((prev) =>
+      prev.map((track) => {
+        if (track.type !== "zoom") return track;
+        return {
+          ...track,
+          zoomEffects: (track.zoomEffects ?? []).map((fx) =>
+            fx.id === effect.id ? effect : fx,
+          ),
+        };
+      }),
+    );
+    setHasUnsavedChanges(true);
+  }, []);
+
+  // Compute the selected zoom effect for the properties panel
+  const selectedZoomEffect = useMemo<ZoomEffect | null>(() => {
+    if (!selectedZoomEffectId) return null;
+    for (const track of tracks) {
+      if (track.type !== "zoom") continue;
+      const fx = (track.zoomEffects ?? []).find(
+        (e) => e.id === selectedZoomEffectId,
+      );
+      if (fx) return fx;
+    }
+    return null;
+  }, [selectedZoomEffectId, tracks]);
 
   // Keyboard shortcuts for clip operations
   useEffect(() => {
@@ -416,12 +562,18 @@ function EditorContent() {
       return null;
     }
 
-    // Find the clip in tracks to get its current filters
+    // Find the clip in tracks to get its current filters, zoom keyframes, etc.
     let clipFilters: ClipFilters | undefined;
+    let clipZoomKeyframes: ZoomKeyframe[] | undefined;
+    let clipDuration: number | undefined;
+    let clipStartTime: number | undefined;
     for (const track of tracks) {
       const clip = track.clips.find((c) => c.id === selectedClip.id);
       if (clip) {
         clipFilters = clip.filters;
+        clipZoomKeyframes = clip.zoomKeyframes;
+        clipDuration = clip.duration;
+        clipStartTime = clip.startTime;
         break;
       }
     }
@@ -432,6 +584,9 @@ function EditorContent() {
       type: selectedClip.type,
       fitMode: selectedClip.fitMode,
       filters: clipFilters,
+      zoomKeyframes: clipZoomKeyframes,
+      clipDuration,
+      clipStartTime,
     };
   }, [selectedClip, tracks]);
 
@@ -483,8 +638,58 @@ function EditorContent() {
     [clearClipFiltersOverride],
   );
 
+  // Commit zoom keyframe changes to tracks state
+  const handleClipZoomKeyframesChange = useCallback(
+    (clipId: string, keyframes: ZoomKeyframe[]) => {
+      setTracks((prev) =>
+        prev.map((track) => ({
+          ...track,
+          clips: track.clips.map((clip) =>
+            clip.id === clipId
+              ? {
+                  ...clip,
+                  zoomKeyframes: keyframes.length > 0 ? keyframes : undefined,
+                }
+              : clip,
+          ),
+        })),
+      );
+      setHasUnsavedChanges(true);
+    },
+    [],
+  );
+
+  // Preview zoom keyframe changes (re-render current frame without committing to state)
+  const handleClipZoomKeyframesPreview = useCallback(
+    (clipId: string, keyframes: ZoomKeyframe[]) => {
+      // Temporarily apply keyframes to the clip for preview by committing
+      // to tracks state — since zoom is read from clip.zoomKeyframes inside
+      // buildCompositorComposition, we need to update tracks for the compositor
+      // to pick them up. Unlike filters which have a ref-based override map,
+      // zoom keyframes are read directly from the clip data.
+      setTracks((prev) =>
+        prev.map((track) => ({
+          ...track,
+          clips: track.clips.map((clip) =>
+            clip.id === clipId
+              ? {
+                  ...clip,
+                  zoomKeyframes: keyframes.length > 0 ? keyframes : undefined,
+                }
+              : clip,
+          ),
+        })),
+      );
+      void renderFrame(getCurrentTime());
+    },
+    [renderFrame, getCurrentTime],
+  );
+
   const handleClipSelect = useCallback(
     (clipId: string, nextTracks: TimelineTrackData[] = tracks) => {
+      // Clear zoom effect selection when selecting a clip
+      setSelectedZoomEffectId(null);
+
       for (const track of nextTracks) {
         const clip = track.clips.find((c) => c.id === clipId);
         if (clip) {
@@ -654,6 +859,14 @@ function EditorContent() {
                           onClipFitModeChange={handleClipFitModeChange}
                           onClipFiltersChange={handleClipFiltersChange}
                           onClipFiltersPreview={handleClipFiltersPreview}
+                          onClipZoomKeyframesChange={
+                            handleClipZoomKeyframesChange
+                          }
+                          onClipZoomKeyframesPreview={
+                            handleClipZoomKeyframesPreview
+                          }
+                          selectedZoomEffect={selectedZoomEffect}
+                          onZoomEffectChange={handleZoomEffectChange}
                           className="h-full border-none"
                         />
                       </aside>
@@ -687,12 +900,16 @@ function EditorContent() {
                 duration={duration}
                 onTimeChange={handleSeek}
                 selectedClipId={selectedClip?.id ?? null}
+                selectedZoomEffectId={selectedZoomEffectId}
                 onClipSelect={handleClipSelect}
+                onZoomEffectSelect={handleZoomEffectSelect}
                 onTracksChange={handleTracksChange}
                 onAddTrack={handleAddTrack}
                 onRemoveTrack={handleRemoveTrack}
                 onDeleteClip={handleDeleteClip}
                 onDuplicateClip={handleDuplicateClip}
+                onAddZoomEffect={handleAddZoomEffect}
+                onDeleteZoomEffect={handleDeleteZoomEffect}
               />
             </div>
           </ResizablePanel>
