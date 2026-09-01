@@ -144,7 +144,7 @@ export default function EditorDashboard() {
             asChild
             className="w-36 h-24 flex flex-col items-start justify-between p-4"
           >
-            <Link href="https://github.com/imadselka/LocalCut" target="_blank">
+            <Link href="https://github.com/3IMAD69/LocalCut" target="_blank">
               <Book className="size-5" />
               <span className="text-sm font-medium">Documentation</span>
             </Link>
